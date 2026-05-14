@@ -1,0 +1,432 @@
+{
+ "app": "diagnostic_management",
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Azzir ADMS — Diagnostic Management</b></span>\",\"col\":12}},{\"type\":\"paragraph\",\"data\":{\"text\":\"<span>Unified laboratory and radiology platform on ERPNext + Marley Health. Use the shortcuts below to open the ADMS workspace pages, or use the cards to browse underlying records directly.</span>\",\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open ADMS App\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Doctor Portal\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Doctor Login\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Doctor Register\",\"col\":3}},{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\"><b>ADMS Workspace Pages</b></span>\",\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Home\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Orders\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Collection\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lab\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Radiology\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Findings\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Billing\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Analytics\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Audit & Compliance\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":3}},{\"type\":\"spacer\",\"data\":{\"col\":3}},{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\"><b>Clinical Records</b></span>\",\"col\":12}},{\"type\":\"card\",\"data\":{\"card_name\":\"Patients & Practitioners\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Orders & Samples\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Results & Reports\",\"col\":4}},{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h5\\\"><b>Operations & Finance</b></span>\",\"col\":12}},{\"type\":\"card\",\"data\":{\"card_name\":\"Billing & Insurance\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Inventory & Equipment\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}}]",
+ "creation": "2026-05-14 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "stethoscope",
+ "indicator_color": "blue",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Diagnostic Management",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patients & Practitioners",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient",
+   "link_count": 0,
+   "link_to": "Patient",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Healthcare Practitioner",
+   "link_count": 0,
+   "link_to": "Healthcare Practitioner",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Medical Department",
+   "link_count": 0,
+   "link_to": "Medical Department",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Healthcare Service Unit",
+   "link_count": 0,
+   "link_to": "Healthcare Service Unit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Orders & Samples",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Service Request",
+   "link_count": 0,
+   "link_to": "Service Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Test Template",
+   "link_count": 0,
+   "link_to": "Lab Test Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sample Collection",
+   "link_count": 0,
+   "link_to": "Sample Collection",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Test",
+   "link_count": 0,
+   "link_to": "Lab Test",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Results & Reports",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Observation",
+   "link_count": 0,
+   "link_to": "Observation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diagnostic Report",
+   "link_count": 0,
+   "link_to": "Diagnostic Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Medical Record",
+   "link_count": 0,
+   "link_to": "Patient Medical Record",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Billing & Insurance",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Insurance Claim",
+   "link_count": 0,
+   "link_to": "Insurance Claim",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient Insurance Policy",
+   "link_count": 0,
+   "link_to": "Patient Insurance Policy",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Insurance Payor",
+   "link_count": 0,
+   "link_to": "Insurance Payor",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inventory & Equipment",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Asset",
+   "link_count": 0,
+   "link_to": "Asset",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Entry",
+   "link_count": 0,
+   "link_to": "Stock Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Healthcare Settings",
+   "link_count": 0,
+   "link_to": "Healthcare Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Code System",
+   "link_count": 0,
+   "link_to": "Code System",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sample Type",
+   "link_count": 0,
+   "link_to": "Sample Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-05-14 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Diagnostic Management",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 50.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Open ADMS App",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Doctor Portal",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/doctor"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "",
+   "label": "Doctor Login",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/doctor-login"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "",
+   "label": "Doctor Register",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/doctor-register"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Home",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Patients",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/patients"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Orders",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/orders"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Collection",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/collection"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "",
+   "label": "Lab",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/lab"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "",
+   "label": "Radiology",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/radiology"
+  },
+  {
+   "color": "Red",
+   "doc_view": "",
+   "label": "Critical Findings",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/critical-findings"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "",
+   "label": "Billing",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/billing"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Analytics",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/analytics"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "label": "Audit & Compliance",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/audit"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Settings",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/settings"
+  }
+ ],
+ "title": "Diagnostic Management"
+}

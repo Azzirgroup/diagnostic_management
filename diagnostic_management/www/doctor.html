@@ -1,0 +1,23 @@
+{# /doctor and /doctor/* — Doctor portal entry. Same SPA shell as
+   /diagnostic_management; the Vue Router takes over and renders the doctor
+   layout based on the URL path. #}
+{% set csrf = frappe.session.csrf_token if frappe.session else '' %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azzir ADMS — Doctor Portal</title>
+    {% if stylesheet %}<link rel="stylesheet" href="{{ stylesheet }}" />{% endif %}
+    <script>
+      window.csrf_token = "{{ csrf }}";
+      window.frappe = { csrf_token: "{{ csrf }}" };
+      // Tell the SPA which logical app it was booted into.
+      window.__ADMS_BASE__ = "/doctor";
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="{{ entry }}"></script>
+  </body>
+</html>

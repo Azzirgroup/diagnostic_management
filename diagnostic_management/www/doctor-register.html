@@ -1,0 +1,20 @@
+{# /doctor-register — invite-acceptance / self-registration. #}
+{% set csrf = frappe.session.csrf_token if frappe.session else '' %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azzir ADMS — Register</title>
+    {% if stylesheet %}<link rel="stylesheet" href="{{ stylesheet }}" />{% endif %}
+    <script>
+      window.csrf_token = "{{ csrf }}";
+      window.frappe = { csrf_token: "{{ csrf }}" };
+      window.__ADMS_BASE__ = "/doctor-register";
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="{{ entry }}"></script>
+  </body>
+</html>

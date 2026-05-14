@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    @apply h-full;
+  }
+  body {
+    @apply font-sans text-surface-800 antialiased;
+    background: #F7F9FC;
+  }
+  /* Smaller default body text — matches the dense data-table density in the screenshots. */
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-card shadow-card border border-surface-200/60;
+  }
+  .pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .pill-success {
+    @apply pill bg-status-success-bg text-status-success;
+  }
+  .pill-warning {
+    @apply pill bg-status-warning-bg text-status-warning;
+  }
+  .pill-danger {
+    @apply pill bg-status-danger-bg text-status-danger;
+  }
+  .pill-info {
+    @apply pill bg-status-info-bg text-status-info;
+  }
+  .pill-neutral {
+    @apply pill bg-status-neutral-bg text-status-neutral;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-brand-navy-700 text-white hover:bg-brand-navy-800;
+  }
+  .btn-secondary {
+    @apply btn bg-brand-teal-500 text-white hover:bg-brand-teal-600;
+  }
+  .btn-ghost {
+    @apply btn bg-white border border-surface-200 text-surface-700 hover:bg-surface-50;
+  }
+  .btn-danger-ghost {
+    @apply btn bg-white border border-status-danger/30 text-status-danger hover:bg-status-danger-bg;
+  }
+  .input {
+    @apply w-full bg-white border border-surface-200 rounded-lg px-3 py-2 text-sm
+           placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-teal-500/40
+           focus:border-brand-teal-500;
+  }
+  .table-header {
+    @apply text-xs font-medium text-surface-500 uppercase tracking-wide;
+  }
+  .row-selected {
+    @apply bg-brand-navy-50 border-l-4 border-brand-navy-700;
+  }
+}
