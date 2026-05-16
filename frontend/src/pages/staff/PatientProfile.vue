@@ -1,33 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
-import { getDoc, getList } from '@/api/client'
+import { patientsApi } from '@/api/adms'
 
 const route = useRoute()
 const router = useRouter()
-const patient = ref<any>(null)
-const orders = ref<any[]>([])
-const results = ref<any[]>([])
+const detail = ref<Record<string, unknown> | null>(null)
+const patient = computed(() => detail.value)
+const orders = computed<Array<Record<string, unknown>>>(() => (detail.value?.orders as any[]) || [])
+const results = computed<Array<Record<string, unknown>>>(() => (detail.value?.reports as any[]) || [])
 
 async function load() {
   const name = route.params.name as string
-  patient.value = await getDoc('Patient', name)
-  orders.value = await getList({
-    doctype: 'Service Request',
-    fields: ['name', 'order_date', 'status'],
-    filters: { patient: name },
-    limit_page_length: 5,
-    order_by: 'creation desc',
-  })
-  results.value = await getList({
-    doctype: 'Diagnostic Report',
-    fields: ['name', 'docname', 'creation', 'status'],
-    filters: { patient: name },
-    limit_page_length: 5,
-    order_by: 'creation desc',
-  })
+  try { detail.value = await patientsApi.detail(name) } catch { detail.value = null }
 }
 onMounted(load)
 </script>
@@ -86,11 +73,11 @@ onMounted(load)
         </tr></thead>
         <tbody>
           <tr v-if="!orders.length"><td colspan="4" class="py-6 text-center text-surface-400">No orders yet.</td></tr>
-          <tr v-for="o in orders" :key="o.name" class="border-b border-surface-100 cursor-pointer hover:bg-surface-50" @click="router.push(`/orders/${o.name}`)">
+          <tr v-for="o in orders" :key="(o.name as string)" class="border-b border-surface-100 cursor-pointer hover:bg-surface-50" @click="router.push(`/orders/${o.name}`)">
             <td class="py-2">{{ o.name }}</td>
-            <td>—</td>
-            <td>{{ o.order_date || '—' }}</td>
-            <td><StatusPill :status="o.status || 'Active'" /></td>
+            <td>{{ o.subject || o.template_dn || '—' }}</td>
+            <td>{{ o.occurrence_date || (o.creation as string)?.split(' ')[0] || '—' }}</td>
+            <td><StatusPill :status="(o.status as string) || 'Active'" /></td>
           </tr>
         </tbody>
       </table>
@@ -107,10 +94,10 @@ onMounted(load)
         </tr></thead>
         <tbody>
           <tr v-if="!results.length"><td colspan="3" class="py-6 text-center text-surface-400">No results yet.</td></tr>
-          <tr v-for="r in results" :key="r.name" class="border-b border-surface-100">
+          <tr v-for="r in results" :key="(r.name as string)" class="border-b border-surface-100">
             <td class="py-2">{{ r.docname || r.name }}</td>
-            <td>{{ r.creation?.split(' ')[0] }}</td>
-            <td><StatusPill :status="r.status || 'Draft'" /></td>
+            <td>{{ (r.creation as string)?.split(' ')[0] }}</td>
+            <td><StatusPill :status="(r.status as string) || 'Draft'" /></td>
           </tr>
         </tbody>
       </table>

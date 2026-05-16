@@ -1,0 +1,48 @@
+{
+ "app": "diagnostic_management",
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Radiology</b></span>\",\"col\":12}},{\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"text-muted small\\\">Reading worklist, image review, reporting, and insurance pre-authorisation.</span>\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Radiology Dashboard\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Reading Worklist\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Image Viewer\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre-Authorisation\",\"col\":3}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"card\",\"data\":{\"card_name\":\"Imaging Orders & Reports\",\"col\":6}},{\"type\":\"card\",\"data\":{\"card_name\":\"Insurance\",\"col\":6}}]",
+ "creation": "2026-05-16 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "image-view",
+ "indicator_color": "purple",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Radiology",
+ "links": [
+  {"hidden": 0, "is_query_report": 0, "label": "Imaging Orders & Reports", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "Service Request (Imaging)", "link_count": 0, "link_to": "Service Request", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Diagnostic Report", "link_count": 0, "link_to": "Diagnostic Report", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Body Part", "link_count": 0, "link_to": "Body Part", "link_type": "DocType", "onboard": 0, "type": "Link"},
+
+  {"hidden": 0, "is_query_report": 0, "label": "Insurance", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "Radiology Pre-Auth", "link_count": 0, "link_to": "Radiology Pre-Auth", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Insurance Payor", "link_count": 0, "link_to": "Insurance Payor", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Patient Insurance Policy", "link_count": 0, "link_to": "Patient Insurance Policy", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Insurance Claim", "link_count": 0, "link_to": "Insurance Claim", "link_type": "DocType", "onboard": 0, "type": "Link"}
+ ],
+ "modified": "2026-05-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Radiology",
+ "type": "Workspace",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "Kanonas Diagnosis",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 12.0,
+ "shortcuts": [
+  {"color": "Purple", "doc_view": "", "label": "Radiology Dashboard", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/radiology"},
+  {"color": "Purple", "doc_view": "", "label": "Reading Worklist", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/radiology/worklist"},
+  {"color": "Purple", "doc_view": "", "label": "Image Viewer", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/radiology/viewer"},
+  {"color": "Purple", "doc_view": "", "label": "Pre-Authorisation", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/radiology/pre-auth"}
+ ],
+ "title": "Radiology"
+}

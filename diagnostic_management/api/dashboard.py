@@ -147,10 +147,30 @@ def alerts() -> list[dict]:
 
 @frappe.whitelist()
 def analyzers() -> list[dict]:
-	"""Lab instruments / analyzers. We don't ship a dedicated doctype for this
-	yet, so we surface Asset rows whose item group looks like an analyzer.
-	Returns [] when nothing matches.
+	"""Lab instruments / analyzers.
+
+	Prefers the app-owned `Lab Instrument` doctype when present; falls back
+	to `Asset` rows so the Home page keeps rendering on bare installs.
 	"""
+	try:
+		if frappe.db.exists("DocType", "Lab Instrument"):
+			rows = frappe.get_all(
+				"Lab Instrument",
+				fields=["name", "instrument_name", "section", "state", "last_heartbeat"],
+				order_by="state, instrument_name",
+				limit_page_length=12,
+			)
+			return [
+				{
+					"name": r.get("instrument_name") or r["name"],
+					"status": r.get("state") or "Unknown",
+					"section": r.get("section"),
+					"last_heartbeat": r.get("last_heartbeat"),
+				}
+				for r in (rows or [])
+			]
+	except Exception:
+		pass
 	try:
 		rows = frappe.db.sql(
 			"""

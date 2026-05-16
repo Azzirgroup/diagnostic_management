@@ -2,32 +2,23 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
-import { call, getList } from '@/api/client'
+import { call } from '@/api/client'
+import { doctorApi, type DiagnosticReportRow, type PatientLite } from '@/api/adms'
 import StatusPill from '@/components/ui/StatusPill.vue'
 
 const router = useRouter()
 const kpis = ref({ pending_results: 0, recent_patients: 0, new_orders: 0, unpaid_amount: 0 })
-const recentResults = ref<any[]>([])
-const recentPatients = ref<any[]>([])
+const recentResults = ref<DiagnosticReportRow[]>([])
+const recentPatients = ref<PatientLite[]>([])
 
 async function load() {
   try {
     const d = await call<typeof kpis.value>('diagnostic_management.api.dashboard.doctor')
     if (d) kpis.value = d
-  } catch { /* endpoint may not be installed yet */ }
+  } catch { /* keep zeros */ }
 
-  recentResults.value = await getList({
-    doctype: 'Diagnostic Report',
-    fields: ['name', 'docname', 'patient', 'patient_name', 'creation', 'status'],
-    limit_page_length: 5,
-    order_by: 'creation desc',
-  })
-  recentPatients.value = await getList({
-    doctype: 'Patient',
-    fields: ['name', 'patient_name', 'sex', 'dob', 'mobile'],
-    limit_page_length: 5,
-    order_by: 'modified desc',
-  })
+  try { recentResults.value = (await doctorApi.resultsInbox(undefined, 5)) || [] } catch { recentResults.value = [] }
+  try { recentPatients.value = (await doctorApi.myPatients(5)) || [] } catch { recentPatients.value = [] }
 }
 onMounted(load)
 </script>

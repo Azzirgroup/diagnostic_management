@@ -2,7 +2,8 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
-import { call, getDoc } from '@/api/client'
+import { getDoc } from '@/api/client'
+import { criticalApi } from '@/api/adms'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,11 +32,8 @@ async function submit() {
   if (!ack.value) return
   submitting.value = true
   try {
-    await call('diagnostic_management.api.critical.acknowledge', {
-      report: route.params.name,
-      notes: comment.value,
-    })
-    router.push('/doctor/results')
+    await criticalApi.acknowledge(route.params.name as string, comment.value)
+    router.push('/results')
   } finally {
     submitting.value = false
   }

@@ -27,32 +27,33 @@
       "_vendor-CnFqmRaY.js"
     ]
   },
-  "_OrderIntake.vue_vue_type_script_setup_true_lang-DuLPDIKm.js": {
-    "file": "assets/OrderIntake.vue_vue_type_script_setup_true_lang-DuLPDIKm.js",
+  "_OrderIntake.vue_vue_type_script_setup_true_lang-La5IxFXi.js": {
+    "file": "assets/OrderIntake.vue_vue_type_script_setup_true_lang-La5IxFXi.js",
     "name": "OrderIntake.vue_vue_type_script_setup_true_lang",
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "_adms-BE_A74Cw.js"
     ]
   },
-  "_PatientProfile.vue_vue_type_script_setup_true_lang-CRWrYVPe.js": {
-    "file": "assets/PatientProfile.vue_vue_type_script_setup_true_lang-CRWrYVPe.js",
+  "_PatientProfile.vue_vue_type_script_setup_true_lang-DpHtfD1h.js": {
+    "file": "assets/PatientProfile.vue_vue_type_script_setup_true_lang-DpHtfD1h.js",
     "name": "PatientProfile.vue_vue_type_script_setup_true_lang",
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
-      "index.html"
+      "_adms-BE_A74Cw.js"
     ]
   },
-  "_Settings.vue_vue_type_script_setup_true_lang-D8k5nI05.js": {
-    "file": "assets/Settings.vue_vue_type_script_setup_true_lang-D8k5nI05.js",
+  "_Settings.vue_vue_type_script_setup_true_lang-Cxwni9Mh.js": {
+    "file": "assets/Settings.vue_vue_type_script_setup_true_lang-Cxwni9Mh.js",
     "name": "Settings.vue_vue_type_script_setup_true_lang",
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html",
-      "_vendor-CnFqmRaY.js"
+      "_adms-BE_A74Cw.js"
     ]
   },
   "_Sidebar.vue_vue_type_script_setup_true_lang-CCFJgux_.js": {
@@ -69,19 +70,18 @@
       "_vendor-CnFqmRaY.js"
     ]
   },
-  "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js": {
-    "file": "assets/Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+  "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js": {
+    "file": "assets/Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
     "name": "Topbar.vue_vue_type_script_setup_true_lang",
     "imports": [
       "index.html",
       "_vendor-CnFqmRaY.js"
     ]
   },
-  "_patients-CZrmPGOt.js": {
-    "file": "assets/patients-CZrmPGOt.js",
-    "name": "patients",
+  "_adms-BE_A74Cw.js": {
+    "file": "assets/adms-BE_A74Cw.js",
+    "name": "adms",
     "imports": [
-      "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
@@ -90,7 +90,7 @@
     "name": "vendor"
   },
   "index.html": {
-    "file": "assets/index-a7cH4rZX.js",
+    "file": "assets/index-JEmFw-Gt.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -148,7 +148,7 @@
       "src/pages/staff/PathologistDashboard.vue"
     ],
     "css": [
-      "assets/index-BR-J6LCS.css"
+      "assets/index-DSz0UR9Y.css"
     ]
   },
   "src/layouts/AuthLayout.vue": {
@@ -181,7 +181,7 @@
     ]
   },
   "src/pages/auth/DoctorLogin.vue": {
-    "file": "assets/DoctorLogin-CtvCe6Yy.js",
+    "file": "assets/DoctorLogin-CZoouqKs.js",
     "name": "DoctorLogin",
     "src": "src/pages/auth/DoctorLogin.vue",
     "isDynamicEntry": true,
@@ -192,7 +192,7 @@
     ]
   },
   "src/pages/auth/DoctorRegister.vue": {
-    "file": "assets/DoctorRegister-CzoBdJTB.js",
+    "file": "assets/DoctorRegister-qmGdBn2p.js",
     "name": "DoctorRegister",
     "src": "src/pages/auth/DoctorRegister.vue",
     "isDynamicEntry": true,
@@ -203,7 +203,7 @@
     ]
   },
   "src/pages/auth/StaffLogin.vue": {
-    "file": "assets/StaffLogin-Cd_ey8Im.js",
+    "file": "assets/StaffLogin-D2wK6F2Z.js",
     "name": "StaffLogin",
     "src": "src/pages/auth/StaffLogin.vue",
     "isDynamicEntry": true,
@@ -214,164 +214,173 @@
     ]
   },
   "src/pages/doctor/CriticalAcknowledgement.vue": {
-    "file": "assets/CriticalAcknowledgement-NiDdfwyT.js",
+    "file": "assets/CriticalAcknowledgement-3ThxBae7.js",
     "name": "CriticalAcknowledgement",
     "src": "src/pages/doctor/CriticalAcknowledgement.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "index.html",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/doctor/DoctorDashboard.vue": {
-    "file": "assets/DoctorDashboard-giIiGeEq.js",
+    "file": "assets/DoctorDashboard-COMGijn6.js",
     "name": "DoctorDashboard",
     "src": "src/pages/doctor/DoctorDashboard.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html",
+      "_adms-BE_A74Cw.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js"
     ]
   },
   "src/pages/doctor/DoctorSettings.vue": {
-    "file": "assets/DoctorSettings-VQczhsKu.js",
+    "file": "assets/DoctorSettings-B0SdzzyR.js",
     "name": "DoctorSettings",
     "src": "src/pages/doctor/DoctorSettings.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Settings.vue_vue_type_script_setup_true_lang-D8k5nI05.js",
+      "_Settings.vue_vue_type_script_setup_true_lang-Cxwni9Mh.js",
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "index.html",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/doctor/MyPatients.vue": {
-    "file": "assets/MyPatients-DgpxRd6p.js",
+    "file": "assets/MyPatients-BlvgL_0t.js",
     "name": "MyPatients",
     "src": "src/pages/doctor/MyPatients.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
-      "_patients-CZrmPGOt.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/doctor/NewOrder.vue": {
-    "file": "assets/NewOrder-V_M7A-av.js",
+    "file": "assets/NewOrder-CqmA9N50.js",
     "name": "NewOrder",
     "src": "src/pages/doctor/NewOrder.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_OrderIntake.vue_vue_type_script_setup_true_lang-DuLPDIKm.js",
+      "_OrderIntake.vue_vue_type_script_setup_true_lang-La5IxFXi.js",
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "index.html",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/doctor/PatientDetail.vue": {
-    "file": "assets/PatientDetail-Cnaxa5UB.js",
+    "file": "assets/PatientDetail-C7Dlphc8.js",
     "name": "PatientDetail",
     "src": "src/pages/doctor/PatientDetail.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_PatientProfile.vue_vue_type_script_setup_true_lang-CRWrYVPe.js",
+      "_PatientProfile.vue_vue_type_script_setup_true_lang-DpHtfD1h.js",
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html",
-      "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js"
+      "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/doctor/ResultDetail.vue": {
-    "file": "assets/ResultDetail-JDU7tqPV.js",
+    "file": "assets/ResultDetail-GfFlQ-rh.js",
     "name": "ResultDetail",
     "src": "src/pages/doctor/ResultDetail.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js"
     ]
   },
   "src/pages/doctor/ResultInbox.vue": {
-    "file": "assets/ResultInbox-Bb5jbjyn.js",
+    "file": "assets/ResultInbox-Bto6hNlR.js",
     "name": "ResultInbox",
     "src": "src/pages/doctor/ResultInbox.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/doctor/Statements.vue": {
-    "file": "assets/Statements-DuaEvQio.js",
+    "file": "assets/Statements-B0i9XORk.js",
     "name": "Statements",
     "src": "src/pages/doctor/Statements.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
+      "_adms-BE_A74Cw.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/Analytics.vue": {
-    "file": "assets/Analytics-DWuZu_sp.js",
+    "file": "assets/Analytics-C6Md_niP.js",
     "name": "Analytics",
     "src": "src/pages/staff/Analytics.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/AnalyzerMonitor.vue": {
-    "file": "assets/AnalyzerMonitor-CFePnkEe.js",
+    "file": "assets/AnalyzerMonitor-BPDD0Aps.js",
     "name": "AnalyzerMonitor",
     "src": "src/pages/staff/AnalyzerMonitor.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
+      "_adms-BE_A74Cw.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/AuditCompliance.vue": {
-    "file": "assets/AuditCompliance-C1hyyT0f.js",
+    "file": "assets/AuditCompliance-DbSfWZZQ.js",
     "name": "AuditCompliance",
     "src": "src/pages/staff/AuditCompliance.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
-      "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/BillingQueue.vue": {
-    "file": "assets/BillingQueue-C3-U9CsT.js",
+    "file": "assets/BillingQueue-Djvm77Tj.js",
     "name": "BillingQueue",
     "src": "src/pages/staff/BillingQueue.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
@@ -381,67 +390,69 @@
     ]
   },
   "src/pages/staff/Calibration.vue": {
-    "file": "assets/Calibration-DvR8J6Oa.js",
+    "file": "assets/Calibration-DbhaG8p7.js",
     "name": "Calibration",
     "src": "src/pages/staff/Calibration.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/CollectionWorklist.vue": {
-    "file": "assets/CollectionWorklist-Be-HI8Dw.js",
+    "file": "assets/CollectionWorklist-Clk3GApe.js",
     "name": "CollectionWorklist",
     "src": "src/pages/staff/CollectionWorklist.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
-      "index.html",
-      "_vendor-CnFqmRaY.js"
+      "_adms-BE_A74Cw.js",
+      "index.html"
     ]
   },
   "src/pages/staff/CriticalFindings.vue": {
-    "file": "assets/CriticalFindings-DN0GpAqt.js",
+    "file": "assets/CriticalFindings-lmgOF4Mi.js",
     "name": "CriticalFindings",
     "src": "src/pages/staff/CriticalFindings.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/DirectorDashboard.vue": {
-    "file": "assets/DirectorDashboard-D1A3sVk4.js",
+    "file": "assets/DirectorDashboard-C3vq9wEn.js",
     "name": "DirectorDashboard",
     "src": "src/pages/staff/DirectorDashboard.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/Home.vue": {
-    "file": "assets/Home-Dl-7qdBQ.js",
+    "file": "assets/Home-gTXoel_S.js",
     "name": "Home",
     "src": "src/pages/staff/Home.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
@@ -450,97 +461,101 @@
     ]
   },
   "src/pages/staff/ImageViewer.vue": {
-    "file": "assets/ImageViewer-BF4XDHBC.js",
+    "file": "assets/ImageViewer-D0D7LNkD.js",
     "name": "ImageViewer",
     "src": "src/pages/staff/ImageViewer.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html"
     ]
   },
   "src/pages/staff/LabHub.vue": {
-    "file": "assets/LabHub-B2y9ZCGr.js",
+    "file": "assets/LabHub-DVLh1Lr3.js",
     "name": "LabHub",
     "src": "src/pages/staff/LabHub.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/LabInstruments.vue": {
-    "file": "assets/LabInstruments-BWgBkDZz.js",
+    "file": "assets/LabInstruments-Ch7JoRF0.js",
     "name": "LabInstruments",
     "src": "src/pages/staff/LabInstruments.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/NewPatient.vue": {
-    "file": "assets/NewPatient-B7fWTeBk.js",
+    "file": "assets/NewPatient-Ogr04edl.js",
     "name": "NewPatient",
     "src": "src/pages/staff/NewPatient.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "index.html",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/staff/OrderDetail.vue": {
-    "file": "assets/OrderDetail-C5RFulmu.js",
+    "file": "assets/OrderDetail-BccwgNna.js",
     "name": "OrderDetail",
     "src": "src/pages/staff/OrderDetail.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "index.html"
     ]
   },
   "src/pages/staff/OrderIntake.vue": {
-    "file": "assets/OrderIntake-B2GhFxUv.js",
+    "file": "assets/OrderIntake-CTgX-JFd.js",
     "name": "OrderIntake",
     "src": "src/pages/staff/OrderIntake.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_OrderIntake.vue_vue_type_script_setup_true_lang-DuLPDIKm.js",
+      "_OrderIntake.vue_vue_type_script_setup_true_lang-La5IxFXi.js",
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "index.html",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/staff/Orders.vue": {
-    "file": "assets/Orders-BOb9mh-i.js",
+    "file": "assets/Orders-3S1nb29a.js",
     "name": "Orders",
     "src": "src/pages/staff/Orders.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "index.html"
     ]
   },
   "src/pages/staff/PathologistDashboard.vue": {
-    "file": "assets/PathologistDashboard-CM9THp8F.js",
+    "file": "assets/PathologistDashboard-QshD6suM.js",
     "name": "PathologistDashboard",
     "src": "src/pages/staff/PathologistDashboard.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_vendor-CnFqmRaY.js",
@@ -548,195 +563,206 @@
     ]
   },
   "src/pages/staff/PatientProfile.vue": {
-    "file": "assets/PatientProfile-BkITzhGa.js",
+    "file": "assets/PatientProfile-B0pgwSc1.js",
     "name": "PatientProfile",
     "src": "src/pages/staff/PatientProfile.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_PatientProfile.vue_vue_type_script_setup_true_lang-CRWrYVPe.js",
+      "_PatientProfile.vue_vue_type_script_setup_true_lang-DpHtfD1h.js",
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html",
-      "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js"
+      "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/staff/Patients.vue": {
-    "file": "assets/Patients-CNI4TBBQ.js",
+    "file": "assets/Patients-BRgJMmEf.js",
     "name": "Patients",
     "src": "src/pages/staff/Patients.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
-      "_patients-CZrmPGOt.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/PeerReview.vue": {
-    "file": "assets/PeerReview-BmcNjn89.js",
+    "file": "assets/PeerReview-Bf6bFdii.js",
     "name": "PeerReview",
     "src": "src/pages/staff/PeerReview.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
-      "_vendor-CnFqmRaY.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/PreAuthQueue.vue": {
-    "file": "assets/PreAuthQueue-fNIoD7g1.js",
+    "file": "assets/PreAuthQueue-BD0mcWIN.js",
     "name": "PreAuthQueue",
     "src": "src/pages/staff/PreAuthQueue.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
-      "_vendor-CnFqmRaY.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/QcStation.vue": {
-    "file": "assets/QcStation-BpS22yHF.js",
+    "file": "assets/QcStation-381Wdv0v.js",
     "name": "QcStation",
     "src": "src/pages/staff/QcStation.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
-      "_vendor-CnFqmRaY.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/RadiologyDashboard.vue": {
-    "file": "assets/RadiologyDashboard-CyQiuWHN.js",
+    "file": "assets/RadiologyDashboard-DNkWBUWU.js",
     "name": "RadiologyDashboard",
     "src": "src/pages/staff/RadiologyDashboard.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
+      "_adms-BE_A74Cw.js",
       "_vendor-CnFqmRaY.js",
       "index.html"
     ]
   },
   "src/pages/staff/ReadingWorklist.vue": {
-    "file": "assets/ReadingWorklist-CL1mQoQl.js",
+    "file": "assets/ReadingWorklist-B4ubdpPu.js",
     "name": "ReadingWorklist",
     "src": "src/pages/staff/ReadingWorklist.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/Reagents.vue": {
-    "file": "assets/Reagents-DGQXrm51.js",
+    "file": "assets/Reagents-EXiUWpYK.js",
     "name": "Reagents",
     "src": "src/pages/staff/Reagents.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
-      "index.html",
-      "_vendor-CnFqmRaY.js"
+      "_adms-BE_A74Cw.js",
+      "index.html"
     ]
   },
   "src/pages/staff/ReceptionDashboard.vue": {
-    "file": "assets/ReceptionDashboard-7i3fCYII.js",
+    "file": "assets/ReceptionDashboard-DH9Nei9Z.js",
     "name": "ReceptionDashboard",
     "src": "src/pages/staff/ReceptionDashboard.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "index.html"
     ]
   },
   "src/pages/staff/ReportEditor.vue": {
-    "file": "assets/ReportEditor-yIHKjt7N.js",
+    "file": "assets/ReportEditor-F0ydW_Q2.js",
     "name": "ReportEditor",
     "src": "src/pages/staff/ReportEditor.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
-      "index.html"
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
+      "index.html",
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/staff/SampleAccession.vue": {
-    "file": "assets/SampleAccession-pAD7IL79.js",
+    "file": "assets/SampleAccession-Btiy4kWi.js",
     "name": "SampleAccession",
     "src": "src/pages/staff/SampleAccession.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   },
   "src/pages/staff/SampleDetail.vue": {
-    "file": "assets/SampleDetail-DmghVxrM.js",
+    "file": "assets/SampleDetail-BHhOdV4-.js",
     "name": "SampleDetail",
     "src": "src/pages/staff/SampleDetail.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html"
     ]
   },
   "src/pages/staff/Settings.vue": {
-    "file": "assets/Settings-DGm9Pnnk.js",
+    "file": "assets/Settings-DDKaSDT4.js",
     "name": "Settings",
     "src": "src/pages/staff/Settings.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_Settings.vue_vue_type_script_setup_true_lang-D8k5nI05.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Settings.vue_vue_type_script_setup_true_lang-Cxwni9Mh.js",
+      "_vendor-CnFqmRaY.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "index.html",
-      "_vendor-CnFqmRaY.js"
+      "_adms-BE_A74Cw.js"
     ]
   },
   "src/pages/staff/VerificationQueue.vue": {
-    "file": "assets/VerificationQueue-CPsvEAa9.js",
+    "file": "assets/VerificationQueue-D-9XCnpu.js",
     "name": "VerificationQueue",
     "src": "src/pages/staff/VerificationQueue.vue",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-CnFqmRaY.js",
-      "_Topbar.vue_vue_type_script_setup_true_lang-RihnHN0E.js",
+      "_Topbar.vue_vue_type_script_setup_true_lang-DDYBJE2A.js",
       "_KpiCard.vue_vue_type_script_setup_true_lang-BI8Yl95W.js",
       "_DataTable.vue_vue_type_script_setup_true_lang-DmJTjvwT.js",
       "_StatusPill.vue_vue_type_script_setup_true_lang-CiTJ34RD.js",
       "_DetailPane.vue_vue_type_script_setup_true_lang-D5yMce1T.js",
+      "_adms-BE_A74Cw.js",
       "index.html"
     ]
   }

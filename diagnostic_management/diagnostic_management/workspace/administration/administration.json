@@ -1,0 +1,47 @@
+{
+ "app": "diagnostic_management",
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Administration</b></span>\",\"col\":12}},{\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"text-muted small\\\">User &amp; role configuration, settings, and analytics &mdash; site-wide controls live here.</span>\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Analytics\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Audit & Compliance\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manage Users\",\"col\":3}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"card\",\"data\":{\"card_name\":\"Users & Roles\",\"col\":6}},{\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":6}}]",
+ "creation": "2026-05-16 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "setting",
+ "indicator_color": "grey",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Administration",
+ "links": [
+  {"hidden": 0, "is_query_report": 0, "label": "Users & Roles", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "User", "link_count": 0, "link_to": "User", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Role", "link_count": 0, "link_to": "Role", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Role Profile", "link_count": 0, "link_to": "Role Profile", "link_type": "DocType", "onboard": 0, "type": "Link"},
+
+  {"hidden": 0, "is_query_report": 0, "label": "Configuration", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "Healthcare Settings", "link_count": 0, "link_to": "Healthcare Settings", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Code System", "link_count": 0, "link_to": "Code System", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "System Settings", "link_count": 0, "link_to": "System Settings", "link_type": "DocType", "onboard": 0, "type": "Link"}
+ ],
+ "modified": "2026-05-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Administration",
+ "type": "Workspace",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "Kanonas Diagnosis",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 14.0,
+ "shortcuts": [
+  {"color": "Green", "doc_view": "", "label": "Analytics", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/analytics"},
+  {"color": "Purple", "doc_view": "", "label": "Audit & Compliance", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/audit"},
+  {"color": "Grey", "doc_view": "", "label": "Settings", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/settings"},
+  {"color": "Grey", "doc_view": "List", "label": "Manage Users", "link_to": "User", "stats_filter": "", "type": "DocType"}
+ ],
+ "title": "Administration"
+}

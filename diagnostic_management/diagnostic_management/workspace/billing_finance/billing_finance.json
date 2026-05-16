@@ -1,0 +1,52 @@
+{
+ "app": "diagnostic_management",
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Billing &amp; Finance</b></span>\",\"col\":12}},{\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"text-muted small\\\">Invoicing, payments, insurance, and referring-doctor statements.</span>\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Billing Queue\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre-Authorisation\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Invoices\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Doctor Statements\",\"col\":3}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"card\",\"data\":{\"card_name\":\"Invoices & Payments\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Insurance\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Referrers\",\"col\":4}}]",
+ "creation": "2026-05-16 00:00:00",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "credit-card",
+ "indicator_color": "yellow",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Billing & Finance",
+ "links": [
+  {"hidden": 0, "is_query_report": 0, "label": "Invoices & Payments", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "Sales Invoice", "link_count": 0, "link_to": "Sales Invoice", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Payment Entry", "link_count": 0, "link_to": "Payment Entry", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Customer", "link_count": 0, "link_to": "Customer", "link_type": "DocType", "onboard": 0, "type": "Link"},
+
+  {"hidden": 0, "is_query_report": 0, "label": "Insurance", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "Radiology Pre-Auth", "link_count": 0, "link_to": "Radiology Pre-Auth", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Insurance Payor", "link_count": 0, "link_to": "Insurance Payor", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Patient Insurance Policy", "link_count": 0, "link_to": "Patient Insurance Policy", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Insurance Claim", "link_count": 0, "link_to": "Insurance Claim", "link_type": "DocType", "onboard": 0, "type": "Link"},
+
+  {"hidden": 0, "is_query_report": 0, "label": "Referrers", "link_count": 0, "onboard": 0, "type": "Card Break"},
+  {"hidden": 0, "is_query_report": 0, "label": "Doctor Statement", "link_count": 0, "link_to": "Doctor Statement", "link_type": "DocType", "onboard": 0, "type": "Link"},
+  {"hidden": 0, "is_query_report": 0, "label": "Healthcare Practitioner", "link_count": 0, "link_to": "Healthcare Practitioner", "link_type": "DocType", "onboard": 0, "type": "Link"}
+ ],
+ "modified": "2026-05-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Billing & Finance",
+ "type": "Workspace",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "Kanonas Diagnosis",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 13.0,
+ "shortcuts": [
+  {"color": "Yellow", "doc_view": "", "label": "Billing Queue", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/billing"},
+  {"color": "Yellow", "doc_view": "", "label": "Pre-Authorisation", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/radiology/pre-auth"},
+  {"color": "Yellow", "doc_view": "List", "label": "Open Invoices", "link_to": "Sales Invoice", "stats_filter": "{\"status\":[\"in\",[\"Unpaid\",\"Partly Paid\",\"Overdue\"]]}", "type": "DocType"},
+  {"color": "Yellow", "doc_view": "List", "label": "Doctor Statements", "link_to": "Doctor Statement", "stats_filter": "", "type": "DocType"}
+ ],
+ "title": "Billing & Finance"
+}

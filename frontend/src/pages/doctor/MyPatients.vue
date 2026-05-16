@@ -1,41 +1,54 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import DataTable from '@/components/ui/DataTable.vue'
-import StatusPill from '@/components/ui/StatusPill.vue'
 import SearchBar from '@/components/ui/SearchBar.vue'
 import DetailPane from '@/components/ui/DetailPane.vue'
-import { usePatientsStore, type Patient } from '@/stores/patients'
+import { doctorApi, type PatientLite } from '@/api/adms'
 
-const patients = usePatientsStore()
+const all = ref<PatientLite[]>([])
 const search = ref('')
 const router = useRouter()
-const selected = ref<Patient | null>(null)
+const selected = ref<PatientLite | null>(null)
+const loading = ref(false)
 
-onMounted(() => patients.fetch())
+async function load() {
+  loading.value = true
+  try { all.value = await doctorApi.myPatients(200) } catch { all.value = [] }
+  finally { loading.value = false }
+}
+onMounted(load)
 
-let t: ReturnType<typeof setTimeout> | null = null
-watch(search, (v) => {
-  if (t) clearTimeout(t)
-  t = setTimeout(() => patients.fetch(50, v || undefined), 250)
-})
+function filtered(): PatientLite[] {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return all.value
+  return all.value.filter((p) =>
+    (p.patient_name || '').toLowerCase().includes(q) ||
+    (p.mobile || '').toLowerCase().includes(q) ||
+    (p.email || '').toLowerCase().includes(q) ||
+    (p.name || '').toLowerCase().includes(q),
+  )
+}
 </script>
 
 <template>
-  <Topbar title="My Patients" />
-  <SearchBar v-model="search" placeholder="Search patients by name, ID or MRN..." :show-kbd-hint="true" />
+  <Topbar title="My Patients" subtitle="Patients you've ordered for in the last 180 days" />
+  <SearchBar v-model="search" placeholder="Filter your patient list..." />
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
     <div class="lg:col-span-2 card p-1">
       <DataTable
-        :rows="patients.list"
+        :rows="filtered()"
+        row-key="name"
         :selectable="true"
-        @select="(p) => (selected = p)"
+        :empty-text="loading ? 'Loading…' : 'No patients in your panel yet'"
+        @select="(p) => (selected = p as any)"
         :columns="[
           { key: 'patient_name', label: 'Patient Name' },
-          { key: 'uid', label: 'MRN' },
+          { key: 'name', label: 'MRN' },
           { key: 'sex', label: 'Sex' },
           { key: 'mobile', label: 'Phone' },
+          { key: 'status', label: 'Status' },
         ]"
       />
     </div>
@@ -46,7 +59,6 @@ watch(search, (v) => {
         <div class="flex justify-between"><dt class="text-surface-500">Blood Group</dt><dd>{{ selected.blood_group || '—' }}</dd></div>
       </dl>
       <button class="btn-primary w-full mt-4" @click="router.push(`/patients/${selected.name}`)">View Patient</button>
-      <button class="btn-ghost w-full mt-2">Open Results</button>
     </DetailPane>
     <div v-else class="card p-6 text-center text-surface-400">Select a patient</div>
   </div>

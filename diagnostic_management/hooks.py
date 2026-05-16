@@ -10,6 +10,9 @@ app_license = "mit"
 required_apps = ["frappe", "erpnext", "healthcare"]
 
 # Show the SPA on the desk "Apps" launcher so users can jump straight into it.
+# Two tiles: the underlying app + the Kanonas Diagnosis branded entry. Both
+# route into the same SPA but the second mirrors the workspace name so users
+# who think of the product as "Kanonas Diagnosis" find it where they expect.
 add_to_apps_screen = [
 	{
 		"name": "diagnostic_management",
@@ -17,7 +20,14 @@ add_to_apps_screen = [
 		"title": "Diagnostic Management",
 		"route": "/diagnostic_management",
 		"has_permission": "diagnostic_management.api.permission.has_app_permission",
-	}
+	},
+	{
+		"name": "kanonas_diagnosis",
+		"logo": "/assets/diagnostic_management/images/kanonas.svg",
+		"title": "Kanonas Diagnosis",
+		"route": "/diagnostic_management",
+		"has_permission": "diagnostic_management.api.permission.has_app_permission",
+	},
 ]
 
 # Serve the SPA shell at every deep link. The Vue Router decides which page

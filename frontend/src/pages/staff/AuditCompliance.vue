@@ -1,66 +1,93 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Topbar from '@/components/layout/Topbar.vue'
 import KpiCard from '@/components/ui/KpiCard.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
-import DetailPane from '@/components/ui/DetailPane.vue'
+import { auditApi, type SampleRow, type DiagnosticReportRow } from '@/api/adms'
 
-const selected = ref<any>(null)
-const rows = ref<any[]>([])
+const tab = ref<'activity' | 'critical' | 'rejections'>('activity')
+const activity = ref<Array<{ name: string; subject: string; user: string; reference_doctype?: string; reference_name?: string; creation: string }>>([])
+const criticalAudit = ref<DiagnosticReportRow[]>([])
+const rejections = ref<SampleRow[]>([])
+const loading = ref(false)
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
   try {
-    // TODO: wire to Frappe doctype (getList<...>(...))
-    rows.value = []
-  } catch {
-    rows.value = []
-  }
-})
+    const [a, c, r] = await Promise.all([
+      auditApi.activity(7, 200).catch(() => []),
+      auditApi.criticalAudit(30, 100).catch(() => []),
+      auditApi.rejectionLog(30, 100).catch(() => []),
+    ])
+    activity.value = a
+    criticalAudit.value = c
+    rejections.value = r
+  } finally { loading.value = false }
+}
+onMounted(load)
+
+const kpis = computed(() => ({
+  events: activity.value.length,
+  critical: criticalAudit.value.length,
+  unacked: criticalAudit.value.filter((r) => !r.critical_acknowledged).length,
+  rejections: rejections.value.length,
+}))
 </script>
 
 <template>
-  <Topbar title="Audit &amp; Compliance Pack" />
+  <Topbar title="Audit &amp; Compliance" />
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-    <KpiCard label="Open Findings" :value="0" icon-bg="rgb(239 246 255)" icon-color="rgb(29 78 216)" />
-    <KpiCard label="Documents Expiring" :value="0" icon-bg="rgb(254 243 199)" icon-color="rgb(180 83 9)" />
-    <KpiCard label="Audit Readiness" :value="0" icon-bg="rgb(220 252 231)" icon-color="rgb(21 128 61)" />
-    <KpiCard label="Missing Evidence" :value="0" icon-bg="rgb(254 226 226)" icon-color="rgb(185 28 28)" />
+    <KpiCard label="Activity Events" :value="kpis.events" sub="Last 7 days" icon-bg="rgb(239 246 255)" icon-color="rgb(29 78 216)" />
+    <KpiCard label="Critical Reports" :value="kpis.critical" sub="Last 30 days" icon-bg="rgb(254 243 199)" icon-color="rgb(180 83 9)" />
+    <KpiCard label="Unacknowledged" :value="kpis.unacked" sub="Critical without ack" icon-bg="rgb(254 226 226)" icon-color="rgb(185 28 28)" />
+    <KpiCard label="Sample Rejections" :value="kpis.rejections" sub="Last 30 days" icon-bg="rgb(243 232 255)" icon-color="rgb(126 34 206)" />
   </div>
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="lg:col-span-2 card p-1">
-      <DataTable :rows="rows" :selectable="true" :initial-selected-index="0" @select="(r) => (selected = r)" empty-text="No data"
-        :columns="[
-          { key: 'section', label: 'Section' },
-          { key: 'description', label: 'Description' },
-          { key: 'status', label: 'Status' },
-          { key: 'completion', label: 'Completion' },
-          { key: 'last', label: 'Last Updated' },
-        ]"
-      >
-        <template #cell-status="{ value }"><StatusPill :status="value as string"/></template>
-        <template #cell-completion="{ value }">
-          <div class="flex items-center gap-2">
-            <div class="flex-1 h-1.5 bg-surface-100 rounded">
-              <div class="h-1.5 bg-brand-teal-500 rounded" :style="{ width: `${value}%` }"></div>
-            </div>
-            <span class="text-xs text-surface-500 w-9 text-right">{{ value }}%</span>
-          </div>
-        </template>
-      </DataTable>
+
+  <div class="card p-1">
+    <div class="px-4 py-3 flex items-center gap-3 border-b border-surface-100">
+      <button :class="['text-sm pb-2 border-b-2', tab === 'activity' ? 'border-brand-navy-700 text-brand-navy-700 font-medium' : 'border-transparent text-surface-500']" @click="tab = 'activity'">Activity Log</button>
+      <button :class="['text-sm pb-2 border-b-2', tab === 'critical' ? 'border-brand-navy-700 text-brand-navy-700 font-medium' : 'border-transparent text-surface-500']" @click="tab = 'critical'">Critical Findings</button>
+      <button :class="['text-sm pb-2 border-b-2', tab === 'rejections' ? 'border-brand-navy-700 text-brand-navy-700 font-medium' : 'border-transparent text-surface-500']" @click="tab = 'rejections'">Sample Rejections</button>
+      <button class="ml-auto btn-ghost !py-1 !px-2 text-xs" @click="load">Refresh</button>
     </div>
-    <DetailPane v-if="selected" :title="selected.section" :subtitle="selected.description" @close="selected = null">
-      <div class="grid grid-cols-2 gap-3 text-sm mb-4">
-        <div><div class="text-surface-500 text-xs">Documents</div><div class="font-semibold text-lg">24</div></div>
-        <div><div class="text-surface-500 text-xs">Uploaded</div><div class="font-semibold text-lg">24</div></div>
-        <div><div class="text-surface-500 text-xs">Expiring Soon</div><div class="font-semibold text-lg">1</div></div>
-        <div><div class="text-surface-500 text-xs">Overdue</div><div class="font-semibold text-lg">0</div></div>
-      </div>
-      <button class="btn-primary w-full">Open Folder</button>
-      <button class="btn-secondary w-full mt-2">Upload Evidence</button>
-      <button class="btn-ghost w-full mt-2">Export Pack</button>
-      <button class="btn-ghost w-full mt-2">Schedule Review</button>
-    </DetailPane>
-    <div v-else class="card p-6 text-center text-surface-400">Select a section</div>
+
+    <DataTable v-if="tab === 'activity'" :rows="activity" row-key="name"
+      :empty-text="loading ? 'Loading…' : 'No recent activity'"
+      :columns="[
+        { key: 'subject', label: 'Event' },
+        { key: 'user', label: 'User' },
+        { key: 'reference_doctype', label: 'DocType' },
+        { key: 'reference_name', label: 'Reference' },
+        { key: 'creation', label: 'When' },
+      ]"
+    />
+
+    <DataTable v-else-if="tab === 'critical'" :rows="criticalAudit" row-key="name"
+      :empty-text="loading ? 'Loading…' : 'No critical reports'"
+      :columns="[
+        { key: 'name', label: 'Report' },
+        { key: 'patient_name', label: 'Patient' },
+        { key: 'critical_acknowledged', label: 'Acknowledged' },
+        { key: 'critical_acknowledged_at', label: 'Ack Time' },
+        { key: 'modified', label: 'Updated' },
+      ]"
+    >
+      <template #cell-critical_acknowledged="{ value }">
+        <StatusPill :status="value ? 'Acknowledged' : 'Pending'" />
+      </template>
+    </DataTable>
+
+    <DataTable v-else :rows="rejections" row-key="name"
+      :empty-text="loading ? 'Loading…' : 'No rejections in window'"
+      :columns="[
+        { key: 'name', label: 'Sample' },
+        { key: 'patient_name', label: 'Patient' },
+        { key: 'sample', label: 'Specimen' },
+        { key: 'received_condition', label: 'Condition' },
+        { key: 'rejection_reason_text', label: 'Reason' },
+        { key: 'modified', label: 'When' },
+      ]"
+    />
   </div>
 </template>

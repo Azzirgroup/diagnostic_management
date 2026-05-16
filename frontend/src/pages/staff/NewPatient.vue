@@ -2,7 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
-import { createDoc, getList } from '@/api/client'
+import { getList } from '@/api/client'
+import { patientsApi } from '@/api/adms'
 
 const router = useRouter()
 
@@ -46,7 +47,7 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    const payload: Record<string, unknown> = {
+    const r = await patientsApi.createBasic({
       first_name: form.value.first_name.trim(),
       last_name: form.value.last_name.trim() || undefined,
       sex: form.value.sex,
@@ -56,12 +57,8 @@ async function submit() {
       blood_group: form.value.blood_group || undefined,
       uid: form.value.uid.trim() || undefined,
       permanent_address: form.value.permanent_address.trim() || undefined,
-      status: 'Active',
-    }
-    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k])
-
-    const doc = await createDoc<{ name: string }>('Patient', payload)
-    router.push(`/patients/${doc.name}`)
+    })
+    router.push(`/patients/${r.name}`)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { _server_messages?: string; exception?: string; message?: string } }; message?: string }
     const sm = err?.response?.data?._server_messages

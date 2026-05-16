@@ -2,14 +2,14 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
-import { getList, createDoc } from '@/api/client'
 import SearchBar from '@/components/ui/SearchBar.vue'
+import { patientsApi, ordersApi, type CatalogItem, type PatientLite } from '@/api/adms'
 
-type Test = { name: string; lab_test_name: string; lab_test_rate?: number; tat?: string; sample?: string }
+type Test = { name: string; lab_test_name: string; lab_test_rate?: number; sample?: string; template_dt: string }
 
 const patientSearch = ref('')
-const patients = ref<any[]>([])
-const selectedPatient = ref<any>(null)
+const patients = ref<PatientLite[]>([])
+const selectedPatient = ref<PatientLite | null>(null)
 
 const testQuery = ref('')
 const tab = ref<'lab' | 'rad' | 'pkg' | 'fav'>('lab')
@@ -31,21 +31,22 @@ const total = computed(() => Math.round(subtotal.value * (1 - discountPct.value 
 
 async function searchPatients() {
   if (!patientSearch.value) return (patients.value = [])
-  patients.value = await getList({
-    doctype: 'Patient',
-    fields: ['name', 'patient_name', 'sex', 'mobile', 'dob'],
-    filters: { patient_name: ['like', `%${patientSearch.value}%`] },
-    limit_page_length: 6,
-  })
+  try { patients.value = await patientsApi.search(patientSearch.value, 6) } catch { patients.value = [] }
 }
 
 async function loadTests() {
-  tests.value = await getList<Test>({
-    doctype: 'Lab Test Template',
-    fields: ['name', 'lab_test_name', 'lab_test_rate', 'sample'],
-    filters: testQuery.value ? { lab_test_name: ['like', `%${testQuery.value}%`] } : undefined,
-    limit_page_length: 30,
-  })
+  try {
+    const catalog: CatalogItem[] = await ordersApi.testCatalog(testQuery.value, 30)
+    tests.value = catalog
+      .filter((c) => (tab.value === 'rad' ? c.category === 'Procedure' : c.category === 'Lab'))
+      .map((c) => ({
+        name: c.template_dn,
+        lab_test_name: c.label,
+        lab_test_rate: c.rate,
+        sample: c.sample,
+        template_dt: c.template_dt,
+      }))
+  } catch { tests.value = [] }
 }
 onMounted(loadTests)
 
@@ -64,18 +65,22 @@ async function submitOrder() {
   submitting.value = true
   error.value = ''
   try {
-    // Service Request is the canonical Marley/FHIR order doctype.
-    const doc = await createDoc<any>('Service Request', {
+    const r = await ordersApi.create({
       patient: selectedPatient.value.name,
-      patient_name: selectedPatient.value.patient_name,
       priority: priority.value,
-      subject: selectedTests.value.map((t) => t.lab_test_name).join(', '),
-      template_dt: 'Lab Test Template',
-      template_dn: selectedTests.value[0].name,
-      status: 'Active',
+      tests: selectedTests.value.map((t) => ({
+        template_dt: t.template_dt || 'Lab Test Template',
+        template_dn: t.name,
+        subject: t.lab_test_name,
+      })),
+      clinical_history: fastingNotes.value || collectionInstructions.value || undefined,
       occurrence_date: new Date().toISOString().slice(0, 10),
     })
-    router.push(`/orders/${doc.name}`)
+    if (r.orders && r.orders.length) {
+      router.push(`/orders/${r.orders[0]}`)
+    } else {
+      router.push('/orders')
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.message || 'Failed to create order'
   } finally {
