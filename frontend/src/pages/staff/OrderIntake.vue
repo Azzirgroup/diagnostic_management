@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import SearchBar from '@/components/ui/SearchBar.vue'
 import { patientsApi, ordersApi, type CatalogItem, type PatientLite } from '@/api/adms'
+import { getDoc } from '@/api/client'
 
 type Test = { name: string; lab_test_name: string; lab_test_rate?: number; sample?: string; template_dt: string }
 
@@ -22,8 +23,55 @@ const collectionInstructions = ref('')
 const fastingNotes = ref('')
 const discountPct = ref(0)
 const submitting = ref(false)
+// 'submit' = Submit Order button pressed, 'draft' = Save as Draft pressed.
+// Used to toggle the spinner label on the correct button.
+const submitIntent = ref<'submit' | 'draft' | null>(null)
 const error = ref('')
 const router = useRouter()
+
+const route = useRoute()
+// Edit mode: /orders/:name?edit=1 (re-uses OrderIntake's form for draft editing).
+// editingName is set from the route param when present.
+const editingName = ref<string | null>(null)
+const isEditMode = computed(() => Boolean(editingName.value))
+
+async function loadForEdit() {
+  // The route is /orders/:name/edit — Vue Router names it 'order-edit'.
+  // /orders/new uses 'order-new' and falls through without editing.
+  if (route.name !== 'order-edit' || !route.params.name) return
+  const name = route.params.name as string
+  try {
+    const doc = await getDoc<any>('Service Request', name)
+    if (Number(doc.docstatus || 0) !== 0) {
+      error.value = 'This order has already been submitted and cannot be edited.'
+      return
+    }
+    editingName.value = name
+    if (doc.patient) {
+      selectedPatient.value = {
+        name: doc.patient,
+        patient_name: doc.patient_name || doc.patient,
+      }
+    }
+    if (doc.priority) {
+      // Strip the "-Priority" suffix the SPA priority radio uses friendly names.
+      const friendly = String(doc.priority).replace(/-Priority$/i, '')
+      if (['Routine', 'High', 'Stat', 'Urgent'].includes(friendly)) {
+        priority.value = friendly as any
+      }
+    }
+    if (doc.template_dn && doc.template_dt === 'Lab Test Template') {
+      selectedTests.value.push({
+        name: doc.template_dn,
+        lab_test_name: doc.template_dn,
+        template_dt: doc.template_dt,
+      })
+    }
+    if (doc.clinical_history_text) collectionInstructions.value = doc.clinical_history_text
+  } catch (e) {
+    error.value = 'Failed to load the order for editing.'
+  }
+}
 
 const subtotal = computed(() => selectedTests.value.reduce((s, t) => s + (t.lab_test_rate || 0), 0))
 const tax = computed(() => Math.round(subtotal.value * 0.16))
@@ -48,7 +96,10 @@ async function loadTests() {
       }))
   } catch { tests.value = [] }
 }
-onMounted(loadTests)
+onMounted(async () => {
+  await loadTests()
+  await loadForEdit()
+})
 
 function addTest(t: Test) {
   if (selectedTests.value.find((s) => s.name === t.name)) return
@@ -59,38 +110,53 @@ function removeTest(name: string) {
   selectedTests.value = selectedTests.value.filter((t) => t.name !== name)
 }
 
-async function submitOrder() {
+async function saveOrder(submit: boolean) {
   if (!selectedPatient.value) { error.value = 'Please select a patient.'; return }
   if (!selectedTests.value.length) { error.value = 'Please add at least one test.'; return }
   submitting.value = true
+  submitIntent.value = submit ? 'submit' : 'draft'
   error.value = ''
   try {
-    const r = await ordersApi.create({
-      patient: selectedPatient.value.name,
-      priority: priority.value,
-      tests: selectedTests.value.map((t) => ({
-        template_dt: t.template_dt || 'Lab Test Template',
-        template_dn: t.name,
-        subject: t.lab_test_name,
-      })),
-      clinical_history: fastingNotes.value || collectionInstructions.value || undefined,
-      occurrence_date: new Date().toISOString().slice(0, 10),
-    })
-    if (r.orders && r.orders.length) {
-      router.push(`/orders/${r.orders[0]}`)
+    if (isEditMode.value && editingName.value) {
+      await ordersApi.update({
+        name: editingName.value,
+        patient: selectedPatient.value.name,
+        priority: priority.value,
+        clinical_history: fastingNotes.value || collectionInstructions.value || undefined,
+        occurrence_date: new Date().toISOString().slice(0, 10),
+        submit: submit ? 1 : 0,
+      })
+      router.push(`/orders/${editingName.value}`)
     } else {
-      router.push('/orders')
+      const r = await ordersApi.create({
+        patient: selectedPatient.value.name,
+        priority: priority.value,
+        tests: selectedTests.value.map((t) => ({
+          template_dt: t.template_dt || 'Lab Test Template',
+          template_dn: t.name,
+          subject: t.lab_test_name,
+        })),
+        clinical_history: fastingNotes.value || collectionInstructions.value || undefined,
+        occurrence_date: new Date().toISOString().slice(0, 10),
+        submit: submit ? 1 : 0,
+      })
+      if (r.orders && r.orders.length) {
+        router.push(`/orders/${r.orders[0]}`)
+      } else {
+        router.push('/orders')
+      }
     }
   } catch (e: any) {
-    error.value = e?.response?.data?.message || 'Failed to create order'
+    error.value = e?.response?.data?.message || 'Failed to save order'
   } finally {
     submitting.value = false
+    submitIntent.value = null
   }
 }
 </script>
 
 <template>
-  <Topbar title="Order Intake" />
+  <Topbar :title="isEditMode ? `Edit Order · ${editingName}` : 'Order Intake'" />
 
   <!-- Patient -->
   <div class="card p-5 mb-4">
@@ -184,10 +250,12 @@ async function submitOrder() {
           </div>
         </dl>
         <p v-if="error" class="text-sm text-status-danger bg-status-danger-bg p-2 rounded-lg mt-3">{{ error }}</p>
-        <button class="btn-primary w-full mt-4" :disabled="submitting" @click="submitOrder">
-          {{ submitting ? 'Creating…' : 'Create Order' }}
+        <button class="btn-primary w-full mt-4" :disabled="submitting" @click="saveOrder(true)">
+          {{ submitIntent === 'submit' ? 'Submitting…' : 'Submit Order' }}
         </button>
-        <button class="btn-ghost w-full mt-2">Save Draft</button>
+        <button class="btn-ghost w-full mt-2" :disabled="submitting" @click="saveOrder(false)">
+          {{ submitIntent === 'draft' ? 'Saving…' : 'Save as Draft' }}
+        </button>
       </div>
     </div>
   </div>

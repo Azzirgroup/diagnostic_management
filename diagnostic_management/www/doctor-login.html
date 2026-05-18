@@ -1,5 +1,4 @@
 {# /doctor-login — Doctor Sign-In page. Same SPA shell. #}
-{% set csrf = frappe.session.csrf_token if frappe.session else '' %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -8,8 +7,8 @@
     <title>Azzir ADMS — Doctor Sign In</title>
     {% if stylesheet %}<link rel="stylesheet" href="{{ stylesheet }}" />{% endif %}
     <script>
-      window.csrf_token = "{{ csrf }}";
-      window.frappe = { csrf_token: "{{ csrf }}" };
+      window.csrf_token = "{{ csrf_token }}";
+      window.frappe = { csrf_token: "{{ csrf_token }}" };
       window.__ADMS_BASE__ = "/doctor-login";
     </script>
   </head>

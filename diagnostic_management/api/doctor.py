@@ -70,7 +70,7 @@ def my_orders(limit: int = 100) -> list[dict]:
 	return frappe.get_all(
 		"Service Request",
 		fields=[
-			"name", "patient", "patient_name", "priority", "subject",
+			"name", "patient", "patient_name", "priority", "title",
 			"template_dt", "template_dn", "status", "occurrence_date", "creation",
 		],
 		filters=filters,

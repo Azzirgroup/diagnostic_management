@@ -1,7 +1,20 @@
-"""Phlebotomy / Sample Collection worklist endpoints."""
+"""Phlebotomy / Sample Collection worklist endpoints.
+
+Frappe's Sample Collection doctype keeps the date+time of collection on a
+single `collected_time` Datetime column (not separate date/time fields),
+and has no `container` column. The endpoints below match those actual
+field names; the frontend renders `collected_time` directly.
+"""
 
 import frappe
 from frappe.utils import now_datetime
+
+
+_LIST_FIELDS = [
+	"name", "patient", "patient_name", "sample", "sample_qty",
+	"collected_time", "status", "barcode", "received_condition",
+	"collection_point", "collected_by",
+]
 
 
 @frappe.whitelist()
@@ -11,14 +24,10 @@ def worklist(status: str | None = None, limit: int = 100) -> list[dict]:
 	if status:
 		filters["status"] = status
 	else:
-		filters["status"] = ["in", ["Draft", "Collected"]]
+		filters["status"] = ["in", ["Pending", "Partly Collected", "Collected"]]
 	return frappe.get_all(
 		"Sample Collection",
-		fields=[
-			"name", "patient", "patient_name", "sample", "sample_qty",
-			"collection_date", "collection_time", "status", "container",
-			"barcode", "received_condition",
-		],
+		fields=_LIST_FIELDS,
 		filters=filters,
 		order_by="creation desc",
 		limit_page_length=int(limit),
@@ -26,22 +35,19 @@ def worklist(status: str | None = None, limit: int = 100) -> list[dict]:
 
 
 @frappe.whitelist()
-def mark_collected(sample: str, container: str | None = None, barcode: str | None = None) -> dict:
+def mark_collected(sample: str, collection_point: str | None = None, barcode: str | None = None) -> dict:
 	doc = frappe.get_doc("Sample Collection", sample)
-	if "status" in {df.fieldname for df in doc.meta.fields}:
+	field_names = {df.fieldname for df in doc.meta.fields}
+	if "status" in field_names:
 		doc.db_set("status", "Collected")
-	now = now_datetime()
-	if "collection_date" in {df.fieldname for df in doc.meta.fields}:
-		doc.db_set("collection_date", now.date())
-	if "collection_time" in {df.fieldname for df in doc.meta.fields}:
-		doc.db_set("collection_time", now.time())
-	if container:
-		doc.db_set("container", container)
-	if barcode:
-		try:
-			doc.db_set("barcode", barcode)
-		except Exception:
-			pass
+	if "collected_time" in field_names:
+		doc.db_set("collected_time", now_datetime())
+	if "collected_by" in field_names:
+		doc.db_set("collected_by", frappe.session.user)
+	if collection_point and "collection_point" in field_names:
+		doc.db_set("collection_point", collection_point)
+	if barcode and "barcode" in field_names:
+		doc.db_set("barcode", barcode)
 	doc.add_comment("Comment", text=f"<b>Sample Collected</b><br>By: {frappe.utils.escape_html(frappe.session.user)}")
 	return {"ok": True, "sample": sample, "status": "Collected"}
 
@@ -51,11 +57,8 @@ def accession_queue(limit: int = 100) -> list[dict]:
 	"""Samples awaiting accession into the lab."""
 	return frappe.get_all(
 		"Sample Collection",
-		fields=[
-			"name", "patient", "patient_name", "sample", "sample_qty",
-			"collection_date", "collection_time", "status", "barcode",
-		],
-		filters={"status": ["in", ["Collected", "Draft"]]},
+		fields=_LIST_FIELDS,
+		filters={"status": ["in", ["Pending", "Partly Collected", "Collected"]]},
 		order_by="creation asc",
 		limit_page_length=int(limit),
 	)

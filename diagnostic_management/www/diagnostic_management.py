@@ -30,8 +30,26 @@ def get_context(context):
 	entry, stylesheet = _resolve_assets(manifest_path)
 	context.entry = _asset_url(entry)
 	context.stylesheet = _asset_url(stylesheet) if stylesheet else ""
+	context.csrf_token = _resolve_csrf()
 
 	return context
+
+
+def _resolve_csrf() -> str:
+	"""Return the current session's CSRF token (Frappe v16 location).
+
+	v16 keeps the token at `frappe.local.session.data.csrf_token` and exposes
+	a lazy generator via `frappe.sessions.get_csrf_token()`. The SPA shim
+	reads this value into `window.csrf_token`; api/client.ts sends it as
+	`X-Frappe-CSRF-Token` on every POST. Guest users get an empty string.
+	"""
+	try:
+		if getattr(frappe.local, "session", None) and frappe.session.user != "Guest":
+			from frappe.sessions import get_csrf_token
+			return get_csrf_token() or ""
+	except Exception:
+		pass
+	return ""
 
 
 def _asset_url(rel: str) -> str:

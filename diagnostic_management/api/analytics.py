@@ -20,7 +20,7 @@ def kpis(days: int = 7) -> dict:
 	return {
 		"orders": _count("Service Request", {"creation": [">=", start]}),
 		"samples": _count("Sample Collection", {"creation": [">=", start]}),
-		"reports_completed": _count("Diagnostic Report", {"status": "Completed", "modified": [">=", start]}),
+		"reports_completed": _count("Diagnostic Report", {"status": ["in", ["Approved", "Partially Approved"]], "modified": [">=", start]}),
 		"critical_results": _count("Diagnostic Report", {"is_critical": 1, "creation": [">=", start]}),
 		"pre_auth_approved": _count("Radiology Pre-Auth", {"status": "Approved", "decision_date": [">=", start]}),
 		"qc_failed": _count("QC Run", {"result": "Fail", "run_datetime": [">=", start]}),

@@ -36,11 +36,11 @@ def lab_manager() -> dict:
 
 	pending_today = _safe_count(
 		"Sample Collection",
-		{"status": ["in", ["Draft", "Collected"]], "collection_date": today},
+		{"status": ["in", ["Pending", "Partly Collected", "Collected"]], "collected_time": [">=", today]},
 	)
 	pending_yest = _safe_count(
 		"Sample Collection",
-		{"status": ["in", ["Draft", "Collected"]], "collection_date": yesterday},
+		{"status": ["in", ["Pending", "Partly Collected", "Collected"]], "collected_time": ["between", [yesterday, today]]},
 	)
 
 	critical_today = (
@@ -80,12 +80,15 @@ def workflow_overview() -> dict:
 	Each stage maps to the Sample Collection status (when available). Falls back
 	to zeros when the doctype isn't installed.
 	"""
+	# Map workflow stages to actual Sample Collection / Lab Test status values.
+	# Sample Collection options:  Pending / Partly Collected / Collected
+	# Lab Test options:           Draft / Completed / Approved / Rejected / Cancelled
 	stage_map = {
 		"collected": ["Collected"],
-		"in_processing": ["In Processing", "Received"],
-		"in_analysis": ["In Analysis", "Testing"],
-		"result_ready": ["Result Ready", "Completed Testing"],
-		"completed": ["Completed", "Reported"],
+		"in_processing": ["Partly Collected"],
+		"in_analysis": ["Pending"],
+		"result_ready": [],
+		"completed": [],
 	}
 	out: dict[str, int] = {}
 	for key, statuses in stage_map.items():
@@ -121,7 +124,7 @@ def alerts() -> list[dict]:
 	overdue_cutoff = datetime.now() - timedelta(hours=24)
 	overdue = _safe_count(
 		"Diagnostic Report",
-		{"status": ["in", ["Draft", "Pending"]], "modified": ["<=", overdue_cutoff]},
+		{"status": ["in", ["Open", "Pending Review", "Partially Approved"]], "modified": ["<=", overdue_cutoff]},
 	)
 
 	# Expiring stock (Batch.expiry_date within 30 days). Best-effort.
@@ -194,15 +197,15 @@ def branch_performance() -> dict:
 	today = datetime.now().date()
 	samples_processed = _safe_count(
 		"Sample Collection",
-		{"collection_date": today},
+		{"collected_time": [">=", today]},
 	)
 	reports_released = _safe_count(
 		"Diagnostic Report",
-		{"creation": [">=", today], "status": ["in", ["Completed", "Approved"]]},
+		{"creation": [">=", today], "status": ["in", ["Approved", "Partially Approved"]]},
 	)
 	rejected = _safe_count(
 		"Sample Collection",
-		{"collection_date": today, "received_condition": ["not in", ["", "Acceptable"]]},
+		{"collected_time": [">=", today], "received_condition": ["not in", ["", "Acceptable"]]},
 	) if _has_field("Sample Collection", "received_condition") else 0
 
 	rejection_rate = round((rejected / samples_processed) * 100, 1) if samples_processed else 0.0
@@ -236,19 +239,19 @@ def doctor() -> dict:
 	if not practitioner:
 		# Fall back to global counts; the SPA will degrade gracefully.
 		return {
-			"pending_results": _safe_count("Diagnostic Report", {"status": ["in", ["Draft", "Pending"]]}),
+			"pending_results": _safe_count("Diagnostic Report", {"status": ["in", ["Open", "Pending Review", "Partially Approved"]]}),
 			"recent_patients": _safe_count("Patient", {}),
-			"new_orders": _safe_count("Service Request", {"status": "Active"}),
+			"new_orders": _safe_count("Service Request", {"status": "active-Request Status"}),
 			"unpaid_amount": 0,
 		}
 
 	pending_results = _safe_count(
 		"Diagnostic Report",
-		{"practitioner": practitioner, "status": ["in", ["Draft", "Pending"]]},
+		{"practitioner": practitioner, "status": ["in", ["Open", "Pending Review", "Partially Approved"]]},
 	)
 	new_orders = _safe_count(
 		"Service Request",
-		{"practitioner": practitioner, "status": "Active"},
+		{"practitioner": practitioner, "status": "active-Request Status"},
 	)
 
 	# Distinct patient count from Service Requests this practitioner ordered

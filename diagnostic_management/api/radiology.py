@@ -20,7 +20,7 @@ def reading_worklist(
 	if status:
 		filters["status"] = status
 	else:
-		filters["status"] = ["in", ["Active", "On Hold"]]
+		filters["status"] = ["in", ["active-Request Status", "on-hold-Request Status"]]
 	# Imaging orders carry an imaging_modality custom field
 	or_filters = None
 	try:
@@ -32,7 +32,7 @@ def reading_worklist(
 	return frappe.get_all(
 		"Service Request",
 		fields=[
-			"name", "patient", "patient_name", "priority", "subject",
+			"name", "patient", "patient_name", "priority", "title",
 			"imaging_modality", "imaging_body_part", "contrast_required",
 			"clinical_history_text", "occurrence_date", "status", "creation",
 			"practitioner",
@@ -51,10 +51,10 @@ def dashboard() -> dict:
 		except Exception:
 			return 0
 	return {
-		"pending_studies": _count("Service Request", {"imaging_modality": ["!=", ""], "status": "Active"}),
+		"pending_studies": _count("Service Request", {"imaging_modality": ["!=", ""], "status": "active-Request Status"}),
 		"pending_pre_auth": _count("Radiology Pre-Auth", {"status": ["in", ["Draft", "Submitted", "In Review"]]}),
 		"approved_pre_auth": _count("Radiology Pre-Auth", {"status": "Approved"}),
-		"reports_pending": _count("Diagnostic Report", {"status": ["in", ["Draft", "Pending"]]}),
+		"reports_pending": _count("Diagnostic Report", {"status": ["in", ["Open", "Pending Review", "Partially Approved"]]}),
 		"critical": _count("Diagnostic Report", {"is_critical": 1, "critical_acknowledged": 0}),
 	}
 
@@ -106,7 +106,7 @@ def create_preauth(
 		"estimated_amount": estimated_amount,
 		"clinical_justification": clinical_justification,
 		"service_request": service_request,
-		"status": "Draft",
+		"status": "Open",
 	}).insert(ignore_permissions=False)
 	return {"ok": True, "name": doc.name}
 
@@ -155,7 +155,7 @@ def save_report(
 	impression: str | None = None,
 	recommendations: str | None = None,
 	is_critical: int = 0,
-	status: str = "Draft",
+	status: str = "Open",
 ) -> dict:
 	"""Create or update a Diagnostic Report tied to an imaging order."""
 	doc = (

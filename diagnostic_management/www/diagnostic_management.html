@@ -1,17 +1,16 @@
 {# SPA shell — Frappe serves this for every /diagnostic_management* request.
    The Vue Router then takes over inside the bundle. #}
-{% set csrf = frappe.session.csrf_token if frappe.session else '' %}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Azzir ADMS — Diagnostic Management System</title>
-    <link rel="stylesheet" href="{{ stylesheet }}" />
+    {% if stylesheet %}<link rel="stylesheet" href="{{ stylesheet }}" />{% endif %}
     <script>
       // Frappe session/csrf bootstrapping for the SPA — read by api/client.ts.
-      window.csrf_token = "{{ csrf }}";
-      window.frappe = { csrf_token: "{{ csrf }}" };
+      window.csrf_token = "{{ csrf_token }}";
+      window.frappe = { csrf_token: "{{ csrf_token }}" };
     </script>
   </head>
   <body>

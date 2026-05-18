@@ -61,13 +61,20 @@ async function load() {
   } catch { /* keep defaults */ }
 
   try {
+    // Service Request status is a Code Value link in v16 — use the document
+    // names directly. The display layer strips the suffix for the pill.
     pending.value = await getList<PendingOrder>({
       doctype: 'Service Request',
       fields: ['name', 'patient_name', 'status', 'priority'],
-      filters: { status: ['in', ['Active', 'Draft', 'On Hold']] },
+      filters: { status: ['in', ['active-Request Status', 'draft-Request Status', 'on-hold-Request Status']] },
       limit_page_length: 5,
       order_by: 'modified desc',
     })
+    pending.value = pending.value.map((p) => ({
+      ...p,
+      status: (p.status || '').replace(/-Request Status$/i, ''),
+      priority: (p.priority || '').replace(/-Priority$/i, ''),
+    }))
   } catch { pending.value = [] }
 
   try {

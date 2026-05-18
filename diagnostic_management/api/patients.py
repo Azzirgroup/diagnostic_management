@@ -49,7 +49,7 @@ def detail(name: str) -> dict:
 
 	out["orders"] = frappe.get_all(
 		"Service Request",
-		fields=["name", "status", "priority", "subject", "template_dt", "template_dn", "occurrence_date", "creation"],
+		fields=["name", "status", "priority", "title", "template_dt", "template_dn", "occurrence_date", "creation"],
 		filters={"patient": name},
 		order_by="creation desc",
 		limit_page_length=20,

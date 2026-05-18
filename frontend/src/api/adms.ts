@@ -28,10 +28,14 @@ export interface OrderRow {
   patient: string
   patient_name: string
   priority?: string
+  // Service Request stores the human-readable description in `title`.
+  // `subject` is kept for backward compatibility with older API responses.
+  title?: string
   subject?: string
   template_dt?: string
   template_dn?: string
   status: string
+  docstatus?: number
   occurrence_date?: string
   creation?: string
   practitioner?: string
@@ -251,7 +255,17 @@ export const ordersApi = {
     imaging_body_part?: string
     contrast_required?: number
     occurrence_date?: string
+    submit?: number // 1 = submit immediately (default), 0 = save as draft
   }) => call<{ ok: boolean; orders: string[]; count: number }>('diagnostic_management.api.orders.create_order', payload),
+  update: (payload: {
+    name: string
+    patient?: string
+    priority?: string
+    title?: string
+    clinical_history?: string
+    occurrence_date?: string
+    submit?: number // 1 = save AND submit, 0 = save as draft (default)
+  }) => call<{ ok: boolean; name: string; docstatus?: number }>('diagnostic_management.api.orders.update_order', payload),
   forPatient: (patient: string, limit = 50) =>
     call<OrderRow[]>('diagnostic_management.api.orders.list_for_patient', { patient, limit }),
   worklist: (status?: string, priority?: string, limit = 100) =>

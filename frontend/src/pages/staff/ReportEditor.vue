@@ -30,7 +30,8 @@ async function loadStudy() {
 
 onMounted(loadStudy)
 
-async function save(status: 'Draft' | 'Pending' | 'Completed') {
+// Diagnostic Report.status options: Open / Pending Review / Partially Approved / Approved / Rejected
+async function save(status: 'Pending Review' | 'Approved') {
   busy.value = true
   try {
     const r = await radiologyApi.saveReport({
@@ -100,9 +101,8 @@ async function save(status: 'Draft' | 'Pending' | 'Completed') {
         </dl>
       </div>
       <div class="card p-5 space-y-2">
-        <button class="btn-ghost w-full" :disabled="busy" @click="save('Draft')">Save Draft</button>
-        <button class="btn-secondary w-full" :disabled="busy" @click="save('Pending')">Submit for Verification</button>
-        <button class="btn-primary w-full" :disabled="busy" @click="save('Completed')">Finalize Report</button>
+        <button class="btn-secondary w-full" :disabled="busy" @click="save('Pending Review')">Submit for Verification</button>
+        <button class="btn-primary w-full" :disabled="busy" @click="save('Approved')">Finalize Report</button>
       </div>
     </div>
   </div>

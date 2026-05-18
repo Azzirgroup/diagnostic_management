@@ -10,7 +10,6 @@ import { labApi, type DiagnosticReportRow } from '@/api/adms'
 const rows = ref<DiagnosticReportRow[]>([])
 const selected = ref<DiagnosticReportRow | null>(null)
 const comment = ref('')
-const amendmentReason = ref('')
 const busy = ref(false)
 
 async function load() {
@@ -30,16 +29,6 @@ async function verify() {
   try {
     await labApi.verify(selected.value.name, comment.value || undefined)
     comment.value = ''
-    selected.value = null
-    await load()
-  } finally { busy.value = false }
-}
-async function amend() {
-  if (!selected.value || !amendmentReason.value.trim()) return
-  busy.value = true
-  try {
-    await labApi.amend(selected.value.name, amendmentReason.value)
-    amendmentReason.value = ''
     selected.value = null
     await load()
   } finally { busy.value = false }
@@ -88,9 +77,6 @@ async function amend() {
       <label class="block text-xs text-surface-500 mt-4 mb-1">Conclusion (saved on verify)</label>
       <textarea v-model="comment" class="input w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="3" placeholder="Add a final conclusion / sign-off note..."></textarea>
       <button class="btn-primary w-full mt-4" :disabled="busy" @click="verify">Verify &amp; Release</button>
-      <label class="block text-xs text-surface-500 mt-4 mb-1">Amendment Reason</label>
-      <input v-model="amendmentReason" class="w-full px-3 py-2 rounded border border-surface-200 text-sm" placeholder="Why is amendment needed?" />
-      <button class="btn-ghost w-full mt-2" :disabled="busy || !amendmentReason.trim()" @click="amend">Request Amendment</button>
     </DetailPane>
     <div v-else class="card p-6 text-center text-surface-400">Select a report to verify</div>
   </div>

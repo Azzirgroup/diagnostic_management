@@ -1,7 +1,20 @@
-"""Lab Hub / Verification Queue / Peer Review endpoints."""
+"""Lab Hub / Verification Queue / Peer Review endpoints.
+
+Marley v16 doctype status fields use the SELECT options below — none of
+which match the friendly names I had originally:
+  Sample Collection:    Pending / Partly Collected / Collected
+  Diagnostic Report:    Open / Pending Review / Partially Approved / Approved / Rejected
+  Lab Test:             Draft / Completed / Approved / Rejected / Cancelled
+
+Filters and writes throughout this module use those actual values.
+"""
 
 import frappe
 from frappe.utils import now_datetime
+
+
+# Diagnostic Report's "verifiable / pending" set — anything not yet Approved.
+DR_PENDING = ["Open", "Pending Review", "Partially Approved"]
 
 
 @frappe.whitelist()
@@ -14,9 +27,9 @@ def hub_summary() -> dict:
 			return 0
 
 	return {
-		"pending_accession": _count("Sample Collection", {"status": ["in", ["Draft", "Collected"]]}),
-		"in_analysis": _count("Sample Collection", {"status": ["in", ["Received", "In Analysis"]]}),
-		"pending_verification": _count("Diagnostic Report", {"status": ["in", ["Draft", "Pending"]]}),
+		"pending_accession": _count("Sample Collection", {"status": "Pending"}),
+		"in_analysis": _count("Sample Collection", {"status": "Partly Collected"}),
+		"pending_verification": _count("Diagnostic Report", {"status": ["in", DR_PENDING]}),
 		"qc_open": _count("QC Run", {"status": "Pending Review"}),
 		"calibration_due": _count("Calibration Run", {"status": "Scheduled"}),
 		"peer_review_open": _count("Peer Review Case", {"status": ["in", ["Open", "In Review", "Discussion"]]}),
@@ -32,7 +45,7 @@ def verification_queue(limit: int = 100) -> list[dict]:
 			"name", "docname", "patient", "patient_name", "practitioner",
 			"status", "is_critical", "critical_acknowledged", "creation", "modified",
 		],
-		filters={"status": ["in", ["Draft", "Pending"]]},
+		filters={"status": ["in", DR_PENDING]},
 		order_by="modified desc",
 		limit_page_length=int(limit),
 	)
@@ -40,21 +53,22 @@ def verification_queue(limit: int = 100) -> list[dict]:
 
 @frappe.whitelist()
 def verify_report(name: str, conclusion: str | None = None) -> dict:
-	"""Verify and release a Diagnostic Report."""
+	"""Verify and release a Diagnostic Report — moves it to Approved."""
 	doc = frappe.get_doc("Diagnostic Report", name)
-	doc.db_set("status", "Completed")
+	doc.db_set("status", "Approved")
 	if conclusion is not None and "conclusion" in {df.fieldname for df in doc.meta.fields}:
 		doc.db_set("conclusion", conclusion)
 	doc.add_comment("Comment", text=f"<b>Verified & Released</b><br>By: {frappe.utils.escape_html(frappe.session.user)}")
-	return {"ok": True, "name": name, "status": "Completed"}
+	return {"ok": True, "name": name, "status": "Approved"}
 
 
 @frappe.whitelist()
 def amend_report(name: str, reason: str) -> dict:
+	"""Send a verified report back for amendment — Pending Review."""
 	doc = frappe.get_doc("Diagnostic Report", name)
-	doc.db_set("status", "Amended")
-	doc.add_comment("Comment", text=f"<b>Amendment</b><br>{frappe.utils.escape_html(reason)}")
-	return {"ok": True, "name": name, "status": "Amended"}
+	doc.db_set("status", "Pending Review")
+	doc.add_comment("Comment", text=f"<b>Amendment Requested</b><br>{frappe.utils.escape_html(reason)}")
+	return {"ok": True, "name": name, "status": "Pending Review"}
 
 
 # -- Peer Review -----------------------------------------------------------

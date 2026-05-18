@@ -75,7 +75,7 @@ onMounted(load)
           <tr v-if="!orders.length"><td colspan="4" class="py-6 text-center text-surface-400">No orders yet.</td></tr>
           <tr v-for="o in orders" :key="(o.name as string)" class="border-b border-surface-100 cursor-pointer hover:bg-surface-50" @click="router.push(`/orders/${o.name}`)">
             <td class="py-2">{{ o.name }}</td>
-            <td>{{ o.subject || o.template_dn || '—' }}</td>
+            <td>{{ o.title || o.subject || o.template_dn || '—' }}</td>
             <td>{{ o.occurrence_date || (o.creation as string)?.split(' ')[0] || '—' }}</td>
             <td><StatusPill :status="(o.status as string) || 'Active'" /></td>
           </tr>

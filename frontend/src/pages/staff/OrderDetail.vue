@@ -1,18 +1,53 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import { getDoc } from '@/api/client'
 
 const route = useRoute()
-const order = ref<any>(null)
+const router = useRouter()
+const order = ref<Record<string, any> | null>(null)
 
 onMounted(async () => {
   order.value = await getDoc('Service Request', route.params.name as string)
 })
 
 const steps = ['Ordered', 'Collected', 'Accessioned', 'In Process', 'Completed']
+
+// Edit is only allowed while the document is a draft (docstatus 0). Once a
+// Service Request is submitted (docstatus 1) it's locked from the SPA — the
+// user must cancel + recreate, or amend through the backend workflow.
+const isDraft = computed(() => Number(order.value?.docstatus ?? 0) === 0)
+
+function strip(v?: string) {
+  return (v || '').replace(/-Request Status$/i, '').replace(/-Priority$/i, '')
+}
+
+// Open Frappe's print preview in a new tab. The user can review the layout
+// and hit Ctrl+P / the browser's Print button — same UX as ERPNext invoices.
+function printRequisition() {
+  if (!order.value?.name) return
+  const params = new URLSearchParams({
+    doctype: 'Service Request',
+    name: order.value.name as string,
+    format: 'Diagnostic Order Requisition',
+    no_letterhead: '0',
+  })
+  window.open(`/printview?${params.toString()}`, '_blank')
+}
+
+// Direct PDF download — same format, but bypasses the preview tab.
+function downloadRequisitionPdf() {
+  if (!order.value?.name) return
+  const params = new URLSearchParams({
+    doctype: 'Service Request',
+    name: order.value.name as string,
+    format: 'Diagnostic Order Requisition',
+    no_letterhead: '0',
+  })
+  window.open(`/api/method/frappe.utils.print_format.download_pdf?${params.toString()}`, '_blank')
+}
 </script>
 
 <template>
@@ -23,9 +58,13 @@ const steps = ['Ordered', 'Collected', 'Accessioned', 'In Process', 'Completed']
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div class="text-xs text-surface-500">Created on {{ order.creation?.split('.')[0] }}</div>
-          <div class="font-semibold text-lg">{{ order.subject || order.name }}</div>
+          <div class="font-semibold text-lg">{{ order.title || order.subject || order.name }}</div>
         </div>
-        <StatusPill :status="order.status || 'Active'" />
+        <div class="flex items-center gap-2">
+          <StatusPill :status="strip(order.status) || 'Active'" />
+          <button v-if="isDraft" class="btn-primary !py-1.5 !text-xs"
+            @click="router.push(`/orders/${order.name}/edit`)">Edit</button>
+        </div>
       </div>
     </div>
 
@@ -33,18 +72,16 @@ const steps = ['Ordered', 'Collected', 'Accessioned', 'In Process', 'Completed']
       <div class="lg:col-span-2 card p-5">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-semibold">Ordered Tests</h3>
-          <button class="text-sm text-brand-teal-600 hover:underline">+ Add Test</button>
         </div>
         <table class="w-full text-sm">
           <thead><tr class="text-left text-surface-500 border-b border-surface-200">
-            <th class="py-2">Test / Study</th><th>Sample Type</th><th>Priority</th><th>Status</th>
+            <th class="py-2">Test / Study</th><th>Priority</th><th>Status</th>
           </tr></thead>
           <tbody>
             <tr class="border-b border-surface-100">
-              <td class="py-3">{{ order.template_dn || order.subject || '—' }}</td>
-              <td>Serum</td>
-              <td><StatusPill :status="order.priority || 'Routine'" /></td>
-              <td><StatusPill :status="order.status || 'In Analysis'" /></td>
+              <td class="py-3">{{ order.template_dn || order.title || order.subject || '—' }}</td>
+              <td><StatusPill :status="strip(order.priority) || 'Routine'" /></td>
+              <td><StatusPill :status="strip(order.status) || '—'" /></td>
             </tr>
           </tbody>
         </table>
@@ -72,8 +109,10 @@ const steps = ['Ordered', 'Collected', 'Accessioned', 'In Process', 'Completed']
         </div>
         <div class="card p-5">
           <h3 class="font-semibold mb-3">Quick Actions</h3>
-          <button class="btn-primary w-full mb-2">Amend Order</button>
-          <button class="btn-ghost w-full mb-2">Print Requisition</button>
+          <button v-if="isDraft" class="btn-primary w-full mb-2"
+            @click="router.push(`/orders/${order.name}/edit`)">Edit Order</button>
+          <button class="btn-secondary w-full mb-2" @click="printRequisition">Print Requisition</button>
+          <button class="btn-ghost w-full mb-2" @click="downloadRequisitionPdf">Download PDF</button>
           <button class="btn-danger-ghost w-full">Cancel Order</button>
         </div>
       </div>

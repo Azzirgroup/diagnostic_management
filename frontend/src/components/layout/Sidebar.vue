@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { ref } from 'vue'
 
 defineProps<{
@@ -8,6 +8,21 @@ defineProps<{
 }>()
 
 const collapsed = ref(false)
+const route = useRoute()
+
+// Compute active state manually because:
+//   • RouterLink's default active-class on `to="/"` matches every path (it
+//     prefix-matches), so Home would light up everywhere.
+//   • `/orders/:name` is a SIBLING route to `/orders`, not a nested child,
+//     so RouterLink doesn't treat it as a descendant — the Orders item
+//     wouldn't light up on an order detail page.
+// The path-prefix rule below handles both cleanly: Home only when exactly
+// at root, every other item when the path matches or starts with its `to`.
+function isActive(to: string): boolean {
+  const here = route.path || '/'
+  if (to === '/') return here === '/'
+  return here === to || here.startsWith(to + '/')
+}
 
 const iconMap: Record<string, string> = {
   home: 'M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V9.5z',
@@ -53,8 +68,12 @@ const iconMap: Record<string, string> = {
         <li v-for="item in items" :key="item.key">
           <RouterLink
             :to="item.to"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-surface-600 hover:bg-surface-50 transition-colors"
-            active-class="!bg-brand-navy-700 !text-white shadow-card"
+            :class="[
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
+              isActive(item.to)
+                ? 'bg-brand-navy-700 text-white shadow-card'
+                : 'text-surface-600 hover:bg-surface-50',
+            ]"
           >
             <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="iconMap[item.icon] || iconMap.home"/>

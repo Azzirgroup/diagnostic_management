@@ -10,7 +10,9 @@ None of these change Marley source files — they are pure additive overlays.
 """
 
 from .custom_fields import install_custom_fields  # noqa: F401
+from .print_formats import install_print_formats  # noqa: F401
 from .roles import install_roles  # noqa: F401
+from .seed_data import install_seed_data  # noqa: F401
 
 
 def _ensure_desk_icon():
@@ -28,6 +30,24 @@ def _ensure_desk_icon():
 		# Don't block install/migrate if the desk icon helper changes shape.
 		import frappe
 		frappe.log_error(title="ADMS: failed to auto-generate desktop icon")
+
+
+def _ensure_healthcare_settings():
+	"""Turn on the Marley settings the SPA depends on.
+
+	`create_sample_collection_for_lab_test`: when ON, creating a Lab Test
+	auto-creates a Sample Collection row — that's what makes the Collection
+	worklist populate once orders are placed. Off by default in Marley.
+	"""
+	import frappe
+	try:
+		frappe.db.set_single_value(
+			"Healthcare Settings",
+			"create_sample_collection_for_lab_test",
+			1,
+		)
+	except Exception:
+		frappe.log_error(title="ADMS: failed to enable auto sample-collection")
 
 
 def _ensure_workspace_sidebars_populated():
@@ -134,14 +154,21 @@ def _normalize_hook_entry(raw):
 def after_install():
 	install_roles()
 	install_custom_fields()
+	install_print_formats()
+	install_seed_data()
+	_ensure_healthcare_settings()
 	_ensure_desk_icon()
 	_ensure_apps_screen_tiles()
 	_ensure_workspace_sidebars_populated()
 
 
 def after_migrate():
-	# Custom fields are idempotent — safe to re-run on every migrate.
+	# Custom fields & print formats are idempotent — safe to re-run on every
+	# migrate, so updates to either land without manual import steps.
 	install_custom_fields()
+	install_print_formats()
+	install_seed_data()
+	_ensure_healthcare_settings()
 	_ensure_desk_icon()
 	_ensure_apps_screen_tiles()
 	_ensure_workspace_sidebars_populated()
