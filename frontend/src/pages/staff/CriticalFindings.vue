@@ -64,6 +64,9 @@ async function acknowledge() {
           { key: 'critical_acknowledged', label: 'Ack.' },
         ]"
       >
+        <template #cell-name="{ value }">
+          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/critical-findings/${value}`)">{{ value }}</button>
+        </template>
         <template #cell-status="{ value }"><StatusPill :status="value as string"/></template>
         <template #cell-critical_acknowledged="{ value }">
           <StatusPill :status="value ? 'Acknowledged' : 'Pending'" />

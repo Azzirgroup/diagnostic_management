@@ -62,16 +62,19 @@ async function reject() {
         empty-text="No QC runs"
         @select="(r) => (selected = r as any)"
         :columns="[
+          { key: 'name', label: 'Run ID' },
           { key: 'instrument', label: 'Analyzer' },
           { key: 'analyte', label: 'Analyte' },
           { key: 'control_level', label: 'Level' },
           { key: 'lot_number', label: 'Lot' },
-          { key: 'section', label: 'Section' },
           { key: 'run_datetime', label: 'Run Time' },
           { key: 'result', label: 'Result' },
           { key: 'westgard_flag', label: 'Westgard' },
         ]"
       >
+        <template #cell-name="{ value }">
+          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/lab/qc/${value}`)">{{ value }}</button>
+        </template>
         <template #cell-result="{ value }"><StatusPill :status="value as string" /></template>
       </DataTable>
     </div>

@@ -82,6 +82,41 @@ def list_open(severity: str | None = None, limit: int = 100) -> list[dict]:
 
 
 @frappe.whitelist()
+def detail(report: str) -> dict:
+	"""Full critical-finding detail payload: the Diagnostic Report plus
+	all Critical Finding Log rows that reference it, ordered oldest-first.
+
+	We read the report fields directly via `frappe.db.get_value` rather
+	than `as_dict()` because Marley's Diagnostic Report controller has a
+	`sales_invoice_status` property that hits `frappe.get_meta(None)`
+	when `ref_doctype` is unset, raising `DocType None not found`.
+	"""
+	if not report:
+		frappe.throw("report is required")
+	if not frappe.db.exists("Diagnostic Report", report):
+		frappe.throw(f"Diagnostic Report {report} not found", frappe.DoesNotExistError)
+
+	fields = [
+		"name", "patient", "patient_name", "practitioner", "practitioner_name",
+		"status", "is_critical", "critical_acknowledged", "critical_acknowledged_at",
+		"creation", "modified", "docname", "ref_doctype", "title", "company",
+	]
+	row = frappe.db.get_value("Diagnostic Report", report, fields, as_dict=True) or {}
+	row["log"] = frappe.get_all(
+		"Critical Finding Log",
+		fields=[
+			"name", "severity", "status", "detected_at", "notified_at",
+			"acknowledged_at", "acknowledged_by", "ack_notes",
+			"notification_channel", "escalation_level", "test_or_modality",
+			"summary",
+		],
+		filters={"report": report},
+		order_by="creation asc",
+	)
+	return row
+
+
+@frappe.whitelist()
 def log_finding(
 	report: str,
 	severity: str = "High",

@@ -38,6 +38,8 @@ _SAMPLES = [
 def install_seed_data() -> None:
 	_seed_sample_types()
 	_seed_lab_test_samples()
+	_seed_body_parts()
+	_seed_imaging_templates()
 	_backfill_template_samples()
 
 
@@ -75,6 +77,70 @@ def _seed_lab_test_samples() -> None:
 			}).insert(ignore_permissions=True)
 		except Exception:
 			frappe.log_error(title=f"ADMS: failed to seed Lab Test Sample {name}")
+
+
+_BODY_PARTS = [
+	"Head", "Brain", "Neck", "Chest", "Abdomen", "Pelvis", "Spine",
+	"Upper Limb", "Lower Limb", "Hand", "Foot", "Knee", "Shoulder", "Hip",
+	"Whole Body",
+]
+
+
+def _seed_body_parts() -> None:
+	for name in _BODY_PARTS:
+		if frappe.db.exists("Body Part", name):
+			continue
+		try:
+			frappe.get_doc({
+				"doctype": "Body Part",
+				"body_part": name,
+			}).insert(ignore_permissions=True)
+		except Exception:
+			frappe.log_error(title=f"ADMS: failed to seed Body Part {name}")
+
+
+# Imaging procedures shipped as Clinical Procedure Template — the SPA's
+# Order Intake "Radiology" tab pulls from this table. Each entry shows up
+# as a selectable procedure when the user is placing an imaging order.
+_IMAGING_PROCEDURES = [
+	("X-Ray Chest PA", "Chest", "X-Ray"),
+	("X-Ray Abdomen", "Abdomen", "X-Ray"),
+	("X-Ray Spine", "Spine", "X-Ray"),
+	("CT Brain Plain", "Brain", "CT"),
+	("CT Chest with Contrast", "Chest", "CT"),
+	("CT Abdomen Pelvis", "Abdomen", "CT"),
+	("MRI Brain Plain", "Brain", "MRI"),
+	("MRI Spine Lumbar", "Spine", "MRI"),
+	("MRI Knee", "Knee", "MRI"),
+	("Ultrasound Abdomen", "Abdomen", "Ultrasound"),
+	("Ultrasound Pelvis", "Pelvis", "Ultrasound"),
+	("Mammography Bilateral", "Chest", "Mammography"),
+]
+
+
+def _seed_imaging_templates() -> None:
+	"""Seed a starter set of imaging Clinical Procedure Templates.
+
+	Each row gets the procedure name, item_group="Services" (matches what we
+	use for lab templates), and a short description with the modality &
+	body part so the SPA order-intake list shows readable labels.
+	"""
+	item_group = "Services" if frappe.db.exists("Item Group", "Services") else None
+	if not item_group:
+		return
+	for procedure, body_part, modality in _IMAGING_PROCEDURES:
+		if frappe.db.exists("Clinical Procedure Template", procedure):
+			continue
+		try:
+			frappe.get_doc({
+				"doctype": "Clinical Procedure Template",
+				"template": procedure,
+				"item_group": item_group,
+				"description": f"{modality} · {body_part}",
+				"rate": 0,
+			}).insert(ignore_permissions=True)
+		except Exception:
+			frappe.log_error(title=f"ADMS: failed to seed Clinical Procedure Template {procedure}")
 
 
 def _backfill_template_samples() -> None:

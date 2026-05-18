@@ -11,33 +11,37 @@ def reading_worklist(
 	status: str | None = None,
 	limit: int = 100,
 ) -> list[dict]:
-	"""Imaging Service Requests pending interpretation."""
-	filters: dict = {}
+	"""Imaging Service Requests pending interpretation.
+
+	An order counts as "radiology" if its template_dt is
+	`Clinical Procedure Template` OR the custom `imaging_modality` field is
+	populated (catches orders explicitly tagged as imaging).
+	"""
+	filters: list = []
 	if modality:
-		filters["imaging_modality"] = modality
+		filters.append(["imaging_modality", "=", modality])
 	if priority:
-		filters["priority"] = priority
+		filters.append(["priority", "=", priority])
 	if status:
-		filters["status"] = status
+		filters.append(["status", "=", status])
 	else:
-		filters["status"] = ["in", ["active-Request Status", "on-hold-Request Status"]]
-	# Imaging orders carry an imaging_modality custom field
-	or_filters = None
-	try:
-		meta = frappe.get_meta("Service Request")
-		if any(df.fieldname == "imaging_modality" for df in meta.fields):
-			filters["imaging_modality"] = filters.get("imaging_modality") or ["!=", ""]
-	except Exception:
-		pass
+		filters.append(["status", "in", ["active-Request Status", "on-hold-Request Status", "draft-Request Status"]])
+
+	or_filters = [
+		["Service Request", "template_dt", "=", "Clinical Procedure Template"],
+		["Service Request", "imaging_modality", "!=", ""],
+	]
 	return frappe.get_all(
 		"Service Request",
 		fields=[
 			"name", "patient", "patient_name", "priority", "title",
+			"template_dt", "template_dn",
 			"imaging_modality", "imaging_body_part", "contrast_required",
 			"clinical_history_text", "occurrence_date", "status", "creation",
-			"practitioner",
+			"practitioner", "docstatus",
 		],
 		filters=filters,
+		or_filters=or_filters,
 		order_by="creation desc",
 		limit_page_length=int(limit),
 	)
@@ -50,8 +54,25 @@ def dashboard() -> dict:
 			return frappe.db.count(dt, filters or {})
 		except Exception:
 			return 0
+
+	# Pending studies = active Service Requests that are radiology orders
+	# (template_dt is a Clinical Procedure Template OR imaging_modality set).
+	pending_studies = 0
+	try:
+		pending_studies = len(frappe.get_all(
+			"Service Request",
+			filters=[["status", "in", ["active-Request Status", "on-hold-Request Status"]]],
+			or_filters=[
+				["template_dt", "=", "Clinical Procedure Template"],
+				["imaging_modality", "!=", ""],
+			],
+			limit_page_length=0,
+		))
+	except Exception:
+		pass
+
 	return {
-		"pending_studies": _count("Service Request", {"imaging_modality": ["!=", ""], "status": "active-Request Status"}),
+		"pending_studies": pending_studies,
 		"pending_pre_auth": _count("Radiology Pre-Auth", {"status": ["in", ["Draft", "Submitted", "In Review"]]}),
 		"approved_pre_auth": _count("Radiology Pre-Auth", {"status": "Approved"}),
 		"reports_pending": _count("Diagnostic Report", {"status": ["in", ["Open", "Pending Review", "Partially Approved"]]}),

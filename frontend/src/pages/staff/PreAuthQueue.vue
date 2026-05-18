@@ -76,6 +76,9 @@ async function decide(decision: 'Approved' | 'Denied') {
           { key: 'status', label: 'Status' },
         ]"
       >
+        <template #cell-name="{ value }">
+          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/radiology/pre-auth/${value}`)">{{ value }}</button>
+        </template>
         <template #cell-status="{ value }"><StatusPill :status="value as string"/></template>
       </DataTable>
     </div>

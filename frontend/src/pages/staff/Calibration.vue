@@ -44,15 +44,18 @@ const kpis = computed(() => {
         @select="(r) => (selected = r as any)"
         empty-text="No calibration runs"
         :columns="[
+          { key: 'name', label: 'Run ID' },
           { key: 'instrument', label: 'Instrument' },
           { key: 'calibration_type', label: 'Type' },
-          { key: 'analyte', label: 'Analyte' },
           { key: 'performed_date', label: 'Performed' },
           { key: 'next_due', label: 'Next Due' },
           { key: 'result', label: 'Result' },
           { key: 'status', label: 'Status' },
         ]"
       >
+        <template #cell-name="{ value }">
+          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/lab/calibration/${value}`)">{{ value }}</button>
+        </template>
         <template #cell-result="{ value }"><StatusPill :status="value as string" /></template>
         <template #cell-status="{ value }"><StatusPill :status="value as string" /></template>
       </DataTable>

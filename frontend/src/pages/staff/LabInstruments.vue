@@ -61,6 +61,9 @@ async function setState(newState: string) {
           { key: 'state', label: 'State' },
         ]"
       >
+        <template #cell-instrument_name="{ value }">
+          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/lab/instrument/${value}`)">{{ value }}</button>
+        </template>
         <template #cell-state="{ value }"><StatusPill :status="value as string" /></template>
         <template #cell-interface_type="{ value }">
           <div class="flex items-center gap-1.5">

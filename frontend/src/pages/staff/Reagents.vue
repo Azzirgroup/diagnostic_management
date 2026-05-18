@@ -79,14 +79,17 @@ async function logUsage() {
         empty-text="No reagent lots"
         @select="(r) => (selected = r as any)"
         :columns="[
+          { key: 'name', label: 'Lot ID' },
           { key: 'reagent_item', label: 'Reagent' },
-          { key: 'lot_number', label: 'Lot' },
           { key: 'section', label: 'Section' },
           { key: 'quantity_on_hand', label: 'On Hand' },
           { key: 'expiry_date', label: 'Expiry' },
           { key: 'status', label: 'Status' },
         ]"
       >
+        <template #cell-name="{ value }">
+          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/lab/reagent/${value}`)">{{ value }}</button>
+        </template>
         <template #cell-quantity_on_hand="{ row }">
           {{ row.quantity_on_hand ?? 0 }} {{ row.unit || '' }}
         </template>
