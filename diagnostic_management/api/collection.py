@@ -11,9 +11,10 @@ from frappe.utils import now_datetime
 
 
 _LIST_FIELDS = [
-	"name", "patient", "patient_name", "sample", "sample_qty",
+	"name", "patient", "patient_name", "sample", "sample_qty", "sample_uom",
 	"collected_time", "status", "barcode", "received_condition",
-	"collection_point", "collected_by",
+	"collection_point", "collected_by", "service_request", "docstatus",
+	"rejection_reason_text",
 ]
 
 
@@ -53,12 +54,17 @@ def mark_collected(sample: str, collection_point: str | None = None, barcode: st
 
 
 @frappe.whitelist()
-def accession_queue(limit: int = 100) -> list[dict]:
-	"""Samples awaiting accession into the lab."""
+def accession_queue(limit: int = 200) -> list[dict]:
+	"""All samples relevant to the accession workflow — front-end filters
+	into Pending / Accepted / Rejected tabs by looking at `received_condition`.
+
+	Returns rows in all three states so the SPA tab counts stay accurate
+	without firing three round-trips.
+	"""
 	return frappe.get_all(
 		"Sample Collection",
 		fields=_LIST_FIELDS,
 		filters={"status": ["in", ["Pending", "Partly Collected", "Collected"]]},
-		order_by="creation asc",
+		order_by="creation desc",
 		limit_page_length=int(limit),
 	)

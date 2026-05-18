@@ -51,13 +51,19 @@ export interface SampleRow {
   patient_name?: string
   sample?: string
   sample_qty?: number
+  sample_uom?: string
   collection_date?: string
   collection_time?: string
+  collected_time?: string
+  collected_by?: string
+  collection_point?: string
   status: string
   container?: string
   barcode?: string
   received_condition?: string
   rejection_reason_text?: string
+  service_request?: string
+  docstatus?: number
   modified?: string
 }
 

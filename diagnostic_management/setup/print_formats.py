@@ -47,6 +47,21 @@ def _formats() -> list[dict]:
 			"line_breaks": 0,
 			"html": _ORDER_REQUISITION_HTML,
 		},
+		{
+			"name": "Specimen Label",
+			"doc_type": "Sample Collection",
+			"module": "Diagnostic Management",
+			"standard": "No",
+			"custom_format": 1,
+			"print_format_type": "Jinja",
+			"font": "Default",
+			"margin_top": 10.0,
+			"margin_bottom": 10.0,
+			"margin_left": 10.0,
+			"margin_right": 10.0,
+			"line_breaks": 0,
+			"html": _SPECIMEN_LABEL_HTML,
+		},
 	]
 
 
@@ -58,6 +73,47 @@ def _formats() -> list[dict]:
 # `doc` is the Service Request being printed; `frappe` and `_` are bound by
 # Frappe's print engine.
 # ---------------------------------------------------------------------------
+
+_SPECIMEN_LABEL_HTML = """
+<h3 class="text-center" style="margin-bottom: 2px;">Specimen Label</h3>
+<p class="text-center text-muted" style="margin-top: 0; font-size: 10px;">{{ doc.company or '' }}</p>
+
+<hr style="margin: 8px 0;">
+
+<table class="table" style="margin: 0;">
+    <tr>
+        <th style="width: 35%;">Sample ID</th>
+        <td><strong style="font-size: 14px;">{{ doc.name }}</strong></td>
+    </tr>
+    {%- if doc.barcode %}
+    <tr><th>Barcode</th><td style="font-family: monospace;">{{ doc.barcode }}</td></tr>
+    {%- endif %}
+    <tr>
+        <th>Patient</th>
+        <td><strong>{{ doc.patient_name or doc.patient or '' }}</strong></td>
+    </tr>
+    <tr><th>MRN</th><td>{{ doc.patient or '' }}</td></tr>
+    {%- if doc.patient_sex %}
+    <tr><th>Sex / Age</th><td>{{ doc.patient_sex }}{% if doc.patient_age %} · {{ doc.patient_age }}{% endif %}</td></tr>
+    {%- endif %}
+    <tr><th>Specimen</th><td>{{ doc.sample or '' }} ({{ doc.sample_qty or 0 }} {{ doc.sample_uom or '' }})</td></tr>
+    {%- if doc.collected_time %}
+    <tr><th>Collected</th><td>{{ frappe.utils.format_datetime(doc.collected_time) }}</td></tr>
+    {%- endif %}
+    {%- if doc.collected_by %}
+    <tr><th>Collected By</th><td>{{ doc.collected_by }}</td></tr>
+    {%- endif %}
+    {%- if doc.service_request %}
+    <tr><th>Order</th><td>{{ doc.service_request }}</td></tr>
+    {%- endif %}
+    <tr><th>Status</th><td>{{ doc.status }}{% if doc.received_condition %} · {{ doc.received_condition }}{% endif %}</td></tr>
+</table>
+
+<p class="text-center text-muted" style="font-size: 9px; margin-top: 12px;">
+    Printed {{ frappe.utils.format_datetime(frappe.utils.now_datetime()) }} · {{ doc.name }}
+</p>
+"""
+
 
 _ORDER_REQUISITION_HTML = """
 {%- set priority_clean = (doc.priority or 'Routine').replace('-Priority', '') -%}
