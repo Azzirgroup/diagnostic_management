@@ -18,10 +18,10 @@ const tests = ref<Test[]>([])
 const selectedTests = ref<Test[]>([])
 
 const priority = ref<'Routine' | 'High' | 'Stat'>('Routine')
-const referringDoctor = ref('')
-const collectionInstructions = ref('')
-const fastingNotes = ref('')
+const sampleComments = ref('')
+const discountMode = ref<'percent' | 'value'>('percent')
 const discountPct = ref(0)
+const discountValue = ref(0)
 // Radiology-only fields. Filled in when the user picks the Radiology tab
 // and chooses a procedure; flow into the imaging custom fields on
 // Service Request so the order shows up in the Reading Worklist.
@@ -73,15 +73,21 @@ async function loadForEdit() {
         template_dt: doc.template_dt,
       })
     }
-    if (doc.clinical_history_text) collectionInstructions.value = doc.clinical_history_text
+    if (doc.clinical_history_text) sampleComments.value = doc.clinical_history_text
   } catch (e) {
     error.value = 'Failed to load the order for editing.'
   }
 }
 
 const subtotal = computed(() => selectedTests.value.reduce((s, t) => s + (t.lab_test_rate || 0), 0))
-const tax = computed(() => Math.round(subtotal.value * 0.16))
-const total = computed(() => Math.round(subtotal.value * (1 - discountPct.value / 100)) + tax.value)
+const discountAmount = computed(() => {
+  if (discountMode.value === 'value') {
+    return Math.min(Math.max(discountValue.value || 0, 0), subtotal.value)
+  }
+  const pct = Math.min(Math.max(discountPct.value || 0, 0), 100)
+  return Math.round(subtotal.value * (pct / 100))
+})
+const total = computed(() => Math.max(subtotal.value - discountAmount.value, 0))
 
 async function searchPatients() {
   if (!patientSearch.value) return (patients.value = [])
@@ -146,7 +152,7 @@ async function saveOrder(submit: boolean) {
         name: editingName.value,
         patient: selectedPatient.value.name,
         priority: priority.value,
-        clinical_history: fastingNotes.value || collectionInstructions.value || undefined,
+        clinical_history: sampleComments.value || undefined,
         occurrence_date: new Date().toISOString().slice(0, 10),
         submit: submit ? 1 : 0,
       })
@@ -160,7 +166,7 @@ async function saveOrder(submit: boolean) {
           template_dn: t.name,
           subject: t.lab_test_name,
         })),
-        clinical_history: fastingNotes.value || collectionInstructions.value || undefined,
+        clinical_history: sampleComments.value || undefined,
         occurrence_date: new Date().toISOString().slice(0, 10),
         // Imaging fields only apply on the Radiology tab. The backend
         // copies them into the Service Request's custom fields so the
@@ -258,8 +264,6 @@ async function saveOrder(submit: boolean) {
           <option value="High">High</option>
           <option value="Stat">Stat</option>
         </select>
-        <label class="block text-xs text-surface-500 mb-1">Referring Doctor (Optional)</label>
-        <input v-model="referringDoctor" class="input mb-3 w-full px-3 py-2 rounded border border-surface-200 text-sm" placeholder="Search doctor by name" />
         <template v-if="tab === 'rad'">
           <label class="block text-xs text-surface-500 mb-1">Modality</label>
           <select v-model="imagingModality" class="input mb-3 w-full px-3 py-2 rounded border border-surface-200 text-sm">
@@ -280,25 +284,44 @@ async function saveOrder(submit: boolean) {
             Contrast required
           </label>
           <label class="block text-xs text-surface-500 mb-1">Clinical History</label>
-          <textarea v-model="collectionInstructions" class="input mb-3 w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="3" placeholder="Symptoms, prior imaging, suspected diagnosis..." maxlength="500"></textarea>
+          <textarea v-model="sampleComments" class="input mb-3 w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="3" placeholder="Symptoms, prior imaging, suspected diagnosis..." maxlength="500"></textarea>
         </template>
         <template v-else>
-          <label class="block text-xs text-surface-500 mb-1">Collection Instructions</label>
-          <textarea v-model="collectionInstructions" class="input mb-3 w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="2" placeholder="e.g., Draw from left arm, avoid hemolysis..." maxlength="200"></textarea>
-          <label class="block text-xs text-surface-500 mb-1">Fasting / Preparation Notes</label>
-          <textarea v-model="fastingNotes" class="input w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="2" placeholder="e.g., 10-12 hours fasting required" maxlength="200"></textarea>
+          <label class="block text-xs text-surface-500 mb-1">Sample Comments</label>
+          <textarea v-model="sampleComments" class="input w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="3" placeholder="e.g., Draw from left arm, avoid hemolysis..." maxlength="300"></textarea>
         </template>
       </div>
 
       <div class="card p-5">
         <div class="text-sm font-semibold text-surface-800 mb-3">3. Billing &amp; Checkout</div>
-        <div class="flex items-center justify-between mb-3">
-          <label class="text-sm">Discount %</label>
-          <input v-model.number="discountPct" type="number" min="0" max="100" class="input w-20 text-right" />
+        <div class="mb-3">
+          <label class="block text-xs text-surface-500 mb-1">Discount</label>
+          <div class="flex items-center gap-2">
+            <select v-model="discountMode" class="input w-24 text-sm">
+              <option value="percent">%</option>
+              <option value="value">Value</option>
+            </select>
+            <input
+              v-if="discountMode === 'percent'"
+              v-model.number="discountPct"
+              type="number" min="0" max="100"
+              class="input flex-1 text-right"
+              placeholder="0"
+            />
+            <input
+              v-else
+              v-model.number="discountValue"
+              type="number" min="0" :max="subtotal"
+              class="input flex-1 text-right"
+              placeholder="0"
+            />
+          </div>
         </div>
         <dl class="text-sm space-y-1">
           <div class="flex justify-between"><dt>Subtotal ({{ selectedTests.length }} items)</dt><dd>{{ subtotal.toLocaleString() }}</dd></div>
-          <div class="flex justify-between"><dt>Tax (16%)</dt><dd>{{ tax.toLocaleString() }}</dd></div>
+          <div v-if="discountAmount > 0" class="flex justify-between text-status-success">
+            <dt>Discount</dt><dd>-{{ discountAmount.toLocaleString() }}</dd>
+          </div>
           <div class="flex justify-between border-t border-surface-200 pt-2 mt-2 font-semibold">
             <dt>Total Amount</dt><dd class="text-brand-teal-700">{{ total.toLocaleString() }}</dd>
           </div>

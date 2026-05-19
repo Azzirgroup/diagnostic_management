@@ -97,7 +97,7 @@ if (base === '/doctor-login') {
         { path: 'lab/calibration/:name', name: 'calibration-detail', meta: { doctype: 'Calibration Run', title: 'Calibration Run' }, component: () => import('@/pages/staff/DocDetail.vue') },
         { path: 'lab/peer-review/:name', name: 'peer-review-detail', meta: { doctype: 'Peer Review Case', title: 'Peer Review Case' }, component: () => import('@/pages/staff/DocDetail.vue') },
         { path: 'radiology/pre-auth/:name', name: 'pre-auth-detail', meta: { doctype: 'Radiology Pre-Auth', title: 'Radiology Pre-Auth' }, component: () => import('@/pages/staff/DocDetail.vue') },
-        { path: 'analytics', name: 'analytics', component: () => import('@/pages/staff/Analytics.vue') },
+        { path: 'analytics', name: 'analytics', meta: { managerOnly: true }, component: () => import('@/pages/staff/Analytics.vue') },
         { path: 'audit', name: 'audit', component: () => import('@/pages/staff/AuditCompliance.vue') },
         { path: 'settings', name: 'settings', component: () => import('@/pages/staff/Settings.vue') },
         { path: 'reception', name: 'reception', component: () => import('@/pages/staff/ReceptionDashboard.vue') },
@@ -126,6 +126,19 @@ router.beforeEach(async (to) => {
     const loginPath = to.meta.portal === 'doctor' ? '/doctor-login' : '/diagnostic_management/login'
     window.location.assign(`${loginPath}?next=${next}`)
     return false
+  }
+
+  if (to.meta.managerOnly) {
+    const roles = auth.roles || []
+    const allowed = roles.some((r) =>
+      r === 'System Manager' ||
+      r === 'Manager' ||
+      r === 'Lab Manager' ||
+      r === 'Radiology Manager' ||
+      r === 'Diagnostic Director' ||
+      r === 'Lab Director',
+    )
+    if (!allowed) return { name: 'home' }
   }
 })
 
