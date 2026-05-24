@@ -9,6 +9,7 @@ ADMS_ROLES = [
 	"Lab Quality Officer",
 	"Pathologist",
 	"Lab Manager",
+	"Urgent Review Officer",
 	"Radiology Technologist",
 	"Radiologist",
 	"Radiology Manager",

@@ -157,7 +157,7 @@
                 <h4 class="text-sm font-semibold text-gray-900">Advance Status</h4>
                 <label class="flex items-center gap-2 cursor-pointer select-none">
                   <span class="text-xs font-medium" :class="formData[idx].is_urgent ? 'text-red-600' : 'text-gray-500'">Urgent</span>
-                  <button type="button" @click="formData[idx].is_urgent = !formData[idx].is_urgent"
+                  <button type="button" @click="toggleUrgent(idx)"
                     :class="['relative inline-flex h-5 w-9 items-center rounded-full transition-colors', formData[idx].is_urgent ? 'bg-red-500' : 'bg-gray-300']">
                     <span :class="['inline-block h-4 w-4 transform rounded-full bg-white transition-transform', formData[idx].is_urgent ? 'translate-x-4' : 'translate-x-1']"></span>
                   </button>
@@ -506,6 +506,24 @@ const loadSamples = async () => {
     notification.value = { type: 'error', message: 'Failed to load lab samples.' }
   } finally {
     samplesLoading.value = false
+  }
+}
+
+// Toggle + persist the urgent flag immediately (no status change needed)
+const toggleUrgent = async (idx) => {
+  const sample = samples.value[idx]
+  const next = !formData.value[idx].is_urgent
+  formData.value[idx].is_urgent = next
+  try {
+    await call('diagnostic_management.api.collection_workflow.set_sample_urgent', {
+      sample_name: sample.name,
+      is_urgent: next ? 1 : 0
+    })
+    samples.value[idx].is_urgent = next ? 1 : 0
+    notification.value = { type: 'success', message: `${sample.sample_id || sample.name} ${next ? 'marked urgent' : 'urgent cleared'}` }
+  } catch (err) {
+    formData.value[idx].is_urgent = !next // revert on failure
+    notification.value = { type: 'error', message: 'Failed to update urgent flag' }
   }
 }
 

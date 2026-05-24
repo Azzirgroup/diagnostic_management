@@ -1,0 +1,114 @@
+<style>
+.po-print { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
+.po-title { text-align: center; margin: 10px 0 20px; }
+.po-title h2 { color: #1a4a6e; margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+.po-meta { display: flex; justify-content: space-between; margin-bottom: 20px; }
+.po-meta-box { width: 48%; }
+.po-meta-box h4 { color: #1a4a6e; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #1a4a6e; padding-bottom: 4px; margin: 0 0 8px; }
+.po-meta-box table { width: 100%; font-size: 11px; }
+.po-meta-box td { padding: 2px 0; vertical-align: top; }
+.po-meta-box td:first-child { font-weight: bold; width: 40%; color: #555; }
+.po-items { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 11px; }
+.po-items th { background: #1a4a6e; color: white; padding: 8px 6px; text-align: left; font-size: 10px; text-transform: uppercase; }
+.po-items td { padding: 6px; border-bottom: 1px solid #e0e0e0; }
+.po-items tr:nth-child(even) { background: #f9f9f9; }
+.po-items .text-right { text-align: right; }
+.po-items .text-center { text-align: center; }
+.po-totals { width: 300px; margin-left: auto; margin-top: 10px; font-size: 11px; }
+.po-totals td { padding: 4px 8px; }
+.po-totals td:first-child { text-align: right; color: #555; font-weight: bold; }
+.po-totals td:last-child { text-align: right; }
+.po-totals .grand-total { border-top: 2px solid #1a4a6e; font-size: 13px; font-weight: bold; color: #1a4a6e; }
+.po-terms { margin-top: 20px; font-size: 11px; }
+.po-terms h4 { color: #1a4a6e; font-size: 12px; margin: 0 0 6px; }
+.po-terms-content { background: #f8f8f8; padding: 10px; border-radius: 4px; }
+.po-footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; }
+.po-signature { text-align: center; width: 200px; }
+.po-signature .sig-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 4px; }
+</style>
+
+{% if letter_head and not no_letterhead %}<div class="letter-head">{{ letter_head }}</div>{% endif %}
+
+<div class="po-print">
+    <div class="po-title">
+        <h2>Purchase Order</h2>
+    </div>
+
+    <div class="po-meta">
+        <div class="po-meta-box">
+            <h4>Supplier</h4>
+            <table>
+                <tr><td>Name</td><td>{{ doc.supplier_name or doc.supplier }}</td></tr>
+                {% if doc.contact_display %}<tr><td>Contact</td><td>{{ doc.contact_display }}</td></tr>{% endif %}
+                {% if doc.contact_mobile %}<tr><td>Mobile</td><td>{{ doc.contact_mobile }}</td></tr>{% endif %}
+                {% if doc.contact_email %}<tr><td>Email</td><td>{{ doc.contact_email }}</td></tr>{% endif %}
+                {% if doc.address_display %}<tr><td>Address</td><td>{{ doc.address_display }}</td></tr>{% endif %}
+            </table>
+        </div>
+        <div class="po-meta-box">
+            <h4>Order Details</h4>
+            <table>
+                <tr><td>PO No.</td><td><b>{{ doc.name }}</b></td></tr>
+                <tr><td>Date</td><td>{{ doc.transaction_date }}</td></tr>
+                {% if doc.schedule_date %}<tr><td>Required By</td><td>{{ doc.schedule_date }}</td></tr>{% endif %}
+                <tr><td>Company</td><td>{{ doc.company }}</td></tr>
+                {% if doc.currency != "KES" %}<tr><td>Currency</td><td>{{ doc.currency }}</td></tr>{% endif %}
+                <tr><td>Status</td><td>{{ doc.status }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    {% if doc.shipping_address %}<div style="margin-bottom:15px;"><b style="color:#1a4a6e;">Ship To:</b> {{ doc.shipping_address }}</div>{% endif %}
+
+    <table class="po-items">
+        <thead>
+            <tr>
+                <th style="width:5%;">#</th>
+                <th style="width:35%;">Item</th>
+                <th style="width:15%;">Description</th>
+                <th class="text-center" style="width:10%;">Qty</th>
+                <th class="text-center" style="width:8%;">UOM</th>
+                <th class="text-right" style="width:12%;">Rate</th>
+                <th class="text-right" style="width:15%;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.items %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><b>{{ item.item_name or item.item_code }}</b>{% if item.item_code != item.item_name %}<br/><span style="font-size:10px;color:#888;">{{ item.item_code }}</span>{% endif %}</td>
+                <td style="font-size:10px;">{{ item.description or "" }}</td>
+                <td class="text-center">{{ item.qty }}</td>
+                <td class="text-center">{{ item.uom }}</td>
+                <td class="text-right">{{ frappe.format_value(item.rate, {"fieldtype": "Currency", "options": "currency"}, doc=doc) }}</td>
+                <td class="text-right">{{ frappe.format_value(item.amount, {"fieldtype": "Currency", "options": "currency"}, doc=doc) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="po-totals">
+        <tr><td>Net Total</td><td>{{ frappe.format_value(doc.net_total, {"fieldtype": "Currency", "options": "currency"}, doc=doc) }}</td></tr>
+        {% if doc.total_taxes_and_charges %}<tr><td>Taxes & Charges</td><td>{{ frappe.format_value(doc.total_taxes_and_charges, {"fieldtype": "Currency", "options": "currency"}, doc=doc) }}</td></tr>{% endif %}
+        {% if doc.discount_amount %}<tr><td>Discount</td><td>{{ frappe.format_value(doc.discount_amount, {"fieldtype": "Currency", "options": "currency"}, doc=doc) }}</td></tr>{% endif %}
+        <tr class="grand-total"><td>Grand Total</td><td>{{ frappe.format_value(doc.grand_total, {"fieldtype": "Currency", "options": "currency"}, doc=doc) }}</td></tr>
+    </table>
+
+    {% if doc.terms %}
+    <div class="po-terms">
+        <h4>Terms & Conditions</h4>
+        <div class="po-terms-content">{{ doc.terms }}</div>
+    </div>
+    {% endif %}
+
+    <div class="po-footer">
+        <div class="po-signature">
+            <div class="sig-line">Authorized Signature</div>
+        </div>
+        <div class="po-signature">
+            <div class="sig-line">Supplier Acknowledgement</div>
+        </div>
+    </div>
+</div>
+
+{% if footer and not no_letterhead %}<div class="letter-head-footer">{{ footer }}</div>{% endif %}

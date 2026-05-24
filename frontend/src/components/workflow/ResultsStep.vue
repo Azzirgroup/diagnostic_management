@@ -5,6 +5,9 @@ import StatusPill from '@/components/ui/StatusPill.vue'
 import SignaturePad from '@/components/common/SignaturePad.vue'
 import { resultsApi, type SampleResults, type SampleRow } from '@/api/adms'
 import { frappeError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 // Sample-centric results (matches genetest: ONE report per Lab Sample,
 // aggregating every test on that sample). Master-detail: pick a sample,
@@ -38,6 +41,14 @@ const released = (sample?: string) => reportFor(sample)?.status === 'Approved'
 const allDone = computed(() => samples.value.length > 0 && samples.value.every((s) => sampleDone(s.name)))
 const doneCount = computed(() => samples.value.filter((s) => sampleDone(s.name)).length)
 const allTestsCompleted = computed(() => !!detail.value && detail.value.lab_tests.length > 0 && detail.value.lab_tests.every((t) => t.docstatus === 1))
+
+// Urgent-review gate: an urgent sample's report must be authorized by an
+// "Urgent Review Officer" before Verify & Release becomes available.
+const isUrgent = computed(() => !!(detail.value?.is_urgent || selectedSample.value?.is_urgent))
+const urgentAuthorized = computed(() => !!detail.value?.urgent_authorized)
+const canAuthorizeUrgent = computed(() => !!detail.value?.can_authorize_urgent || auth.roles.includes('Urgent Review Officer'))
+// Non-urgent → always allowed. Urgent → only once authorized.
+const verifyAllowed = computed(() => !isUrgent.value || urgentAuthorized.value)
 
 async function loadDetail() {
   if (!selectedSample.value) { detail.value = null; return }
@@ -108,6 +119,17 @@ async function verify() {
   finally { saving.value = false }
 }
 
+async function authorizeUrgent() {
+  if (!selectedSample.value) return
+  saving.value = true; error.value = ''
+  try {
+    await resultsApi.authorizeUrgent(selectedSample.value.name)
+    emit('reload')
+    await loadDetail()
+  } catch (e: any) { error.value = frappeError(e, 'Failed to authorize urgent review') }
+  finally { saving.value = false }
+}
+
 async function printReport() {
   if (!selectedSample.value) return
   saving.value = true; error.value = ''
@@ -143,8 +165,9 @@ async function printReport() {
           i === selectedIdx ? 'border-brand-navy-700 ring-1 ring-brand-navy-700 bg-brand-navy-700/5' : 'border-surface-200 hover:border-surface-300']">
         <div class="text-sm font-medium text-surface-800 truncate">{{ s.name }}</div>
         <div class="text-xs text-surface-500 truncate">{{ s.sample || 'Sample' }}</div>
-        <div class="mt-1.5">
+        <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
           <StatusPill :status="released(s.name) ? 'Released' : sampleDone(s.name) ? 'Completed' : 'Pending'" />
+          <span v-if="s.is_urgent" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">URGENT</span>
         </div>
       </button>
     </div>
@@ -152,7 +175,10 @@ async function printReport() {
     <!-- Selected sample's report (all its tests) -->
     <div v-if="selectedSample" class="card p-5">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="font-semibold">{{ selectedSample.name }} · {{ detail?.sample_type || selectedSample.sample }}</h3>
+        <h3 class="font-semibold flex items-center gap-2">
+          {{ selectedSample.name }} · {{ detail?.sample_type || selectedSample.sample }}
+          <span v-if="isUrgent" class="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">URGENT</span>
+        </h3>
         <StatusPill :status="released(selectedSample.name) ? 'Released' : sampleDone(selectedSample.name) ? 'Completed' : 'Pending'" />
       </div>
       <p v-if="error" class="text-sm text-status-danger mb-3">{{ error }}</p>
@@ -216,6 +242,26 @@ async function printReport() {
         <template v-else-if="allTestsCompleted">
           <div class="border-t border-surface-100 pt-4">
             <div v-if="!released(selectedSample.name)">
+              <!-- Urgent review gate -->
+              <div v-if="isUrgent && !urgentAuthorized" class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
+                <div class="flex items-center gap-2 text-sm font-semibold text-red-700">
+                  <span class="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">URGENT</span>
+                  Awaiting Urgent Review authorization
+                </div>
+                <p class="text-xs text-red-600 mt-1">
+                  This urgent case must be authorized by an Urgent Review Officer before it can be verified &amp; released.
+                </p>
+                <div class="mt-2">
+                  <button v-if="canAuthorizeUrgent" class="btn-primary !bg-red-600 hover:!bg-red-700"
+                    :disabled="saving" @click="authorizeUrgent">
+                    {{ saving ? 'Authorizing…' : 'Authorize Urgent Review' }}
+                  </button>
+                  <span v-else class="text-xs text-red-500">You do not have the Urgent Review Officer role.</span>
+                </div>
+              </div>
+              <div v-else-if="isUrgent && urgentAuthorized" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-medium text-emerald-700">
+                ✓ Urgent review authorized — you may now verify &amp; release.
+              </div>
               <h4 class="font-semibold mb-3">Clinical Notes &amp; Sign-off</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
@@ -245,7 +291,8 @@ async function printReport() {
                 </div>
               </div>
               <div class="flex items-center justify-end">
-                <button class="btn-primary" :disabled="saving" @click="verify">{{ saving ? 'Releasing…' : 'Verify & Release' }}</button>
+                <button v-if="verifyAllowed" class="btn-primary" :disabled="saving" @click="verify">{{ saving ? 'Releasing…' : 'Verify & Release' }}</button>
+                <span v-else class="text-xs text-surface-400">Verify &amp; Release unlocks once urgent review is authorized.</span>
               </div>
             </div>
             <div v-else class="flex items-center justify-between">

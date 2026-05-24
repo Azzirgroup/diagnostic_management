@@ -1,0 +1,206 @@
+<style>
+/* Genetest Sales Invoice Print Format */
+@page { size: A4; margin: 10mm; }
+
+.invoice { font-family: Arial, sans-serif; font-size: 11px; color: #333; }
+
+
+/* Info Sections */
+.info-section { display: table; width: 100%; margin-bottom: 15px; }
+.info-block { display: table-cell; width: 50%; vertical-align: top; padding: 10px; }
+.info-block.left { padding-left: 0; }
+.info-block.right { padding-right: 0; }
+.info-box { border: 1px solid #ddd; border-radius: 6px; padding: 12px; background: #fafafa; }
+.info-box-title { font-weight: bold; color: #1a4a6e; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 8px; }
+.info-row { margin: 4px 0; }
+.info-label { color: #666; font-size: 10px; }
+.info-value { font-weight: 600; }
+
+/* Items Table */
+.items-section { margin: 20px 0; }
+.section-title { background: #1a4a6e; color: white; padding: 8px 12px; font-weight: bold; font-size: 12px; border-radius: 4px 4px 0 0; }
+.items-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; }
+.items-table th { background: #4a5568; color: white; padding: 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+.items-table td { padding: 10px; border-bottom: 1px solid #eee; font-size: 11px; }
+.items-table tbody tr:nth-child(even) { background: #f9f9f9; }
+.items-table .col-idx { width: 5%; text-align: center; }
+.items-table .col-item { width: 40%; }
+.items-table .col-qty { width: 10%; text-align: center; }
+.items-table .col-rate { width: 20%; text-align: right; }
+.items-table .col-amount { width: 25%; text-align: right; font-weight: bold; }
+
+/* Totals */
+.totals-section { display: table; width: 100%; margin-top: 15px; }
+.totals-notes { display: table-cell; width: 50%; vertical-align: top; padding-right: 20px; }
+.totals-box { display: table-cell; width: 50%; vertical-align: top; }
+.totals-table { width: 100%; border-collapse: collapse; }
+.totals-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+.totals-table .totals-label { text-align: right; color: #666; vertical-align: middle; font-size: 12px; }
+.totals-table .totals-value { text-align: right; font-weight: 600; width: 40%; vertical-align: middle; font-size: 12px; }
+.totals-table .grand-total { background: #1a4a6e; color: white; font-size: 14px; font-weight: bold; }
+.totals-table .grand-total td { border-bottom: none; color: white !important; font-size: 14px; padding: 10px 12px; }
+
+/* Notes */
+.notes-box { background: #fffde7; border-left: 3px solid #ffc107; padding: 10px; font-size: 10px; }
+.notes-title { font-weight: bold; color: #f57c00; margin-bottom: 5px; }
+
+/* Payment Info */
+.payment-info { margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 6px; }
+.payment-title { font-weight: bold; color: #2e7d32; margin-bottom: 8px; }
+.payment-details { display: table; width: 100%; }
+.payment-detail { display: table-cell; width: 33%; }
+
+/* Footer */
+.invoice-footer { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1a4a6e; text-align: center; font-size: 10px; color: #888; }
+.footer-thanks { font-size: 12px; color: #1a4a6e; font-weight: bold; margin-bottom: 5px; }
+</style>
+{% if letter_head and not no_letterhead %}<div class="letter-head">{{ letter_head }}</div>{% endif %}
+
+
+<div class="invoice">
+    {%- set co = frappe.get_cached_doc('Company', doc.company) if doc.company else None -%}
+
+    <!-- Invoice Info -->
+    <div style="display: table; width: 100%; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 3px solid #1a4a6e;">
+        <div style="display: table-cell; width: 60%; vertical-align: middle;">
+            <div style="font-size: 22px; font-weight: bold; color: #333;">INVOICE</div>
+            <div style="font-size: 14px; color: #1a4a6e; margin-top: 5px;">{{ doc.name }}</div>
+            <div style="font-size: 11px; color: #555; margin-top: 3px;">PIN P051773364Z</div>
+        </div>
+        <div style="display: table-cell; width: 40%; vertical-align: middle; text-align: right;">
+            <div style="background: #f5f5f5; padding: 5px 10px; border-radius: 4px; display: inline-block;">
+                {{ generate_barcode_svg(doc.name) | safe }}
+                <div style="font-family: 'Courier New', monospace; font-size: 10px;">{{ doc.name }}</div>
+            </div>
+        </div>
+    </div>
+<!-- Customer & Invoice Info -->
+    <div class="info-section">
+        <div class="info-block left">
+            <div class="info-box">
+                <div class="info-box-title">Bill To</div>
+                <div class="info-row"><span class="info-value" style="font-size: 14px;">{{ doc.customer_name or doc.customer }}</span></div>
+                {% if doc.customer_address %}
+                <div class="info-row"><span class="info-label">{{ doc.address_display | striptags | truncate(100) }}</span></div>
+                {% endif %}
+                {% if doc.contact_mobile or doc.contact_phone %}
+                <div class="info-row"><span class="info-label">Phone:</span> <span class="info-value">{{ doc.contact_mobile or doc.contact_phone }}</span></div>
+                {% endif %}
+                {% if doc.contact_email %}
+                <div class="info-row"><span class="info-label">Email:</span> <span class="info-value">{{ doc.contact_email }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="info-block right">
+            <div class="info-box">
+                <div class="info-box-title">Invoice Details</div>
+                <div class="info-row"><span class="info-label">Invoice Date:</span> <span class="info-value">{{ format_report_date(doc.posting_date) }}</span></div>
+                <div class="info-row"><span class="info-label">Due Date:</span> <span class="info-value">{{ format_report_date(doc.due_date) if doc.due_date else '-' }}</span></div>
+                <div class="info-row"><span class="info-label">Payment Terms:</span> <span class="info-value">{{ doc.payment_terms_template or 'Immediate' }}</span></div>
+                {% if doc.patient %}
+                <div class="info-row"><span class="info-label">Patient:</span> <span class="info-value">{{ doc.patient_name or doc.patient }}</span></div>
+                {% endif %}
+                {% if doc.custom_doctor %}
+                <div class="info-row"><span class="info-label">Doctor:</span> <span class="info-value">{{ doc.custom_doctor }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Items -->
+    <div class="items-section">
+        <div class="section-title">Invoice Items</div>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th class="col-idx">#</th>
+                    <th class="col-item">Item / Description</th>
+                    <th class="col-qty">Qty</th>
+                    <th class="col-rate">Rate</th>
+                    <th class="col-amount">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doc.items %}
+                <tr>
+                    <td class="col-idx">{{ item.idx }}</td>
+                    <td class="col-item">
+                        <b>{{ item.item_name }}</b>
+                        {% if item.description and item.description != item.item_name %}
+                        <br><small style="color: #888;">{{ item.description | striptags | truncate(80) }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="col-qty">{{ item.qty }} {{ item.uom or '' }}</td>
+                    <td class="col-rate">{{ frappe.format(item.rate, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                    <td class="col-amount">{{ frappe.format(item.amount, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-section">
+        <div class="totals-notes">
+            {% if doc.terms %}
+            <div class="notes-box">
+                <div class="notes-title">Terms & Conditions</div>
+                {{ doc.terms }}
+            </div>
+            {% endif %}
+        </div>
+        <div class="totals-box">
+            <table class="totals-table">
+                <tr>
+                    <td class="totals-label">Subtotal</td>
+                    <td class="totals-value">{{ frappe.format(doc.total, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                {% if doc.discount_amount %}
+                <tr>
+                    <td class="totals-label">Discount</td>
+                    <td class="totals-value">- {{ frappe.format(doc.discount_amount, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                {% endif %}
+                {% for tax in doc.taxes %}
+                <tr>
+                    <td class="totals-label">{{ tax.description }}</td>
+                    <td class="totals-value">{{ frappe.format(tax.tax_amount, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="grand-total">
+                    <td class="totals-label">Grand Total</td>
+                    <td class="totals-value">{{ frappe.format(doc.grand_total, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                {% if doc.outstanding_amount and doc.outstanding_amount > 0 %}
+                <tr>
+                    <td class="totals-label">Paid Amount</td>
+                    <td class="totals-value">{{ frappe.format(doc.grand_total - doc.outstanding_amount, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                <tr style="background: #ffebee;">
+                    <td class="totals-label" style="color: #c62828;"><b>Outstanding</b></td>
+                    <td class="totals-value" style="color: #c62828;">{{ frappe.format(doc.outstanding_amount, {'fieldtype': 'Currency', 'currency': doc.currency}) }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <!-- Payment Info -->
+    {% if doc.status == 'Paid' %}
+    <div class="payment-info">
+        <div class="payment-title">Payment Received - Thank You!</div>
+        <div class="payment-details">
+            <div class="payment-detail"><b>Status:</b> Paid</div>
+            <div class="payment-detail"><b>Mode:</b> {{ doc.payments[0].mode_of_payment if doc.payments else '-' }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="invoice-footer">
+        <div class="footer-thanks">Thank you for choosing {{ co.name if co else 'Genetest Laboratory' }}!</div>
+        <div>This is a computer-generated invoice and is valid without signature.</div>
+        <div>For queries, please contact us with Invoice No: {{ doc.name }}</div>
+    </div>
+</div>
+{% if footer and not no_letterhead %}<div class="letter-head-footer">{{ footer }}</div>{% endif %}

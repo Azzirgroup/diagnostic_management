@@ -1,0 +1,185 @@
+<style>
+/* Genetest Lab Test Print Format */
+@page { size: A4; margin: 10mm; }
+
+.lab-test { font-family: Arial, sans-serif; font-size: 11px; color: #333; }
+
+
+/* Status Badge */
+.status-badge { display: inline-block; padding: 4px 12px; border-radius: 15px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-top: 8px; }
+.status-draft { background: #ffecb3; color: #ff8f00; }
+.status-completed { background: #c8e6c9; color: #2e7d32; }
+.status-approved { background: #bbdefb; color: #1565c0; }
+.status-cancelled { background: #ffcdd2; color: #c62828; }
+
+/* Info Cards */
+.info-cards { display: table; width: 100%; margin-bottom: 15px; }
+.info-card { display: table-cell; width: 50%; vertical-align: top; padding: 5px; }
+.info-card-box { border: 1px solid #ddd; border-radius: 6px; padding: 12px; background: #fafafa; height: 100%; }
+.info-card-title { font-weight: bold; color: #1a4a6e; font-size: 11px; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 8px; }
+.info-row { margin: 4px 0; display: table; width: 100%; }
+.info-label { display: table-cell; width: 40%; color: #666; font-size: 10px; }
+.info-value { display: table-cell; font-weight: 600; font-size: 11px; }
+
+/* Test Details Section */
+.section-header { background: #1a4a6e; color: white; padding: 10px 15px; font-weight: bold; font-size: 12px; margin: 15px 0 0 0; border-radius: 4px 4px 0 0; }
+
+/* Results Table */
+.results-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; margin-bottom: 15px; }
+.results-table th { background: #455a64; color: white; padding: 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+.results-table td { padding: 10px; border-bottom: 1px solid #eee; font-size: 11px; }
+.results-table tbody tr:nth-child(even) { background: #f5f5f5; }
+.results-table .col-param { width: 35%; }
+.results-table .col-result { width: 20%; font-weight: bold; }
+.results-table .col-unit { width: 15%; color: #666; }
+.results-table .col-range { width: 20%; color: #888; font-size: 10px; }
+.results-table .col-status { width: 10%; text-align: center; }
+
+/* Result Status */
+.result-normal { color: #2e7d32; }
+.result-abnormal { color: #c62828; font-weight: bold; }
+.result-critical { color: #b71c1c; font-weight: bold; background: #ffebee; }
+
+/* Comments Section */
+.comments-section { background: #fff8e1; border-left: 4px solid #ffc107; padding: 12px; margin: 15px 0; border-radius: 0 4px 4px 0; }
+.comments-title { font-weight: bold; color: #f57c00; margin-bottom: 5px; }
+
+/* Signature Section */
+.signature-section { display: table; width: 100%; margin-top: 30px; padding-top: 15px; border-top: 2px solid #1a4a6e; }
+.signature-block { display: table-cell; width: 50%; text-align: center; padding: 10px; }
+.signature-line { border-top: 1px solid #333; width: 60%; margin: 30px auto 5px auto; }
+.signature-name { font-weight: bold; }
+.signature-title { font-size: 10px; color: #666; }
+
+/* Footer */
+.test-footer { margin-top: 20px; text-align: center; font-size: 9px; color: #888; border-top: 1px solid #ddd; padding-top: 10px; }
+</style>
+{% if letter_head and not no_letterhead %}<div class="letter-head">{{ letter_head }}</div>{% else %}<div style="min-height: 100px;"></div>{% endif %}
+
+
+<div class="lab-test">
+
+    <!-- Test Info -->
+    <div style="display: table; width: 100%; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 3px solid #1a4a6e;">
+        <div style="display: table-cell; width: 60%; vertical-align: middle;">
+            <div style="font-size: 18px; font-weight: bold; color: #333;">LAB TEST REPORT</div>
+            <div style="font-size: 12px; color: #1a4a6e; margin-top: 5px;">{{ doc.name }}</div>
+            <div class="status-badge status-{{ (doc.status or 'draft') | lower | replace(' ', '-') }}">{{ doc.status or 'Draft' }}</div>
+        </div>
+        <div style="display: table-cell; width: 40%; vertical-align: middle; text-align: right;">
+            <span style="background: white; padding: 3px; border: 1px solid #ddd; border-radius: 4px; display: inline-block; margin-right: 10px;"><img src="{{ generate_qr_code_base64(doc.name, 40) }}" width="40" height="40" alt="QR"/></span>
+            <span style="background: #f5f5f5; padding: 5px 10px; border-radius: 4px; display: inline-block;">
+                {{ generate_barcode_svg(doc.name) | safe }}
+            </span>
+        </div>
+    </div>
+<!-- Patient & Test Info -->
+    <div class="info-cards">
+        <div class="info-card">
+            <div class="info-card-box">
+                <div class="info-card-title">Patient Information</div>
+                <div class="info-row"><span class="info-label">Patient Name</span><span class="info-value">{{ doc.patient_name or doc.patient }}</span></div>
+                <div class="info-row"><span class="info-label">Patient ID</span><span class="info-value">{{ doc.patient }}</span></div>
+                <div class="info-row"><span class="info-label">Age / Gender</span><span class="info-value">{{ doc.patient_age or '-' }} / {{ doc.patient_sex or '-' }}</span></div>
+                {% if doc.practitioner %}
+                <div class="info-row"><span class="info-label">Referred By</span><span class="info-value">{{ doc.practitioner_name or doc.practitioner }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="info-card">
+            <div class="info-card-box">
+                <div class="info-card-title">Test Information</div>
+                <div class="info-row"><span class="info-label">Test Name</span><span class="info-value">{{ doc.lab_test_name or doc.template }}</span></div>
+                <div class="info-row"><span class="info-label">Template</span><span class="info-value">{{ doc.template or '-' }}</span></div>
+                <div class="info-row"><span class="info-label">Sample</span><span class="info-value">{{ doc.sample or '-' }}</span></div>
+                <div class="info-row"><span class="info-label">Report Date</span><span class="info-value">{{ format_report_date(doc.result_date) if doc.result_date else format_report_date(doc.creation) }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Results -->
+    {% if doc.normal_test_items and doc.normal_test_items | length > 0 %}
+    <div class="section-header">Test Results</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th class="col-param">Parameter</th>
+                <th class="col-result">Result</th>
+                <th class="col-unit">Unit</th>
+                <th class="col-range">Reference Range</th>
+                <th class="col-status">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.normal_test_items %}
+            {% if item.require_result_value %}
+            <tr class="{% if item.result_value and item.normal_range %}{% set val = item.result_value | float(default=0) %}{% set parts = item.normal_range.split('-') %}{% if parts | length == 2 %}{% set min_val = parts[0] | float(default=0) %}{% set max_val = parts[1] | float(default=999999) %}{% if val < min_val or val > max_val %}result-abnormal{% endif %}{% endif %}{% endif %}">
+                <td class="col-param">{{ item.lab_test_name }}</td>
+                <td class="col-result">{{ item.result_value or '-' }}</td>
+                <td class="col-unit">{{ item.lab_test_uom or '' }}</td>
+                <td class="col-range">{{ item.normal_range or '-' }}</td>
+                <td class="col-status">
+                    {% if item.custom_is_completed %}
+                    <span style="color: #2e7d32;">&#10004;</span>
+                    {% else %}
+                    <span style="color: #888;">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Descriptive Results -->
+    {% if doc.descriptive_test_items and doc.descriptive_test_items | length > 0 %}
+    <div class="section-header">Descriptive Results</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width: 30%;">Test</th>
+                <th style="width: 70%;">Result / Finding</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.descriptive_test_items %}
+            <tr>
+                <td><b>{{ item.lab_test_particulars }}</b></td>
+                <td>{{ item.result_value or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Comments -->
+    {% if doc.custom_comments or doc.lab_test_comment %}
+    <div class="comments-section">
+        <div class="comments-title">Comments / Remarks</div>
+        {{ doc.custom_comments or doc.lab_test_comment }}
+    </div>
+    {% endif %}
+
+    <!-- Signature Section -->
+    <div class="signature-section">
+        <div class="signature-block">
+            {% if doc.lab_technician_signature %}<img src="{{ doc.lab_technician_signature }}" style="max-height:45px; margin-bottom:5px;" alt="Signature"/>{% endif %}
+            <div class="signature-line"></div>
+            <div class="signature-name">{{ doc.lab_technician or doc.employee_name or 'Lab Technician' }}</div>
+            <div class="signature-title">Lab Technologist</div>
+        </div>
+        <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-name">{{ doc.submitted_by or 'Pathologist' }}</div>
+            <div class="signature-title">Verified By</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="test-footer">
+        <div>This is a computer-generated report. Test ID: {{ doc.name }}</div>
+        <div>Generated on {{ frappe.utils.now_datetime().strftime('%d-%b-%Y %H:%M') }}</div>
+    </div>
+</div>
+{% if footer and not no_letterhead %}<div class="letter-head-footer">{{ footer }}</div>{% endif %}

@@ -213,6 +213,9 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 					"collected_by": None,
 					"received_datetime": None,
 					"processed_datetime": None,
+					# Propagate the billing "Mark as Urgent" choice onto the sample
+					# so Collection / Lab Sample / Results all show it as urgent.
+					"is_urgent": 1 if bd.get("mark_urgent") else 0,
 				},
 				update_modified=False,
 			)

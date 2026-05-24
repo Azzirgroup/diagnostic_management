@@ -35,7 +35,7 @@ _LIST_FIELDS = [
 	"collected_time", "collected_by", "num_print", "sample_details",
 	"referring_practitioner", "status", "workflow_status", "barcode", "container",
 	"received_condition", "collection_point", "service_request", "docstatus",
-	"rejection_reason_text",
+	"rejection_reason_text", "is_urgent",
 ]
 
 

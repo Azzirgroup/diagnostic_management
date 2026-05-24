@@ -46,6 +46,7 @@ jinja = {
 	"methods": [
 		"diagnostic_management.utils.formatters.generate_barcode_svg",
 		"diagnostic_management.utils.formatters.generate_barcode_base64",
+		"diagnostic_management.utils.formatters.generate_qr_code_base64",
 		"diagnostic_management.utils.formatters.format_report_datetime",
 		"diagnostic_management.utils.formatters.format_report_date",
 		"diagnostic_management.utils.formatters.format_patient_age",

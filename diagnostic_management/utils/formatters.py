@@ -71,6 +71,40 @@ def generate_barcode_base64(data, barcode_type: str = "code128") -> str:
 		return ""
 
 
+def generate_qr_code_base64(data, size: int = 100) -> str:
+	"""Return a data: URI PNG QR code for `data` (for <img src=...>).
+
+	Uses pyqrcode + pypng (both shipped in the bench env); resizes to `size`px
+	with Pillow when available. Empty string when data is blank or on error.
+	"""
+	if not data:
+		return ""
+	try:
+		import base64
+		import io
+
+		import pyqrcode
+
+		qr = pyqrcode.create(str(data))
+		buffer = io.BytesIO()
+		qr.png(buffer, scale=4, quiet_zone=2)
+		buffer.seek(0)
+		try:
+			from PIL import Image
+
+			img = Image.open(buffer).convert("RGB").resize((int(size), int(size)))
+			out = io.BytesIO()
+			img.save(out, format="PNG")
+			payload = out.getvalue()
+		except Exception:
+			payload = buffer.getvalue()
+		encoded = base64.b64encode(payload).decode("utf-8")
+		return f"data:image/png;base64,{encoded}"
+	except Exception:
+		frappe.log_error(title="ADMS: QR PNG generation failed")
+		return ""
+
+
 def format_report_datetime(dt, format_str: str = "dd-MMM-yyyy HH:mm") -> str:
 	"""Format a datetime using simple dd/MMM/yyyy/HH/mm tokens. '-' when empty."""
 	if not dt:

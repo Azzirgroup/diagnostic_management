@@ -12,6 +12,24 @@ import json
 
 import frappe
 
+# Role that must authorize an URGENT case before it can be Verified & Released.
+URGENT_REVIEW_ROLE = "Urgent Review Officer"
+
+
+def _sample_is_urgent(sample: str) -> bool:
+	"""A sample is urgent if the Sample Collection is flagged `is_urgent`, or any
+	of its lab tests' Service Requests has Urgent/STAT priority (a Code Value like
+	"Urgent-Priority"/"STAT-Priority")."""
+	if frappe.db.get_value("Sample Collection", sample, "is_urgent"):
+		return True
+	srs = [s for s in frappe.get_all("Lab Test", filters={"sample": sample}, pluck="service_request") if s]
+	if srs:
+		for p in frappe.get_all("Service Request", filters={"name": ["in", srs]}, pluck="priority"):
+			low = (p or "").lower()
+			if "urgent" in low or "stat" in low:
+				return True
+	return False
+
 
 def _allow_blanks(doc) -> None:
 	"""Let a test complete even if some required result rows are left empty —
@@ -61,13 +79,38 @@ def get_sample(sample: str) -> dict:
 	"""
 	sc = frappe.db.get_value("Sample Collection", sample, ["patient", "patient_name", "sample"], as_dict=True) or {}
 	lab_tests = frappe.get_all("Lab Test", filters={"sample": sample}, order_by="creation", pluck="name")
+
+	# Urgent-review state: an urgent sample needs an Urgent Review Officer to
+	# authorize the report before it can be Verified & Released.
+	is_urgent = _sample_is_urgent(sample)
+	report = _report_for_sample(sample)
+	urgent_authorized = 0
+	if report:
+		urgent_authorized = 1 if frappe.db.get_value("Diagnostic Report", report, "urgent_review_status") == "Authorized" else 0
+
 	return {
 		"sample": sample,
 		"patient": sc.get("patient"),
 		"patient_name": sc.get("patient_name"),
 		"sample_type": sc.get("sample"),
 		"lab_tests": [_lab_test_rows(frappe.get_doc("Lab Test", n)) for n in lab_tests],
+		"is_urgent": 1 if is_urgent else 0,
+		"report": report,
+		"urgent_authorized": urgent_authorized,
+		"can_authorize_urgent": 1 if URGENT_REVIEW_ROLE in frappe.get_roles() else 0,
 	}
+
+
+def _report_for_sample(sample: str) -> str | None:
+	"""The Diagnostic Report for a Sample Collection, if one exists yet."""
+	if not frappe.db.exists("DocType", "Diagnostic Report"):
+		return None
+	fields = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+	if "sample_collection" in fields:
+		found = frappe.db.get_value("Diagnostic Report", {"sample_collection": sample}, "name")
+		if found:
+			return found
+	return frappe.db.get_value("Diagnostic Report", {"ref_doctype": "Sample Collection", "docname": sample}, "name")
 
 
 @frappe.whitelist()
@@ -119,12 +162,18 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 	if not existing:
 		existing = frappe.db.get_value("Diagnostic Report", {"ref_doctype": "Sample Collection", "docname": sample}, "name")
 	sc = frappe.db.get_value("Sample Collection", sample, ["patient", "company", "referring_practitioner"], as_dict=True) or {}
+	urgent = _sample_is_urgent(sample)
 	if existing:
 		updates = {}
 		if "is_critical" in fields and is_critical:
 			updates["is_critical"] = 1
 		if "conclusion" in fields and conclusion:
 			updates["conclusion"] = conclusion
+		if "is_urgent" in fields and urgent:
+			updates["is_urgent"] = 1
+			# Start the review gate as Pending (don't clobber a prior Authorized).
+			if "urgent_review_status" in fields and not frappe.db.get_value("Diagnostic Report", existing, "urgent_review_status"):
+				updates["urgent_review_status"] = "Pending"
 		if updates:
 			frappe.db.set_value("Diagnostic Report", existing, updates)
 		return existing
@@ -142,6 +191,10 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 			payload["is_critical"] = 1
 		if "conclusion" in fields and conclusion:
 			payload["conclusion"] = conclusion
+		if "is_urgent" in fields and urgent:
+			payload["is_urgent"] = 1
+			if "urgent_review_status" in fields:
+				payload["urgent_review_status"] = "Pending"
 		dr = frappe.get_doc(payload)
 		dr.insert(ignore_permissions=True)
 		return dr.name
@@ -248,6 +301,15 @@ def approve_report(
 	technologist and pathologist signatures (data-URL PNGs)."""
 	doc = frappe.get_doc("Diagnostic Report", report)
 	fns = {df.fieldname for df in doc.meta.fields}
+
+	# Urgent gate: an urgent report can't be released until an Urgent Review
+	# Officer has authorized it. Enforced server-side (not just hidden in the UI).
+	if "is_urgent" in fns and doc.get("is_urgent") and doc.get("urgent_review_status") != "Authorized":
+		frappe.throw(
+			"This is an URGENT case. An Urgent Review Officer must authorize it before it can be Verified & Released.",
+			title="Urgent Review Required",
+		)
+
 	doc.db_set("status", "Approved")
 
 	def setf(field, value):
@@ -282,6 +344,34 @@ def approve_report(
 			"pathologist_signature": pathologist_signature,
 		})
 	return {"ok": True, "report": report, "status": "Approved", "lab_report": lab_report}
+
+
+@frappe.whitelist()
+def authorize_urgent_review(sample: str) -> dict:
+	"""An Urgent Review Officer authorizes an urgent sample's report so it can be
+	Verified & Released. Only that role may call this; enforced server-side."""
+	if URGENT_REVIEW_ROLE not in frappe.get_roles():
+		frappe.throw(
+			f"Only an {URGENT_REVIEW_ROLE} can authorize urgent reviews.",
+			frappe.PermissionError,
+			title="Not Permitted",
+		)
+	report = _report_for_sample(sample)
+	if not report:
+		frappe.throw("No report exists for this sample yet. Complete the results first.")
+	fns = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+	updates = {}
+	if "urgent_review_status" in fns:
+		updates["urgent_review_status"] = "Authorized"
+	if "urgent_reviewed_by" in fns:
+		updates["urgent_reviewed_by"] = frappe.session.user
+	if "urgent_reviewed_at" in fns:
+		updates["urgent_reviewed_at"] = frappe.utils.now_datetime()
+	if updates:
+		frappe.db.set_value("Diagnostic Report", report, updates)
+	doc = frappe.get_doc("Diagnostic Report", report)
+	doc.add_comment("Comment", text=f"<b>Urgent Review Authorized</b><br>By: {frappe.utils.escape_html(frappe.session.user)}")
+	return {"ok": True, "report": report, "urgent_review_status": "Authorized", "urgent_reviewed_by": frappe.session.user}
 
 
 @frappe.whitelist()

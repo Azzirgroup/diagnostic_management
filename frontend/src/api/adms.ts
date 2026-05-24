@@ -67,6 +67,7 @@ export interface SampleRow {
   received_condition?: string
   rejection_reason_text?: string
   service_request?: string
+  is_urgent?: number
   docstatus?: number
   modified?: string
 }
@@ -379,7 +380,7 @@ export interface WorkflowSession {
     name: string
     samples: SampleRow[]
     lab_tests: Array<{ name: string; status?: string; docstatus?: number }>
-    reports: Array<{ name: string; status?: string; is_critical?: number; docname?: string; sample_collection?: string }>
+    reports: Array<{ name: string; status?: string; is_critical?: number; docname?: string; sample_collection?: string; is_urgent?: number; urgent_review_status?: string }>
     stage: number
     timeline_steps: string[]
   } | null
@@ -391,6 +392,11 @@ export interface SampleResults {
   patient?: string
   patient_name?: string
   sample_type?: string
+  // Urgent-review gate
+  is_urgent?: number
+  report?: string | null
+  urgent_authorized?: number
+  can_authorize_urgent?: number
   lab_tests: Array<{
     name: string
     template?: string
@@ -427,6 +433,10 @@ export const resultsApi = {
   // Build (or fetch) the verbatim genetest Lab Report doc for a sample, for printing.
   labReportForSample: (sample: string) =>
     call<string>('diagnostic_management.api.results.lab_report_for_sample', { sample }),
+  // Urgent Review Officer authorizes an urgent sample so it can be released.
+  authorizeUrgent: (sample: string) =>
+    call<{ ok: boolean; report: string; urgent_review_status: string; urgent_reviewed_by: string }>(
+      'diagnostic_management.api.results.authorize_urgent_review', { sample }),
 }
 
 export const workflowApi = {

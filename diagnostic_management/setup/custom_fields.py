@@ -302,5 +302,34 @@ def _field_map() -> dict[str, list[dict]]:
 				"fieldtype": "Data",
 				"insert_after": "pathologist_signature",
 			},
+			# Urgent-case authorization gate: an "Urgent Review Officer" must
+			# authorize an urgent report before it can be Verified & Released.
+			{
+				"fieldname": "is_urgent",
+				"label": "Urgent",
+				"fieldtype": "Check",
+				"default": "0",
+				"insert_after": "pathologist_name",
+			},
+			{
+				"fieldname": "urgent_review_status",
+				"label": "Urgent Review Status",
+				"fieldtype": "Select",
+				"options": "\nPending\nAuthorized",
+				"insert_after": "is_urgent",
+			},
+			{
+				"fieldname": "urgent_reviewed_by",
+				"label": "Urgent Reviewed By",
+				"fieldtype": "Link",
+				"options": "User",
+				"insert_after": "urgent_review_status",
+			},
+			{
+				"fieldname": "urgent_reviewed_at",
+				"label": "Urgent Reviewed At",
+				"fieldtype": "Datetime",
+				"insert_after": "urgent_reviewed_by",
+			},
 		],
 	}

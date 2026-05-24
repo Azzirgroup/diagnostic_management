@@ -163,9 +163,23 @@ def create_order(
 			# hook (controlled by Healthcare Settings) so the Sample
 			# Collection automatically appears in the Collection worklist.
 			_fan_out_to_lab_test(doc)
+			# Urgent/STAT order → flag its samples so Collection / Lab Sample /
+			# Results all show URGENT (and the urgent-review gate kicks in).
+			_low = (resolved_priority or "").lower()
+			if "urgent" in _low or "stat" in _low:
+				_flag_samples_urgent(doc.name)
 		created.append(doc.name)
 
 	return {"ok": True, "orders": created, "count": len(created)}
+
+
+def _flag_samples_urgent(service_request: str) -> None:
+	"""Set is_urgent on every Sample Collection raised for an order."""
+	from diagnostic_management.api.collection import resolve_order_samples
+	if "is_urgent" not in {df.fieldname for df in frappe.get_meta("Sample Collection").fields}:
+		return
+	for s in resolve_order_samples(service_request):
+		frappe.db.set_value("Sample Collection", s["name"], "is_urgent", 1, update_modified=False)
 
 
 def _fan_out_to_lab_test(service_request) -> str | None:
@@ -322,8 +336,10 @@ def detail(name: str) -> dict:
 	if report_or:
 		try:
 			report_fields = ["name", "status", "is_critical", "critical_acknowledged", "docname", "modified"]
-			if any(df.fieldname == "sample_collection" for df in frappe.get_meta("Diagnostic Report").fields):
-				report_fields.append("sample_collection")
+			_dr_fields = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+			for _f in ("sample_collection", "is_urgent", "urgent_review_status"):
+				if _f in _dr_fields:
+					report_fields.append(_f)
 			reports = frappe.get_all(
 				"Diagnostic Report",
 				fields=report_fields,

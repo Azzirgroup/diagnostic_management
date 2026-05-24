@@ -115,6 +115,16 @@ def update_lab_sample_status(sample_name: str, new_status: str, is_urgent: int =
 
 
 @frappe.whitelist()
+def set_sample_urgent(sample_name: str, is_urgent: int = 0) -> dict:
+	"""Persist just the urgent flag on a sample (no status/timestamp change), so
+	toggling Urgent in the Collection step takes effect immediately."""
+	if "is_urgent" not in {df.fieldname for df in frappe.get_meta("Sample Collection").fields}:
+		return {"success": False}
+	frappe.db.set_value("Sample Collection", sample_name, "is_urgent", 1 if int(is_urgent or 0) else 0, update_modified=False)
+	return {"success": True, "sample_name": sample_name, "is_urgent": 1 if int(is_urgent or 0) else 0}
+
+
+@frappe.whitelist()
 def collect_lab_samples(session_id: str | None = None, samples_data: list | str | None = None) -> dict:
 	data = json.loads(samples_data) if isinstance(samples_data, str) else (samples_data or [])
 	n = 0
