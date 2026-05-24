@@ -16,7 +16,7 @@ bench install-app diagnostic_management
 
 This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
 
-```bash
+```bas
 cd apps/diagnostic_management
 pre-commit install
 ```

@@ -57,6 +57,10 @@ export interface SampleRow {
   collected_time?: string
   collected_by?: string
   collection_point?: string
+  workflow_status?: string
+  num_print?: number
+  sample_details?: string
+  referring_practitioner?: string
   status: string
   container?: string
   barcode?: string
@@ -280,19 +284,162 @@ export const ordersApi = {
     call<{ ok: boolean; name: string; status: string }>('diagnostic_management.api.orders.cancel', { name, reason }),
   testCatalog: (query = '', limit = 50) =>
     call<CatalogItem[]>('diagnostic_management.api.orders.test_catalog', { query, limit }),
+  detail: (name: string) =>
+    call<OrderDetail>('diagnostic_management.api.orders.detail', { name }),
+  inProgress: (limit = 15) =>
+    call<InProgressOrder[]>('diagnostic_management.api.orders.in_progress', { limit }),
+}
+
+export interface InProgressOrder {
+  name: string
+  patient_name?: string
+  stage: number
+  stage_label: string
+  next_label: string
+  route: string
+  modified?: string
+}
+
+export interface OrderDetail extends Record<string, any> {
+  name: string
+  samples: SampleRow[]
+  lab_tests: Array<{ name: string; status?: string; docstatus?: number }>
+  timeline_steps: string[]
+  stage: number
 }
 
 // -------------------------------------------------------------------------
 // Collection / Sample
 // -------------------------------------------------------------------------
 
+// A `type` (not `interface`) so it's assignable to call()'s Record<string, unknown>.
+// `sample` is the Sample Collection document name; `specimen` maps to the
+// doctype's `sample` (Lab Test Sample) field.
+export type CollectPayload = {
+  sample: string
+  specimen?: string
+  sample_qty?: number
+  sample_uom?: string
+  collected_by?: string
+  collected_time?: string
+  num_print?: number
+  collection_point?: string
+  referring_practitioner?: string
+  barcode?: string
+  container?: string
+  received_condition?: string
+  sample_details?: string
+}
+
 export const collectionApi = {
   worklist: (status?: string, limit = 100) =>
     call<SampleRow[]>('diagnostic_management.api.collection.worklist', { status, limit }),
-  markCollected: (sample: string, container?: string, barcode?: string) =>
-    call<{ ok: boolean; sample: string; status: string }>('diagnostic_management.api.collection.mark_collected', { sample, container, barcode }),
+  markCollected: (payload: CollectPayload) =>
+    call<{ ok: boolean; sample: string; status: string }>('diagnostic_management.api.collection.mark_collected', payload),
+  advanceStatus: (sample: string, new_status: string, note?: string) =>
+    call<{ ok: boolean; sample: string; workflow_status: string }>('diagnostic_management.api.collection.advance_status', { sample, new_status, note }),
+  forOrder: (service_request: string, limit = 50) =>
+    call<SampleRow[]>('diagnostic_management.api.collection.for_order', { service_request, limit }),
+  serviceUnits: () =>
+    call<Array<{ name: string }>>('diagnostic_management.api.collection.service_units', {}),
+  sampleTypes: () =>
+    call<Array<{ name: string }>>('diagnostic_management.api.collection.sample_types', {}),
+  collectors: () =>
+    call<Array<{ name: string; full_name?: string }>>('diagnostic_management.api.collection.collectors', {}),
+  practitioners: () =>
+    call<Array<{ name: string; practitioner_name?: string }>>('diagnostic_management.api.collection.practitioners', {}),
+  companies: () =>
+    call<Array<{ name: string }>>('diagnostic_management.api.collection.companies', {}),
+  observationTemplates: () =>
+    call<Array<{ name: string }>>('diagnostic_management.api.collection.observation_templates', {}),
+  saveCollection: (payload: { name: string; values: Record<string, unknown>; rows: Array<Record<string, unknown>>; collect?: number }) =>
+    call<{ ok: boolean; name: string; status?: string; collected_time?: string }>('diagnostic_management.api.collection.save_collection', payload),
   accessionQueue: (limit = 100) =>
     call<SampleRow[]>('diagnostic_management.api.collection.accession_queue', { limit }),
+}
+
+export const scanApi = {
+  resolve: (code: string) =>
+    call<{ found: boolean; doctype?: string; name?: string; route?: string }>('diagnostic_management.api.scan.resolve', { code }),
+}
+
+// -------------------------------------------------------------------------
+// Lab Workflow Session (single-page wizard)
+// -------------------------------------------------------------------------
+export interface WorkflowSession {
+  name: string
+  patient?: string
+  patient_name?: string
+  status?: string
+  current_step?: number
+  service_request?: string
+  draft_data?: string
+  samples?: Array<{ sample: string; sample_label?: string; workflow_status?: string }>
+  order_detail?: {
+    name: string
+    samples: SampleRow[]
+    lab_tests: Array<{ name: string; status?: string; docstatus?: number }>
+    reports: Array<{ name: string; status?: string; is_critical?: number; docname?: string; sample_collection?: string }>
+    stage: number
+    timeline_steps: string[]
+  } | null
+}
+
+// Sample-centric results (one report per sample, genetest-style)
+export interface SampleResults {
+  sample: string
+  patient?: string
+  patient_name?: string
+  sample_type?: string
+  lab_tests: Array<{
+    name: string
+    template?: string
+    status?: string
+    docstatus?: number
+    normal_test_items: Array<{ name: string; lab_test_name?: string; result_value?: string; normal_range?: string; lab_test_uom?: string; lab_test_comment?: string }>
+    descriptive_test_items: Array<{ name: string; lab_test_particulars?: string; result_value?: string }>
+  }>
+}
+
+// Lab Test result entry
+export interface LabTestResult {
+  name: string
+  patient?: string
+  patient_name?: string
+  template?: string
+  status?: string
+  docstatus?: number
+  normal_test_items: Array<{ name: string; idx: number; lab_test_name?: string; result_value?: string; normal_range?: string; lab_test_uom?: string; lab_test_comment?: string; allow_blank?: number; require_result_value?: number }>
+  descriptive_test_items: Array<{ name: string; idx: number; lab_test_particulars?: string; result_value?: string; allow_blank?: number; require_result_value?: number }>
+}
+
+export const resultsApi = {
+  getLabTest: (name: string) =>
+    call<LabTestResult>('diagnostic_management.api.results.get_lab_test', { name }),
+  save: (payload: { name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>>; complete?: number; is_critical?: number; conclusion?: string }) =>
+    call<{ ok: boolean; name: string; status?: string; docstatus?: number; report?: string }>('diagnostic_management.api.results.save_results', payload),
+  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string }) =>
+    call<{ ok: boolean; report: string; status: string }>('diagnostic_management.api.results.approve_report', payload),
+  getSample: (sample: string) =>
+    call<SampleResults>('diagnostic_management.api.results.get_sample', { sample }),
+  saveSample: (payload: { sample: string; tests: Array<{ name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>> }>; complete?: number; is_critical?: number; conclusion?: string }) =>
+    call<{ ok: boolean; sample: string; report?: string }>('diagnostic_management.api.results.save_sample', payload),
+  // Build (or fetch) the verbatim genetest Lab Report doc for a sample, for printing.
+  labReportForSample: (sample: string) =>
+    call<string>('diagnostic_management.api.results.lab_report_for_sample', { sample }),
+}
+
+export const workflowApi = {
+  create: (patient?: string) =>
+    call<WorkflowSession>('diagnostic_management.api.workflow.create_session', { patient }),
+  get: (name: string) =>
+    call<WorkflowSession>('diagnostic_management.api.workflow.get_session', { name }),
+  save: (payload: { name: string; current_step?: number; patient?: string; service_request?: string; draft_data?: string; status?: string }) =>
+    call<WorkflowSession>('diagnostic_management.api.workflow.save_session', payload),
+  complete: (name: string) =>
+    call<{ ok: boolean; name: string }>('diagnostic_management.api.workflow.complete_session', { name }),
+  listOpen: (limit = 20) =>
+    call<Array<{ name: string; patient?: string; patient_name?: string; status?: string; current_step?: number; service_request?: string }>>('diagnostic_management.api.workflow.list_open', { limit }),
 }
 
 export const sampleApi = {
@@ -517,6 +664,15 @@ export const billingApi = {
   forPatient: (patient: string, limit = 50) =>
     call<InvoiceRow[]>('diagnostic_management.api.billing.for_patient', { patient, limit }),
   summary: () => call<BillingSummary>('diagnostic_management.api.billing.summary'),
+  createInvoiceForTests: (payload: {
+    patient: string
+    items: Array<{ template_dt: string; template_dn: string; qty?: number; discount_percentage?: number; label?: string }>
+    service_requests?: string[]
+    mode_of_payment?: string
+    paid_amount?: number
+    reference_no?: string
+    submit?: number
+  }) => call<{ ok: boolean; invoice: string; grand_total: number; outstanding: number; docstatus: number; payment?: any }>('diagnostic_management.api.billing.create_invoice_for_tests', payload),
 }
 
 // -------------------------------------------------------------------------

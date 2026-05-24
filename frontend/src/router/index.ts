@@ -63,6 +63,9 @@ if (base === '/doctor-login') {
       meta: { requiresAuth: true, portal: 'staff' },
       children: [
         { path: '', name: 'home', component: () => import('@/pages/staff/Home.vue') },
+        { path: 'workflow', name: 'workflow', component: () => import('@/pages/staff/Workflow.vue') },
+        { path: 'workflow/new', name: 'workflow-new', component: () => import('@/pages/staff/WorkflowWizard.vue') },
+        { path: 'workflow/:session', name: 'workflow-session', component: () => import('@/pages/staff/WorkflowWizard.vue') },
         { path: 'patients', name: 'patients', component: () => import('@/pages/staff/Patients.vue') },
         { path: 'patients/new', name: 'patient-new', component: () => import('@/pages/staff/NewPatient.vue') },
         { path: 'patients/:name', name: 'patient-detail', component: () => import('@/pages/staff/PatientProfile.vue') },
@@ -74,6 +77,8 @@ if (base === '/doctor-login') {
         { path: 'lab', name: 'lab', component: () => import('@/pages/staff/LabHub.vue') },
         { path: 'lab/accession', name: 'lab-accession', component: () => import('@/pages/staff/SampleAccession.vue') },
         { path: 'lab/sample/:name', name: 'sample-detail', component: () => import('@/pages/staff/SampleDetail.vue') },
+        { path: 'lab/sample/:name/collect', name: 'sample-collect', component: () => import('@/pages/staff/SampleCollectionForm.vue') },
+        { path: 'lab/result/:name', name: 'result-entry', component: () => import('@/pages/staff/ResultEntry.vue') },
         { path: 'lab/reagents', name: 'reagents', component: () => import('@/pages/staff/Reagents.vue') },
         { path: 'lab/instruments', name: 'instruments', component: () => import('@/pages/staff/LabInstruments.vue') },
         { path: 'lab/qc', name: 'qc', component: () => import('@/pages/staff/QcStation.vue') },

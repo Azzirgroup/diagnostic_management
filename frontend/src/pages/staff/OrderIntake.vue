@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
-import SearchBar from '@/components/ui/SearchBar.vue'
-import { patientsApi, ordersApi, type CatalogItem, type PatientLite } from '@/api/adms'
+import Combobox from '@/components/ui/Combobox.vue'
+import { patientsApi, ordersApi, collectionApi, type CatalogItem, type PatientLite } from '@/api/adms'
 import { getDoc } from '@/api/client'
 
 type Test = { name: string; lab_test_name: string; lab_test_rate?: number; sample?: string; template_dt: string }
 
-const patientSearch = ref('')
-const patients = ref<PatientLite[]>([])
 const selectedPatient = ref<PatientLite | null>(null)
 
-const testQuery = ref('')
 const tab = ref<'lab' | 'rad' | 'pkg' | 'fav'>('lab')
-const tests = ref<Test[]>([])
 const selectedTests = ref<Test[]>([])
+
+// Combobox accessors.
+const patientKey = (p: PatientLite) => p.name
+const patientLabel = (p: PatientLite) => p.patient_name || p.name
+const patientSub = (p: PatientLite) => `${p.sex || '—'} · ${p.mobile || 'no phone'}`
+const testKey = (t: Test) => t.name
+const testLabel = (t: Test) => t.lab_test_name
+const testSub = (t: Test) => (t.sample ? `Specimen: ${t.sample}` : '')
 
 const priority = ref<'Routine' | 'High' | 'Stat'>('Routine')
 const sampleComments = ref('')
@@ -89,15 +93,17 @@ const discountAmount = computed(() => {
 })
 const total = computed(() => Math.max(subtotal.value - discountAmount.value, 0))
 
-async function searchPatients() {
-  if (!patientSearch.value) return (patients.value = [])
-  try { patients.value = await patientsApi.search(patientSearch.value, 6) } catch { patients.value = [] }
+// Click-to-open patient picker: empty query returns all recent patients.
+async function loadPatients(q: string): Promise<PatientLite[]> {
+  try { return await patientsApi.search(q, q ? 10 : 50) } catch { return [] }
 }
 
-async function loadTests() {
+// Test/service picker, scoped to the active tab (Radiology → procedures,
+// otherwise lab templates). Empty query returns the full catalog.
+async function loadTestOptions(q: string): Promise<Test[]> {
   try {
-    const catalog: CatalogItem[] = await ordersApi.testCatalog(testQuery.value, 30)
-    tests.value = catalog
+    const catalog: CatalogItem[] = await ordersApi.testCatalog(q, 30)
+    return catalog
       .filter((c) => (tab.value === 'rad' ? c.category === 'Procedure' : c.category === 'Lab'))
       .map((c) => ({
         name: c.template_dn,
@@ -106,12 +112,8 @@ async function loadTests() {
         sample: c.sample,
         template_dt: c.template_dt,
       }))
-  } catch { tests.value = [] }
+  } catch { return [] }
 }
-
-// When the user switches tabs, refresh the catalog so the right templates
-// show up. Otherwise the Radiology tab keeps showing the Lab test list.
-watch(tab, () => { loadTests() })
 
 // Try to auto-derive modality + body part from the picked procedure name
 // (e.g. "MRI Brain Plain" → MRI / Brain). The user can still override.
@@ -126,7 +128,6 @@ function deriveImagingFromTemplate(t: Test) {
   if (part && !imagingBodyPart.value) imagingBodyPart.value = part
 }
 onMounted(async () => {
-  await loadTests()
   await loadForEdit()
 })
 
@@ -177,7 +178,20 @@ async function saveOrder(submit: boolean) {
         submit: submit ? 1 : 0,
       })
       if (r.orders && r.orders.length) {
-        router.push(`/orders/${r.orders[0]}`)
+        const order = r.orders[0]
+        // Guided flow: a submitted order has spun up its Sample Collection,
+        // so jump straight to the collection step. Drafts (and imaging orders
+        // with no sample) fall back to the order detail.
+        if (submit) {
+          try {
+            const samples = await collectionApi.forOrder(order)
+            if (samples.length) {
+              router.push(`/lab/sample/${samples[0].name}/collect?order=${order}`)
+              return
+            }
+          } catch { /* fall through to order detail */ }
+        }
+        router.push(`/orders/${order}`)
       } else {
         router.push('/orders')
       }
@@ -197,20 +211,16 @@ async function saveOrder(submit: boolean) {
   <!-- Patient -->
   <div class="card p-5 mb-4">
     <div class="text-sm font-semibold text-surface-800 mb-3">1. Select Patient</div>
-    <SearchBar v-model="patientSearch" placeholder="Search by name, MRN, phone number..." @update:modelValue="searchPatients" />
-    <div v-if="patients.length" class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-      <button
-        v-for="p in patients"
-        :key="p.name"
-        class="text-left p-3 border border-surface-200 rounded-lg hover:border-brand-teal-500 hover:bg-brand-teal-50/30"
-        :class="{ 'border-brand-teal-500 bg-brand-teal-50/40': selectedPatient?.name === p.name }"
-        @click="selectedPatient = p"
-      >
-        <div class="font-medium text-surface-800">{{ p.patient_name }}</div>
-        <div class="text-xs text-surface-500">{{ p.sex || '—' }} · {{ p.mobile || 'no phone' }}</div>
-      </button>
-    </div>
-    <div v-else-if="selectedPatient" class="mt-3 text-sm text-surface-700">
+    <Combobox
+      placeholder="Click to see all patients, or search by name, MRN, phone…"
+      :load-options="loadPatients"
+      :option-key="patientKey"
+      :option-label="patientLabel"
+      :option-subtitle="patientSub"
+      :model-label="selectedPatient?.patient_name"
+      @select="(p) => (selectedPatient = p)"
+    />
+    <div v-if="selectedPatient" class="mt-2 text-sm text-surface-700">
       Selected: <span class="font-medium">{{ selectedPatient.patient_name }}</span>
     </div>
   </div>
@@ -225,17 +235,16 @@ async function saveOrder(submit: boolean) {
         <button :class="['btn-ghost', tab === 'pkg' && '!bg-brand-navy-700 !text-white !border-transparent']" @click="tab = 'pkg'">Packages</button>
         <button :class="['btn-ghost', tab === 'fav' && '!bg-brand-navy-700 !text-white !border-transparent']" @click="tab = 'fav'">Favorites</button>
       </div>
-      <SearchBar v-model="testQuery" placeholder="Search tests (e.g., CBC, Lipid Profile...)" @update:modelValue="loadTests" />
-
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button
-          v-for="t in tests.slice(0, 6)" :key="t.name"
-          class="btn-ghost !py-1.5 !text-xs"
-          @click="addTest(t)"
-        >
-          + {{ t.lab_test_name }}
-        </button>
-      </div>
+      <Combobox
+        placeholder="Click to browse, or search tests (CBC, Lipid Profile…)"
+        :load-options="loadTestOptions"
+        :option-key="testKey"
+        :option-label="testLabel"
+        :option-subtitle="testSub"
+        clear-on-select
+        keep-open-on-select
+        @select="addTest"
+      />
 
       <div class="mt-5 font-semibold text-sm text-surface-700">Selected Tests ({{ selectedTests.length }})</div>
       <table class="w-full mt-2 text-sm">

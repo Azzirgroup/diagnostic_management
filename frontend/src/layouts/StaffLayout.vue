@@ -23,6 +23,7 @@ const isManager = computed(() => {
 const items = computed(() => {
   const all = [
     { to: '/', label: 'Home', icon: 'home', key: 'home' },
+    { to: '/workflow', label: 'Workflow', icon: 'workflow', key: 'workflow' },
     { to: '/patients', label: 'Patients', icon: 'patients', key: 'patients' },
     { to: '/orders', label: 'Test Orders', icon: 'orders', key: 'orders' },
     { to: '/collection', label: 'Collection', icon: 'collection', key: 'collection' },

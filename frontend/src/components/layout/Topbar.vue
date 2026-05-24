@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
-import SearchBar from '@/components/ui/SearchBar.vue'
+import GlobalSearch from '@/components/layout/GlobalSearch.vue'
 
 defineProps<{ title: string; subtitle?: string }>()
 
@@ -20,8 +20,8 @@ async function onLogout() {
       <h1 class="text-2xl font-semibold text-surface-800">{{ title }}</h1>
       <p v-if="subtitle" class="text-sm text-surface-500 mt-0.5">{{ subtitle }}</p>
     </div>
-    <div class="w-72 hidden md:block">
-      <SearchBar placeholder="Search patients, orders, samples..." :show-kbd-hint="true" />
+    <div class="w-80 hidden md:block">
+      <GlobalSearch />
     </div>
     <button class="btn-ghost hidden md:flex">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

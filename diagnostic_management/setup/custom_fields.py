@@ -171,6 +171,54 @@ def _field_map() -> dict[str, list[dict]]:
 				"insert_after": "naming_series",
 			},
 			{
+				"fieldname": "container",
+				"label": "Container / Tube",
+				"fieldtype": "Select",
+				# Tube-cap colour vocabulary — aligns with the container colours
+				# seeded against Sample Type in setup/seed_data.py, plus the
+				# common additional cap colours.
+				"options": "\nRed\nGold\nLavender\nGreen\nGrey\nBlue\nYellow\nBrown\nWhite\nClear\nOther",
+				"insert_after": "barcode",
+			},
+			{
+				"fieldname": "workflow_status",
+				"label": "Workflow Status",
+				"fieldtype": "Select",
+				# Specimen lifecycle ported from the Genetest system. Drives the
+				# guided workflow (Order → Collection → Store → Result). Distinct
+				# from Marley's `status` (Pending/Partly Collected/Collected),
+				# which validate() force-sets and can't hold "Stored".
+				"options": "To Be Collected\nCollected\nIn Transit\nReceived\nIn Processing\nTested\nStored\nRejected",
+				"default": "To Be Collected",
+				"insert_after": "status",
+			},
+			{
+				"fieldname": "is_urgent",
+				"label": "Urgent",
+				"fieldtype": "Check",
+				"default": "0",
+				"insert_after": "workflow_status",
+			},
+			{
+				"fieldname": "received_datetime",
+				"label": "Received On",
+				"fieldtype": "Datetime",
+				"insert_after": "collected_time",
+			},
+			{
+				"fieldname": "processed_datetime",
+				"label": "Processed On",
+				"fieldtype": "Datetime",
+				"insert_after": "received_datetime",
+			},
+			{
+				"fieldname": "department_barcodes",
+				"label": "Department Barcodes",
+				"fieldtype": "Table",
+				"options": "Sample Department Barcode",
+				"insert_after": "processed_datetime",
+			},
+			{
 				"fieldname": "received_condition",
 				"label": "Received Condition",
 				"fieldtype": "Select",
@@ -204,6 +252,55 @@ def _field_map() -> dict[str, list[dict]]:
 				"label": "Critical Acknowledged At",
 				"fieldtype": "Datetime",
 				"insert_after": "critical_acknowledged",
+			},
+			{
+				"fieldname": "diagnosis",
+				"label": "Provisional Diagnosis",
+				"fieldtype": "Small Text",
+				"insert_after": "critical_acknowledged_at",
+			},
+			{
+				"fieldname": "clinical_notes",
+				"label": "Clinical Notes",
+				"fieldtype": "Long Text",
+				"insert_after": "diagnosis",
+			},
+			{
+				"fieldname": "pathologist_remarks",
+				"label": "Pathologist Remarks",
+				"fieldtype": "Small Text",
+				"insert_after": "clinical_notes",
+			},
+			{
+				"fieldname": "accreditation_type",
+				"label": "Accreditation",
+				"fieldtype": "Data",
+				"insert_after": "pathologist_remarks",
+			},
+			{
+				"fieldname": "report_signature",
+				"label": "Technologist Signature",
+				"fieldtype": "Long Text",
+				"insert_after": "accreditation_type",
+			},
+			{
+				"fieldname": "signed_by",
+				"label": "Signed By",
+				"fieldtype": "Link",
+				"options": "User",
+				"insert_after": "report_signature",
+			},
+			{
+				"fieldname": "pathologist_signature",
+				"label": "Pathologist Signature",
+				"fieldtype": "Long Text",
+				"insert_after": "signed_by",
+			},
+			{
+				"fieldname": "pathologist_name",
+				"label": "Pathologist Name",
+				"fieldtype": "Data",
+				"insert_after": "pathologist_signature",
 			},
 		],
 	}

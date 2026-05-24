@@ -97,6 +97,22 @@ export async function call<T = unknown>(method: string, args: Record<string, unk
   return data.message as T
 }
 
+// Extract a human-readable message from a Frappe/axios error. Frappe puts
+// validation text (e.g. mandatory-result errors → HTTP 417) in
+// `_server_messages` (a JSON array of JSON strings), not always `message`.
+export function frappeError(e: any, fallback = 'Something went wrong'): string {
+  const d = e?.response?.data
+  try {
+    if (d?._server_messages) {
+      const msgs = JSON.parse(d._server_messages)
+      const parsed = msgs.map((m: string) => { try { return JSON.parse(m).message } catch { return m } })
+      const text = parsed.filter(Boolean).join('. ').replace(/<[^>]+>/g, '')
+      if (text) return text
+    }
+  } catch { /* ignore */ }
+  return d?.message || d?.exception || e?.message || fallback
+}
+
 export async function getCount(doctype: string, filters?: FrappeListParams['filters']): Promise<number> {
   const result = await call<number>('frappe.client.get_count', { doctype, filters })
   return result || 0

@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "test_category",
+  "lab_test",
+  "test_name",
+  "column_break_result",
+  "result_type",
+  "result_value",
+  "result_options",
+  "column_break_status",
+  "status",
+  "is_abnormal",
+  "is_critical",
+  "section_interpretation",
+  "interpretation"
+ ],
+ "fields": [
+  {
+   "fieldname": "test_category",
+   "fieldtype": "Data",
+   "label": "Test Category"
+  },
+  {
+   "fieldname": "lab_test",
+   "fieldtype": "Link",
+   "label": "Lab Test",
+   "options": "Lab Test"
+  },
+  {
+   "fieldname": "test_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Test Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "result_type",
+   "fieldtype": "Select",
+   "label": "Result Type",
+   "options": "Data\nNumber\nSelect",
+   "default": "Select",
+   "hidden": 1,
+   "read_only": 1,
+   "description": "Type of result input (from Lab Test Template)"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "result_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Result",
+   "bold": 1
+  },
+  {
+   "fieldname": "result_options",
+   "fieldtype": "Small Text",
+   "label": "Result Options",
+   "hidden": 1,
+   "read_only": 1,
+   "description": "Options for dropdown (one per line)"
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Normal\nAbnormal",
+   "default": "Normal"
+  },
+  {
+   "fieldname": "is_abnormal",
+   "fieldtype": "Check",
+   "label": "Abnormal"
+  },
+  {
+   "fieldname": "is_critical",
+   "fieldtype": "Check",
+   "label": "Critical"
+  },
+  {
+   "fieldname": "section_interpretation",
+   "fieldtype": "Section Break",
+   "label": "Interpretation",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "interpretation",
+   "fieldtype": "Small Text",
+   "label": "Interpretation"
+  }
+ ],
+ "editable_grid": 1,
+ "istable": 1,
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Lab Report Qualitative Result",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "custom": 0
+}

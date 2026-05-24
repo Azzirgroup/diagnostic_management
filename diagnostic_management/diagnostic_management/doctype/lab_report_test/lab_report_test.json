@@ -1,0 +1,190 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "test_category",
+  "lab_test",
+  "test_name",
+  "test_code",
+  "column_break_test",
+  "result_type",
+  "result_options",
+  "result_value",
+  "uom",
+  "reference_range",
+  "biological_reference_interval",
+  "reference_min",
+  "reference_max",
+  "status",
+  "is_abnormal",
+  "is_critical",
+  "section_details",
+  "method",
+  "instrument",
+  "interpretation",
+  "previous_value",
+  "previous_date",
+  "result_summary"
+ ],
+ "fields": [
+  {
+   "fieldname": "test_category",
+   "fieldtype": "Data",
+   "label": "Test Category",
+   "description": "Category grouping e.g., Haematology, Biochemistry, Microbiology"
+  },
+  {
+   "fieldname": "lab_test",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lab Test",
+   "options": "Lab Test"
+  },
+  {
+   "fieldname": "test_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Test Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "test_code",
+   "fieldtype": "Data",
+   "label": "Test Code"
+  },
+  {
+   "fieldname": "column_break_test",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "result_type",
+   "fieldtype": "Select",
+   "label": "Result Type",
+   "options": "Data\nNumber\nSelect",
+   "default": "Data",
+   "hidden": 0,
+   "read_only": 1,
+   "description": "Type of result input (from Lab Test Template)"
+  },
+  {
+   "fieldname": "result_options",
+   "fieldtype": "Small Text",
+   "label": "Result Options",
+   "hidden": 0,
+   "read_only": 1,
+   "description": "Options for Select type (one per line)"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "result_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Result Value",
+   "bold": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "Unit",
+   "description": "Unit of measurement"
+  },
+  {
+   "fieldname": "reference_range",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reference Range",
+   "description": "e.g., 4.5 - 11.0 or <200"
+  },
+  {
+   "fieldname": "biological_reference_interval",
+   "fieldtype": "Small Text",
+   "label": "Biological Reference Interval",
+   "read_only": 1,
+   "description": "Normal range from Lab Test Template"
+  },
+  {
+   "fieldname": "reference_min",
+   "fieldtype": "Float",
+   "label": "Reference Min"
+  },
+  {
+   "fieldname": "reference_max",
+   "fieldtype": "Float",
+   "label": "Reference Max"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Normal\nHigh\nLow",
+   "default": "Normal"
+  },
+  {
+   "fieldname": "is_abnormal",
+   "fieldtype": "Check",
+   "label": "Abnormal",
+   "description": "Mark if result is outside reference range"
+  },
+  {
+   "fieldname": "is_critical",
+   "fieldtype": "Check",
+   "label": "Critical",
+   "description": "Mark if result requires urgent attention"
+  },
+  {
+   "fieldname": "section_details",
+   "fieldtype": "Section Break",
+   "label": "Additional Details"
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Data",
+   "label": "Method",
+   "description": "Testing methodology used"
+  },
+  {
+   "fieldname": "instrument",
+   "fieldtype": "Data",
+   "label": "Instrument",
+   "description": "Equipment used for testing"
+  },
+  {
+   "fieldname": "interpretation",
+   "fieldtype": "Small Text",
+   "label": "Interpretation",
+   "description": "Clinical interpretation or comments"
+  },
+  {
+   "fieldname": "previous_value",
+   "fieldtype": "Data",
+   "label": "Previous Value",
+   "description": "Historical result for trend comparison"
+  },
+  {
+   "fieldname": "previous_date",
+   "fieldtype": "Date",
+   "label": "Previous Test Date"
+  },
+  {
+   "fieldname": "result_summary",
+   "fieldtype": "Small Text",
+   "label": "Result Summary"
+  }
+ ],
+ "editable_grid": 1,
+ "istable": 1,
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Lab Report Test",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "custom": 0
+}

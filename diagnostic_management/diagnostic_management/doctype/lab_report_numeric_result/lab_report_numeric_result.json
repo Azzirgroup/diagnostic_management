@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "test_category",
+  "lab_test",
+  "test_name",
+  "test_code",
+  "column_break_result",
+  "result_type",
+  "result_options",
+  "result_value",
+  "uom",
+  "reference_range",
+  "biological_reference_interval",
+  "reference_min",
+  "reference_max",
+  "column_break_status",
+  "status",
+  "is_abnormal",
+  "is_critical",
+  "section_details",
+  "method",
+  "instrument",
+  "column_break_history",
+  "previous_value",
+  "previous_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "test_category",
+   "fieldtype": "Data",
+   "label": "Test Category",
+   "description": "Category grouping e.g., Complete Blood Count, Liver Function"
+  },
+  {
+   "fieldname": "lab_test",
+   "fieldtype": "Link",
+   "label": "Lab Test",
+   "options": "Lab Test"
+  },
+  {
+   "fieldname": "test_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Test Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "test_code",
+   "fieldtype": "Data",
+   "label": "Test Code"
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "result_type",
+   "fieldtype": "Select",
+   "label": "Result Type",
+   "options": "Data\nNumber\nSelect",
+   "default": "Number",
+   "hidden": 1,
+   "read_only": 1,
+   "description": "Type of result input (from Lab Test Template)"
+  },
+  {
+   "fieldname": "result_options",
+   "fieldtype": "Small Text",
+   "label": "Result Options",
+   "hidden": 1,
+   "read_only": 1,
+   "description": "Options for Select type (one per line)"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "result_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Result",
+   "bold": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Unit"
+  },
+  {
+   "fieldname": "reference_range",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reference Range"
+  },
+  {
+   "fieldname": "biological_reference_interval",
+   "fieldtype": "Small Text",
+   "label": "Biological Reference Interval",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_min",
+   "fieldtype": "Float",
+   "label": "Ref Min",
+   "hidden": 1
+  },
+  {
+   "fieldname": "reference_max",
+   "fieldtype": "Float",
+   "label": "Ref Max",
+   "hidden": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Normal\nHigh\nLow\nCritical",
+   "default": "Normal"
+  },
+  {
+   "fieldname": "is_abnormal",
+   "fieldtype": "Check",
+   "label": "Abnormal"
+  },
+  {
+   "fieldname": "is_critical",
+   "fieldtype": "Check",
+   "label": "Critical"
+  },
+  {
+   "fieldname": "section_details",
+   "fieldtype": "Section Break",
+   "label": "Details",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Data",
+   "label": "Method"
+  },
+  {
+   "fieldname": "instrument",
+   "fieldtype": "Data",
+   "label": "Instrument"
+  },
+  {
+   "fieldname": "column_break_history",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "previous_value",
+   "fieldtype": "Data",
+   "label": "Previous Value"
+  },
+  {
+   "fieldname": "previous_date",
+   "fieldtype": "Date",
+   "label": "Previous Date"
+  }
+ ],
+ "editable_grid": 1,
+ "istable": 1,
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Lab Report Numeric Result",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "custom": 0
+}

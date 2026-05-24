@@ -1,2 +1,0 @@
-import{v as n,r as s,f as a,k as _}from"./vendor-CnFqmRaY.js";const i=(t,o)=>{const e=t.__vccOpts||t;for(const[r,c]of o)e[r]=c;return e},f={},l={class:"min-h-screen flex items-stretch bg-gradient-to-br from-surface-50 via-white to-brand-teal-50/30"};function m(t,o){const e=n("RouterView");return s(),a("div",l,[_(e)])}const d=i(f,[["render",m]]);export{d as default};
-//# sourceMappingURL=AuthLayout-BbQc4tSL.js.map

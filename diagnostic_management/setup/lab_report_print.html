@@ -1,0 +1,450 @@
+<style>
+/* Genetest Lab Report - Professional Multi-Page Format */
+@page { size: A4; margin: 8mm 10mm 15mm 10mm; }
+@media print { .page-break { page-break-before: always; } }
+
+/* Base Styles */
+.lab-report { font-family: Arial, sans-serif; font-size: 10px; line-height: 1.35; color: #333; }
+
+
+
+/* Patient Info Card */
+.patient-card { border: 1px solid #ddd; border-radius: 6px; margin: 10px 0 15px 0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.patient-card-header { background: #1a4a6e; color: white; padding: 8px 15px; font-weight: bold; font-size: 11px; }
+.patient-card-body { padding: 12px 15px; background: #fafafa; }
+.patient-grid { display: table; width: 100%; }
+.patient-row { display: table-row; }
+.patient-cell { display: table-cell; padding: 5px 10px 5px 0; width: 33.33%; vertical-align: top; }
+.patient-label { color: #666; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.patient-value { font-weight: 600; font-size: 11px; color: #222; margin-top: 1px; }
+
+/* Section Headers */
+.section-header { background: #1a4a6e; color: white; padding: 10px 15px; font-weight: bold; font-size: 13px; margin: 20px 0 0 0; border-radius: 4px; border-bottom: 3px solid #133a55; }
+.section-header-alt { background: #5fb4c9; color: white; padding: 8px 15px; font-weight: bold; font-size: 12px; margin: 15px 0 10px 0; border-radius: 4px; }
+
+/* Summary Table - Abnormal Results */
+.summary-notice { background: linear-gradient(to right, #fff5f5, #ffebee); border-left: 4px solid #e74c3c; padding: 12px 15px; margin: 15px 0; border-radius: 0 4px 4px 0; }
+.summary-notice h4 { color: #c0392b; margin: 0 0 10px 0; font-size: 12px; }
+.summary-table { width: 100%; border-collapse: collapse; }
+.summary-table th { background: #e74c3c; color: white; padding: 8px 12px; text-align: left; font-size: 9px; font-weight: 600; }
+.summary-table td { padding: 8px 12px; border-bottom: 1px solid #ffcdd2; font-size: 10px; background: white; }
+.summary-table tr:last-child td { border-bottom: none; }
+
+/* Results Table */
+.results-table { width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #ddd; }
+.results-table th { background: #1a4a6e; color: white; padding: 8px 10px; text-align: left; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.results-table td { padding: 8px 10px; border-bottom: 1px solid #e8e8e8; font-size: 10px; vertical-align: middle; }
+.results-table tbody tr:nth-child(even) { background: #f8f9fa; }
+.results-table tbody tr:hover { background: #f0f7ff; }
+.results-table .col-test { width: 30%; }
+.results-table .col-result { width: 15%; font-weight: 700; }
+.results-table .col-unit { width: 12%; }
+.results-table .col-range { width: 18%; font-size: 9px; }
+.results-table .col-status { width: 12%; text-align: center; }
+.results-table .col-method { width: 13%; font-size: 9px; }
+.results-table td.col-unit { color: #666; }
+.results-table td.col-range { color: #333; }
+.results-table td.col-method { color: #888; }
+
+/* Category Header Row */
+.category-row { background: #e8f4f8 !important; }
+.category-row td { font-weight: bold; color: #1a4a6e; padding: 10px; font-size: 11px; border-bottom: 2px solid #1a4a6e; }
+
+/* Status Badges */
+.badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+.badge-normal { background: #e8f4f8; color: #1a4a6e; }
+.badge-abnormal { background: #ffebee; color: #c62828; }
+.badge-critical { background: #c62828; color: white; }
+.badge-high { background: #fff3e0; color: #e65100; }
+.badge-low { background: #e3f2fd; color: #1565c0; }
+.badge-optimal { background: #e8f5e9; color: #2e7d32; }
+.badge-sufficiency { background: #e0f2f1; color: #00695c; }
+.badge-intermediate { background: #fffde7; color: #f57f17; }
+.badge-insufficiency { background: #fff8e1; color: #ff8f00; }
+.badge-deficiency { background: #fce4ec; color: #c62828; }
+.badge-toxicity { background: #f3e5f5; color: #6a1b9a; }
+
+/* Abnormal Text */
+.text-abnormal { color: #c62828 !important; font-weight: 700 !important; }
+.text-critical { color: #b71c1c !important; font-weight: 700 !important; }
+.row-critical { background: #ffebee !important; }
+
+/* Trend Charts Section */
+.trends-section { margin: 20px 0; }
+.trends-grid { display: table; width: 100%; border-spacing: 10px; }
+.trends-row { display: table-row; }
+.trend-cell { display: table-cell; width: 50%; vertical-align: top; padding: 10px; background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; }
+.trend-title { font-weight: 600; font-size: 10px; color: #333; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+.trend-chart-container { text-align: center; padding: 5px; background: #fafafa; border-radius: 4px; }
+.trend-meta { font-size: 8px; color: #888; margin-top: 5px; text-align: center; }
+
+/* Interpretation Box */
+.interpretation-row td { background: #fffde7 !important; padding: 8px 15px !important; font-size: 9px; border-left: 3px solid #ffc107; }
+.interpretation-row td b { color: #f57c00; }
+
+/* Clinical Notes */
+.clinical-notes { background: linear-gradient(to right, #fff8e1, #fffde7); border-left: 4px solid #ffc107; padding: 12px 15px; margin: 15px 0; border-radius: 0 4px 4px 0; }
+.clinical-notes h4 { color: #f57c00; margin: 0 0 8px 0; font-size: 11px; }
+.clinical-notes p { margin: 0; color: #5d4037; }
+
+/* Signature Section */
+.signature-section { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1a4a6e; }
+.signature-grid { display: table; width: 100%; }
+.signature-cell { display: table-cell; width: 50%; padding: 10px; text-align: center; vertical-align: bottom; }
+.signature-img { max-height: 45px; margin-bottom: 5px; }
+.signature-line { border-top: 1px solid #333; width: 70%; margin: 40px auto 5px auto; }
+.signature-name { font-weight: 700; font-size: 11px; color: #222; }
+.signature-title { font-size: 9px; color: #666; margin-top: 2px; }
+.signature-qual { font-size: 8px; color: #888; }
+.signature-reg { font-size: 8px; color: #999; font-style: italic; }
+
+/* Accreditation */
+.accreditation { margin-top: 20px; padding: 10px 15px; background: #f5f5f5; border-radius: 4px; display: table; width: 100%; }
+.accred-logo-cell { display: table-cell; width: 60px; vertical-align: middle; }
+.accred-logo { height: 45px; }
+.accred-text-cell { display: table-cell; vertical-align: middle; padding-left: 15px; }
+.accred-title { font-weight: 700; font-size: 10px; color: #1a4a6e; }
+.accred-number { font-size: 9px; color: #666; }
+.accred-note { font-size: 8px; color: #888; margin-top: 3px; }
+
+/* Footer */
+.report-footer { margin-top: 20px; padding: 12px 0; border-top: 3px solid #1a4a6e; text-align: center; font-size: 8px; color: #666; }
+.footer-line { margin: 2px 0; }
+.footer-end { font-weight: 700; color: #1a4a6e; font-size: 10px; margin-top: 8px; }
+
+/* Utility */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.mt-10 { margin-top: 10px; }
+.mb-10 { margin-bottom: 10px; }
+</style>
+{% if letter_head and not no_letterhead %}<div class="letter-head">{{ letter_head }}</div>{% else %}<div style="min-height: 100px;"></div>{% endif %}
+
+
+<div class="lab-report">
+{% set _section_comments = doc.get_section_comments_dict() %}
+<!-- ===== PATIENT INFORMATION ===== -->
+    <div class="patient-card">
+        <div class="patient-card-header">Patient Information</div>
+        <div class="patient-card-body">
+            <div class="patient-grid">
+                <div class="patient-row">
+                    <div class="patient-cell">
+                        <div class="patient-label">Patient Name</div>
+                        <div class="patient-value">{{ doc.patient_name or '-' }}</div>
+                    </div>
+                    <div class="patient-cell">
+                        <div class="patient-label">Age / Gender</div>
+                        <div class="patient-value">{{ doc.patient_age or '-' }} / {{ doc.patient_sex or '-' }}</div>
+                    </div>
+                    <div class="patient-cell">
+                        <div class="patient-label">Patient ID</div>
+                        <div class="patient-value">{{ doc.patient or '-' }}</div>
+                    </div>
+                </div>
+                <div class="patient-row">
+                    <div class="patient-cell">
+                        <div class="patient-label">Referred By</div>
+                        <div class="patient-value">{{ doc.referring_doctor_name or doc.referral_source or '-' }}</div>
+                    </div>
+                    <div class="patient-cell">
+                        <div class="patient-label">Sample Collected At</div>
+                        <div class="patient-value">{{ doc.sample_collected_at or '-' }}</div>
+                    </div>
+                    <div class="patient-cell">
+                        <div class="patient-label">Collection Date/Time</div>
+                        <div class="patient-value">{{ format_report_datetime(doc.collection_datetime) if doc.collection_datetime else '-' }}</div>
+                    </div>
+                </div>
+                <div class="patient-row">
+                    <div class="patient-cell">
+                        <div class="patient-label">Contact Number</div>
+                        <div class="patient-value">{{ doc.patient_mobile or '-' }}</div>
+                    </div>
+                    <div class="patient-cell">
+                        <div class="patient-label">Processing Unit</div>
+                        <div class="patient-value">{{ doc.processing_location or 'Central Laboratory' }}</div>
+                    </div>
+                    <div class="patient-cell">
+                        <div class="patient-label">Report Date/Time</div>
+                        <div class="patient-value">{{ format_report_datetime(doc.creation) if doc.creation else format_report_date(doc.report_date) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DETAILED TEST RESULTS ===== -->
+    <div class="section-header">Detailed Test Results</div>
+
+    <!-- ===== NUMERIC RESULTS (Compound templates) ===== -->
+    {% if doc.numeric_results %}
+    {% set num_cats = {} %}
+    {% for item in doc.numeric_results %}
+        {% set cat = item.test_category or 'General Tests' %}
+        {% if cat not in num_cats %}
+            {% set _ = num_cats.update({cat: []}) %}
+        {% endif %}
+        {% set _ = num_cats[cat].append(item) %}
+    {% endfor %}
+    {% for category, items in num_cats.items() %}
+    <div class="section-header-alt">{{ category }}</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width:35%;">Test Name</th>
+                <th style="width:18%;">Result</th>
+                <th style="width:12%;">Unit</th>
+                <th style="width:20%;">Reference Range</th>
+                <th style="width:15%; text-align:center;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="{% if item.status in ['Critical', 'Potential Toxicity'] %}row-critical{% endif %}">
+                <td>{{ item.test_name }}{% if item.test_code %}<br/><small style="color:#999;">{{ item.test_code }}</small>{% endif %}</td>
+                <td style="font-weight:700;" class="{% if item.status in ['Critical', 'Potential Toxicity'] %}text-critical{% elif item.status in ['High', 'Low', 'Abnormal', 'Deficiency', 'Insufficiency'] %}text-abnormal{% endif %}">{{ item.result_value or '-' }}</td>
+                <td style="color:#666;">{{ item.uom or '' }}</td>
+                <td style="color:#333; font-size:9px;">{{ item.reference_range or '-' }}</td>
+                <td style="text-align:center;">
+                    {% set st = item.status %}{% if not st %}<span class="badge" style="background:#f5f5f5;color:#999;">—</span>{% elif st == 'Critical' %}<span class="badge badge-critical">Critical</span>{% elif st == 'High' %}<span class="badge badge-high">High</span>{% elif st == 'Low' %}<span class="badge badge-low">Low</span>{% elif st == 'Abnormal' %}<span class="badge badge-abnormal">Abnormal</span>{% elif st == 'Optimal' %}<span class="badge badge-optimal">Optimal</span>{% elif st == 'Sufficiency' %}<span class="badge badge-sufficiency">Sufficiency</span>{% elif st == 'Intermediate' %}<span class="badge badge-intermediate">Intermediate</span>{% elif st == 'Insufficiency' %}<span class="badge badge-insufficiency">Insufficiency</span>{% elif st == 'Deficiency' %}<span class="badge badge-deficiency">Deficiency</span>{% elif st == 'Potential Toxicity' %}<span class="badge badge-toxicity">Potential Toxicity</span>{% else %}<span class="badge badge-normal">Normal</span>{% endif %}
+                </td>
+            </tr>
+            {% if _section_comments.get(item.test_name) %}
+            <tr>
+                <td colspan="5" style="background:#fffbeb; border-left:3px solid #f59e0b; padding:4px 10px; font-size:9px; color:#92400e; font-style:italic;">{{ _section_comments[item.test_name] }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if _section_comments.get(category) %}<div style="background:#fffbeb; border-left:3px solid #f59e0b; padding:4px 10px; margin:2px 0 8px 0; font-size:9px; color:#92400e; font-style:italic;">{{ _section_comments[category] }}</div>{% endif %}
+    {% set _st = [] %}{% for _item in items %}{% set _td = get_patient_test_history(doc.patient, _item.test_name, 6) %}{% if _td and _td|length >= 2 %}{% set _ = _st.append({"item": _item, "history": _td}) %}{% endif %}{% endfor %}{% if _st %}<div style="margin:5px 0 15px 0;">{% for _i in range(0, _st|length, 2) %}<div class="trends-grid"><div class="trends-row"><div class="trend-cell">{% set _t = _st[_i] %}<div class="trend-title">{{ _t.item.test_name }} {% if _t.item.uom %}({{ _t.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t.history, _t.item.reference_min, _t.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t.item.reference_range or 'N/A' }} | Current: <b class="{% if _t.item.status and _t.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t.item.result_value }}</b></div></div>{% if _i + 1 < _st|length %}<div class="trend-cell">{% set _t2 = _st[_i + 1] %}<div class="trend-title">{{ _t2.item.test_name }} {% if _t2.item.uom %}({{ _t2.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t2.history, _t2.item.reference_min, _t2.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t2.item.reference_range or 'N/A' }} | Current: <b class="{% if _t2.item.status and _t2.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t2.item.result_value }}</b></div></div>{% else %}<div class="trend-cell" style="border:none;background:none;"></div>{% endif %}</div></div>{% endfor %}</div>{% endif %}
+    {% endfor %}
+    {% endif %}
+
+    <!-- ===== GROUPED RESULTS ===== -->
+    {% if doc.grouped_results %}
+    {% set grp_groups = {} %}
+    {% for item in doc.grouped_results %}
+        {% set grp = item.group_name or item.test_category or 'General Tests' %}
+        {% if grp not in grp_groups %}
+            {% set _ = grp_groups.update({grp: []}) %}
+        {% endif %}
+        {% set _ = grp_groups[grp].append(item) %}
+    {% endfor %}
+    {% for group_name, items in grp_groups.items() %}
+    <div class="section-header-alt">{{ group_name }}</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width:35%;">Test Name</th>
+                <th style="width:18%;">Result</th>
+                <th style="width:12%;">Unit</th>
+                <th style="width:20%;">Reference Range</th>
+                <th style="width:15%; text-align:center;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="{% if item.status in ['Critical', 'Potential Toxicity'] %}row-critical{% endif %}">
+                <td>{{ item.test_name }}{% if item.test_code %}<br/><small style="color:#999;">{{ item.test_code }}</small>{% endif %}</td>
+                <td style="font-weight:700;" class="{% if item.status in ['Critical', 'Potential Toxicity'] %}text-critical{% elif item.status in ['High', 'Low', 'Abnormal', 'Deficiency', 'Insufficiency'] %}text-abnormal{% endif %}">{{ item.result_value or '-' }}</td>
+                <td style="color:#666;">{{ item.uom or '' }}</td>
+                <td style="color:#333; font-size:9px;">{{ item.reference_range or '-' }}</td>
+                <td style="text-align:center;">
+                    {% set st = item.status %}{% if not st %}<span class="badge" style="background:#f5f5f5;color:#999;">—</span>{% elif st == 'Critical' %}<span class="badge badge-critical">Critical</span>{% elif st == 'High' %}<span class="badge badge-high">High</span>{% elif st == 'Low' %}<span class="badge badge-low">Low</span>{% elif st == 'Abnormal' %}<span class="badge badge-abnormal">Abnormal</span>{% elif st == 'Optimal' %}<span class="badge badge-optimal">Optimal</span>{% elif st == 'Sufficiency' %}<span class="badge badge-sufficiency">Sufficiency</span>{% elif st == 'Intermediate' %}<span class="badge badge-intermediate">Intermediate</span>{% elif st == 'Insufficiency' %}<span class="badge badge-insufficiency">Insufficiency</span>{% elif st == 'Deficiency' %}<span class="badge badge-deficiency">Deficiency</span>{% elif st == 'Potential Toxicity' %}<span class="badge badge-toxicity">Potential Toxicity</span>{% else %}<span class="badge badge-normal">Normal</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if _section_comments.get(group_name) %}<div style="background:#fffbeb; border-left:3px solid #f59e0b; padding:4px 10px; margin:2px 0 8px 0; font-size:9px; color:#92400e; font-style:italic;">{{ _section_comments[group_name] }}</div>{% endif %}
+    {% set _st = [] %}{% for _item in items %}{% set _td = get_patient_test_history(doc.patient, _item.test_name, 6) %}{% if _td and _td|length >= 2 %}{% set _ = _st.append({"item": _item, "history": _td}) %}{% endif %}{% endfor %}{% if _st %}<div style="margin:5px 0 15px 0;">{% for _i in range(0, _st|length, 2) %}<div class="trends-grid"><div class="trends-row"><div class="trend-cell">{% set _t = _st[_i] %}<div class="trend-title">{{ _t.item.test_name }} {% if _t.item.uom %}({{ _t.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t.history, _t.item.reference_min, _t.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t.item.reference_range or 'N/A' }} | Current: <b class="{% if _t.item.status and _t.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t.item.result_value }}</b></div></div>{% if _i + 1 < _st|length %}<div class="trend-cell">{% set _t2 = _st[_i + 1] %}<div class="trend-title">{{ _t2.item.test_name }} {% if _t2.item.uom %}({{ _t2.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t2.history, _t2.item.reference_min, _t2.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t2.item.reference_range or 'N/A' }} | Current: <b class="{% if _t2.item.status and _t2.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t2.item.result_value }}</b></div></div>{% else %}<div class="trend-cell" style="border:none;background:none;"></div>{% endif %}</div></div>{% endfor %}</div>{% endif %}
+    {% endfor %}
+    {% endif %}
+
+    <!-- ===== QUALITATIVE RESULTS ===== -->
+    {% if doc.qualitative_results %}
+    {% set qual_cats = {} %}
+    {% for item in doc.qualitative_results %}
+        {% set cat = item.test_category or 'General Tests' %}
+        {% if cat not in qual_cats %}
+            {% set _ = qual_cats.update({cat: []}) %}
+        {% endif %}
+        {% set _ = qual_cats[cat].append(item) %}
+    {% endfor %}
+    {% for category, items in qual_cats.items() %}
+    <div class="section-header-alt">{{ category }}</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width:30%;">Test Name</th>
+                <th style="width:25%;">Result</th>
+                <th style="width:15%; text-align:center;">Status</th>
+                <th style="width:30%;">Interpretation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="{% if item.status in ['Critical', 'Potential Toxicity'] %}row-critical{% endif %}">
+                <td>{{ item.test_name }}</td>
+                <td style="font-weight:700;" class="{% if item.status in ['Critical', 'Potential Toxicity'] %}text-critical{% elif item.status in ['High', 'Low', 'Abnormal', 'Deficiency', 'Insufficiency'] %}text-abnormal{% endif %}">{{ item.result_value or '-' }}</td>
+                <td style="text-align:center;">
+                    {% set st = item.status %}{% if not st %}<span class="badge" style="background:#f5f5f5;color:#999;">—</span>{% elif st == 'Critical' %}<span class="badge badge-critical">Critical</span>{% elif st == 'High' %}<span class="badge badge-high">High</span>{% elif st == 'Low' %}<span class="badge badge-low">Low</span>{% elif st == 'Abnormal' %}<span class="badge badge-abnormal">Abnormal</span>{% elif st == 'Optimal' %}<span class="badge badge-optimal">Optimal</span>{% elif st == 'Sufficiency' %}<span class="badge badge-sufficiency">Sufficiency</span>{% elif st == 'Intermediate' %}<span class="badge badge-intermediate">Intermediate</span>{% elif st == 'Insufficiency' %}<span class="badge badge-insufficiency">Insufficiency</span>{% elif st == 'Deficiency' %}<span class="badge badge-deficiency">Deficiency</span>{% elif st == 'Potential Toxicity' %}<span class="badge badge-toxicity">Potential Toxicity</span>{% else %}<span class="badge badge-normal">Normal</span>{% endif %}
+                </td>
+                <td style="font-size:9px; color:#555;">{{ item.interpretation or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% set _st = [] %}{% for _item in items %}{% set _td = get_patient_test_history(doc.patient, _item.test_name, 6) %}{% if _td and _td|length >= 2 %}{% set _ = _st.append({"item": _item, "history": _td}) %}{% endif %}{% endfor %}{% if _st %}<div style="margin:5px 0 15px 0;">{% for _i in range(0, _st|length, 2) %}<div class="trends-grid"><div class="trends-row"><div class="trend-cell">{% set _t = _st[_i] %}<div class="trend-title">{{ _t.item.test_name }} {% if _t.item.uom %}({{ _t.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t.history, _t.item.reference_min, _t.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t.item.reference_range or 'N/A' }} | Current: <b class="{% if _t.item.status and _t.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t.item.result_value }}</b></div></div>{% if _i + 1 < _st|length %}<div class="trend-cell">{% set _t2 = _st[_i + 1] %}<div class="trend-title">{{ _t2.item.test_name }} {% if _t2.item.uom %}({{ _t2.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t2.history, _t2.item.reference_min, _t2.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t2.item.reference_range or 'N/A' }} | Current: <b class="{% if _t2.item.status and _t2.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t2.item.result_value }}</b></div></div>{% else %}<div class="trend-cell" style="border:none;background:none;"></div>{% endif %}</div></div>{% endfor %}</div>{% endif %}
+    {% endfor %}
+    {% endif %}
+
+    <!-- ===== DESCRIPTIVE RESULTS ===== -->
+    {% if doc.descriptive_results %}
+    {% set desc_cats = {} %}
+    {% for item in doc.descriptive_results %}
+        {% set cat = item.test_category or 'General Tests' %}
+        {% if cat not in desc_cats %}
+            {% set _ = desc_cats.update({cat: []}) %}
+        {% endif %}
+        {% set _ = desc_cats[cat].append(item) %}
+    {% endfor %}
+    {% for category, items in desc_cats.items() %}
+    <div class="section-header-alt">{{ category }}</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th style="width:30%;">Test Name</th>
+                <th style="width:70%;">Result / Finding</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td><b>{{ item.test_name }}</b></td>
+                <td>{{ item.result_value or '-' }}</td>
+            </tr>
+            {% if item.interpretation %}
+            <tr class="interpretation-row">
+                <td colspan="2"><b>Interpretation:</b> {{ item.interpretation }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if _section_comments.get(category) %}<div style="background:#fffbeb; border-left:3px solid #f59e0b; padding:4px 10px; margin:2px 0 8px 0; font-size:9px; color:#92400e; font-style:italic;">{{ _section_comments[category] }}</div>{% endif %}
+    {% set _st = [] %}{% for _item in items %}{% set _td = get_patient_test_history(doc.patient, _item.test_name, 6) %}{% if _td and _td|length >= 2 %}{% set _ = _st.append({"item": _item, "history": _td}) %}{% endif %}{% endfor %}{% if _st %}<div style="margin:5px 0 15px 0;">{% for _i in range(0, _st|length, 2) %}<div class="trends-grid"><div class="trends-row"><div class="trend-cell">{% set _t = _st[_i] %}<div class="trend-title">{{ _t.item.test_name }} {% if _t.item.uom %}({{ _t.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t.history, _t.item.reference_min, _t.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t.item.reference_range or 'N/A' }} | Current: <b class="{% if _t.item.status and _t.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t.item.result_value }}</b></div></div>{% if _i + 1 < _st|length %}<div class="trend-cell">{% set _t2 = _st[_i + 1] %}<div class="trend-title">{{ _t2.item.test_name }} {% if _t2.item.uom %}({{ _t2.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t2.history, _t2.item.reference_min, _t2.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t2.item.reference_range or 'N/A' }} | Current: <b class="{% if _t2.item.status and _t2.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t2.item.result_value }}</b></div></div>{% else %}<div class="trend-cell" style="border:none;background:none;"></div>{% endif %}</div></div>{% endfor %}</div>{% endif %}
+    {% endfor %}
+    {% endif %}
+
+    <!-- ===== SINGLE TEST RESULTS ===== -->
+    {% if doc.lab_report_tests %}
+    {% set single_cats = {} %}
+    {% for item in doc.lab_report_tests %}
+        {% set cat = item.test_category or 'General Tests' %}
+        {% if cat not in single_cats %}
+            {% set _ = single_cats.update({cat: []}) %}
+        {% endif %}
+        {% set _ = single_cats[cat].append(item) %}
+    {% endfor %}
+    {% for category, items in single_cats.items() %}
+    <div class="section-header-alt">{{ category }}</div>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th class="col-test">Test Name</th>
+                <th class="col-result">Result</th>
+                <th class="col-unit">Unit</th>
+                <th class="col-range">Reference Range</th>
+                <th class="col-status">Status</th>
+                <th class="col-method">Method</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="{% if item.status in ['Critical', 'Potential Toxicity'] %}row-critical{% endif %}">
+                <td class="col-test">{{ item.test_name }}{% if item.test_code %}<br/><small style="color:#999;">{{ item.test_code }}</small>{% endif %}</td>
+                <td class="col-result {% if item.status in ['Critical', 'Potential Toxicity'] %}text-critical{% elif item.status in ['High', 'Low', 'Abnormal', 'Deficiency', 'Insufficiency'] %}text-abnormal{% endif %}">{{ item.result_value or '-' }}</td>
+                <td class="col-unit">{{ item.uom or '' }}</td>
+                <td class="col-range">{{ item.reference_range or '-' }}</td>
+                <td class="col-status">
+                    {% set st = item.status %}{% if not st %}<span class="badge" style="background:#f5f5f5;color:#999;">—</span>{% elif st == 'Critical' %}<span class="badge badge-critical">Critical</span>{% elif st == 'High' %}<span class="badge badge-high">High</span>{% elif st == 'Low' %}<span class="badge badge-low">Low</span>{% elif st == 'Abnormal' %}<span class="badge badge-abnormal">Abnormal</span>{% elif st == 'Optimal' %}<span class="badge badge-optimal">Optimal</span>{% elif st == 'Sufficiency' %}<span class="badge badge-sufficiency">Sufficiency</span>{% elif st == 'Intermediate' %}<span class="badge badge-intermediate">Intermediate</span>{% elif st == 'Insufficiency' %}<span class="badge badge-insufficiency">Insufficiency</span>{% elif st == 'Deficiency' %}<span class="badge badge-deficiency">Deficiency</span>{% elif st == 'Potential Toxicity' %}<span class="badge badge-toxicity">Potential Toxicity</span>{% else %}<span class="badge badge-normal">Normal</span>{% endif %}
+                </td>
+                <td class="col-method">{{ item.method or '-' }}</td>
+            </tr>
+            {% if item.interpretation %}
+            <tr class="interpretation-row">
+                <td colspan="6"><b>Interpretation:</b> {{ item.interpretation }}</td>
+            </tr>
+            {% endif %}
+            {% if _section_comments.get(item.test_name) %}
+            <tr>
+                <td colspan="6" style="background:#fffbeb; border-left:3px solid #f59e0b; padding:4px 10px; font-size:9px; color:#92400e; font-style:italic;">{{ _section_comments[item.test_name] }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if _section_comments.get(category) %}<div style="background:#fffbeb; border-left:3px solid #f59e0b; padding:4px 10px; margin:2px 0 8px 0; font-size:9px; color:#92400e; font-style:italic;">{{ _section_comments[category] }}</div>{% endif %}
+    {% set _st = [] %}{% for _item in items %}{% set _td = get_patient_test_history(doc.patient, _item.test_name, 6) %}{% if _td and _td|length >= 2 %}{% set _ = _st.append({"item": _item, "history": _td}) %}{% endif %}{% endfor %}{% if _st %}<div style="margin:5px 0 15px 0;">{% for _i in range(0, _st|length, 2) %}<div class="trends-grid"><div class="trends-row"><div class="trend-cell">{% set _t = _st[_i] %}<div class="trend-title">{{ _t.item.test_name }} {% if _t.item.uom %}({{ _t.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t.history, _t.item.reference_min, _t.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t.item.reference_range or 'N/A' }} | Current: <b class="{% if _t.item.status and _t.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t.item.result_value }}</b></div></div>{% if _i + 1 < _st|length %}<div class="trend-cell">{% set _t2 = _st[_i + 1] %}<div class="trend-title">{{ _t2.item.test_name }} {% if _t2.item.uom %}({{ _t2.item.uom }}){% endif %}</div><div class="trend-chart-container">{{ generate_trend_chart_svg(_t2.history, _t2.item.reference_min, _t2.item.reference_max, 260, 100) | safe }}</div><div class="trend-meta">Ref: {{ _t2.item.reference_range or 'N/A' }} | Current: <b class="{% if _t2.item.status and _t2.item.status not in ['Normal', 'Optimal', 'Sufficiency', 'Intermediate'] %}text-abnormal{% endif %}">{{ _t2.item.result_value }}</b></div></div>{% else %}<div class="trend-cell" style="border:none;background:none;"></div>{% endif %}</div></div>{% endfor %}</div>{% endif %}
+    {% endfor %}
+    {% endif %}
+
+    <!-- ===== CLINICAL NOTES ===== -->
+    {% if doc.pathologist_remarks or doc.clinical_notes or doc.diagnosis %}
+    <div class="clinical-notes">
+        <h4>Clinical Notes & Remarks</h4>
+        {% if doc.diagnosis %}<p><b>Diagnosis:</b> {{ doc.diagnosis }}</p>{% endif %}
+        {% if doc.clinical_notes %}<p><b>Clinical Notes:</b> {{ doc.clinical_notes }}</p>{% endif %}
+        {% if doc.pathologist_remarks %}<p><b>Pathologist Remarks:</b> {{ doc.pathologist_remarks }}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ===== SIGNATURE SECTION ===== -->
+    <div class="signature-section">
+        <div class="signature-grid">
+            <div class="signature-cell">
+                {% if doc.lab_technician_signature %}<img src="{{ doc.lab_technician_signature }}" class="signature-img" alt="Signature"/>{% endif %}
+                <div class="signature-line"></div>
+                <div class="signature-title">Lab Technologist</div>
+                <div class="signature-name">{{ doc.lab_technician or frappe.db.get_value('User', doc.owner, 'full_name') or doc.approved_by or '' }}</div>
+            </div>
+            <div class="signature-cell">
+                <img src="/files/signature.jpeg" class="signature-img" alt="Pathologist Signature"/>
+                <div class="signature-line"></div>
+                <div class="signature-title">Consultant Pathologist</div>
+                <div class="signature-name">{{ doc.pathologist_name or '' }}</div>
+                <div class="signature-qual">{{ doc.pathologist_qualification or '' }}</div>
+                {% if doc.pathologist_reg_no %}<div class="signature-reg">Reg. No: {{ doc.pathologist_reg_no }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ACCREDITATION ===== -->
+    {% if doc.accreditation_type or doc.nabl_number %}
+    <div class="accreditation">
+        <div class="accred-logo-cell">
+            {% if doc.accreditation_logos %}
+            <img src="{{ doc.accreditation_logos }}" class="accred-logo" alt="{{ doc.accreditation_type }}"/>
+            {% endif %}
+        </div>
+        <div class="accred-text-cell">
+            <div class="accred-title">{{ doc.accreditation_type or 'KENAS' }} Accredited Laboratory</div>
+            <div class="accred-number">Certificate No: {{ doc.nabl_number or 'Pending' }}</div>
+            <div class="accred-note">This laboratory is accredited in accordance with the recognized International Standard ISO 15189:2012</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== FOOTER ===== -->
+    <div class="report-footer">
+        <div class="footer-line"><b>Processing Location:</b> {{ doc.processing_location or 'Central Laboratory' }} | <b>Processing Unit:</b> {{ doc.processing_unit or 'Main Unit' }}</div>
+        <div class="footer-line">This is a computer-generated report and is valid without signature. The results relate only to the sample(s) tested.</div>
+        <div class="footer-line">In case of any query, please contact the laboratory.</div>
+        <div class="footer-end">*** End of Report ***</div>
+    </div>
+</div>
+{% if footer and not no_letterhead %}<div class="letter-head-footer">{{ footer }}</div>{% endif %}

@@ -41,6 +41,20 @@ website_route_rules = [
 	{"from_route": "/doctor-register/<path:app_path>", "to_route": "doctor-register"},
 ]
 
+# Jinja helpers usable inside Print Formats (e.g. {{ generate_barcode_svg(doc.name) }}).
+jinja = {
+	"methods": [
+		"diagnostic_management.utils.formatters.generate_barcode_svg",
+		"diagnostic_management.utils.formatters.generate_barcode_base64",
+		"diagnostic_management.utils.formatters.format_report_datetime",
+		"diagnostic_management.utils.formatters.format_report_date",
+		"diagnostic_management.utils.formatters.format_patient_age",
+		"diagnostic_management.utils.formatters.result_flag",
+		"diagnostic_management.utils.formatters.get_patient_test_history",
+		"diagnostic_management.utils.formatters.generate_trend_chart_svg",
+	],
+}
+
 # Installation hooks. setup/ is idempotent so it's safe on every migrate.
 after_install = "diagnostic_management.setup.after_install"
 after_migrate = "diagnostic_management.setup.after_migrate"

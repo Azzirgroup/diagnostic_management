@@ -7,7 +7,6 @@ import { collectionApi, type SampleRow } from '@/api/adms'
 
 const list = ref<SampleRow[]>([])
 const loading = ref(false)
-const busyId = ref<string | null>(null)
 const router = useRouter()
 
 async function load() {
@@ -17,9 +16,8 @@ async function load() {
 }
 onMounted(load)
 
-async function markCollected(row: SampleRow) {
-  busyId.value = row.name
-  try { await collectionApi.markCollected(row.name); await load() } finally { busyId.value = null }
+function openCollect(row: SampleRow) {
+  router.push(`/lab/sample/${row.name}/collect`)
 }
 
 function viewSample(name: string) {
@@ -60,16 +58,15 @@ function printLabel(name: string) {
           <td class="px-3 py-3">{{ row.patient_name }}</td>
           <td class="px-3 py-3">{{ row.sample || '—' }}{{ row.sample_qty ? ` · ${row.sample_qty} ${row.sample_uom || ''}`.trim() : '' }}</td>
           <td class="px-3 py-3">{{ (row.collected_time as string)?.split('.')[0] || '—' }}</td>
-          <td class="px-3 py-3"><StatusPill :status="row.status || 'Pending'" /></td>
+          <td class="px-3 py-3"><StatusPill :status="row.collected_time ? 'Collected' : 'Pending'" /></td>
           <td class="px-3 py-3 text-right" @click.stop>
             <div class="flex justify-end gap-3 text-xs">
               <button class="text-brand-teal-600 hover:underline" @click="viewSample(row.name)">View</button>
               <button class="text-brand-teal-600 hover:underline" @click="printLabel(row.name)">Print</button>
-              <button v-if="row.status === 'Pending'"
+              <button v-if="!row.collected_time"
                 class="text-brand-teal-600 hover:underline"
-                :disabled="busyId === row.name"
-                @click="markCollected(row)">
-                Mark Collected
+                @click="openCollect(row)">
+                Collect…
               </button>
             </div>
           </td>

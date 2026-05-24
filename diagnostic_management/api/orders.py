@@ -252,6 +252,151 @@ def update_order(
 	return {"ok": True, "name": doc.name, "docstatus": doc.docstatus}
 
 
+# Order Timeline stages (genetest-aligned), in order. The SPA renders these
+# and highlights everything up to and including `stage`.
+TIMELINE_STEPS = ["Ordered", "Collection", "Store", "Result"]
+
+
+def _collected(s: dict) -> bool:
+	return bool(s.get("collected_time")) or (s.get("workflow_status") not in (None, "", "To Be Collected"))
+
+
+def _compute_stage(samples: list[dict], lab_tests: list[dict], reports: list[dict] | None = None) -> int:
+	"""Derive how far an order has progressed, as an index into TIMELINE_STEPS.
+
+	0 Ordered    — the Service Request exists.
+	1 Collection — a sample has been collected (collected_time, or
+	               workflow_status advanced past "To Be Collected").
+	2 Store      — a sample reached "Stored" in its lifecycle.
+	3 Result     — results exist (a Diagnostic Report, or a Lab Test
+	               Completed/Approved).
+
+	Gated **contiguously**: a later step only counts once every earlier step
+	is satisfied, so the timeline never jumps ahead of reality.
+	"""
+	collected = any(_collected(s) for s in samples)
+	stored = any(s.get("workflow_status") == "Stored" for s in samples)
+	resulted = bool(reports) or any(lt.get("status") in ("Completed", "Approved") for lt in lab_tests)
+	flags = [True, collected, stored, resulted]
+	stage = 0
+	for i, ok in enumerate(flags):
+		if not ok:
+			break
+		stage = i
+	return stage
+
+
+@frappe.whitelist()
+def detail(name: str) -> dict:
+	"""Full order payload for the SPA detail page.
+
+	Bundles the Service Request, its Sample Collections, and a computed
+	`stage` (index into `timeline_steps`) so the Order Timeline reflects
+	real progress instead of a hard-coded position.
+	"""
+	if not name:
+		frappe.throw("name is required")
+	doc = frappe.get_doc("Service Request", name)
+	out = doc.as_dict()
+
+	# Samples are resolved via Lab Test (Marley links them there, not on the
+	# Sample Collection's service_request) — see collection.resolve_order_samples.
+	from diagnostic_management.api.collection import resolve_order_samples
+
+	samples = resolve_order_samples(name)
+	lab_tests = frappe.get_all(
+		"Lab Test",
+		fields=["name", "status", "docstatus"],
+		filters={"service_request": name},
+		order_by="creation asc",
+	)
+
+	# Diagnostic Reports for this order — linked via Lab Test (docname) or the
+	# sample (sample_collection). Surfaced so the "Result" stage isn't empty.
+	report_or = []
+	if lab_tests:
+		report_or.append(["docname", "in", [lt.name for lt in lab_tests]])
+	if samples:
+		report_or.append(["sample_collection", "in", [s["name"] for s in samples]])
+	reports = []
+	if report_or:
+		try:
+			report_fields = ["name", "status", "is_critical", "critical_acknowledged", "docname", "modified"]
+			if any(df.fieldname == "sample_collection" for df in frappe.get_meta("Diagnostic Report").fields):
+				report_fields.append("sample_collection")
+			reports = frappe.get_all(
+				"Diagnostic Report",
+				fields=report_fields,
+				or_filters=report_or,
+				order_by="modified desc",
+			)
+		except Exception:
+			reports = []
+
+	out["samples"] = samples
+	out["lab_tests"] = lab_tests
+	out["reports"] = reports
+	out["timeline_steps"] = TIMELINE_STEPS
+	out["stage"] = _compute_stage(samples, lab_tests, reports)
+	return out
+
+
+def _continue_route(order: str, stage: int, samples: list[dict]) -> str:
+	"""Where 'Continue' should drop the user for an in-progress order.
+
+	Stages: 0 Ordered → collect; 1 Collection → advance/store on the sample
+	page; 2 Store → results; else the order overview.
+	"""
+	first = samples[0]["name"] if samples else None
+	if stage == 0 and first:
+		# Collect the first sample that hasn't been collected yet.
+		target = next((s["name"] for s in samples if not _collected(s)), first)
+		return f"/lab/sample/{target}/collect?order={order}"
+	if stage == 1 and first:
+		return f"/lab/sample/{first}?order={order}"
+	return f"/orders/{order}"
+
+
+@frappe.whitelist()
+def in_progress(limit: int = 15) -> list[dict]:
+	"""Recent orders not yet completed, with a 'continue' target per their stage.
+
+	Powers the Workflow hub's "Continue where you left off" list so a user can
+	resume a workflow they started — mirrors the previous system's workflow
+	sessions, but derived from live order state rather than a saved wizard.
+	"""
+	from diagnostic_management.api.collection import resolve_order_samples
+
+	srs = frappe.get_all(
+		"Service Request",
+		fields=["name", "patient", "patient_name", "status", "modified"],
+		filters={"status": ["in", [
+			"active-Request Status", "on-hold-Request Status", "draft-Request Status",
+		]]},
+		order_by="modified desc",
+		limit_page_length=int(limit) * 3,
+	)
+	out: list[dict] = []
+	for sr in srs:
+		samples = resolve_order_samples(sr.name)
+		lab_tests = frappe.get_all("Lab Test", filters={"service_request": sr.name}, fields=["name", "status"])
+		stage = _compute_stage(samples, lab_tests)
+		if stage >= len(TIMELINE_STEPS) - 1:
+			continue  # reached Result — not "in progress"
+		out.append({
+			"name": sr.name,
+			"patient_name": sr.patient_name,
+			"stage": stage,
+			"stage_label": TIMELINE_STEPS[stage],
+			"next_label": TIMELINE_STEPS[min(stage + 1, len(TIMELINE_STEPS) - 1)],
+			"route": _continue_route(sr.name, stage, samples),
+			"modified": sr.modified,
+		})
+		if len(out) >= int(limit):
+			break
+	return out
+
+
 @frappe.whitelist()
 def list_for_patient(patient: str, limit: int = 50) -> list[dict]:
 	if not patient:

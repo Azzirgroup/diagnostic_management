@@ -1,0 +1,545 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2025-01-01 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "report_id",
+  "vid",
+  "pid",
+  "report_date",
+  "column_break_1",
+  "patient",
+  "patient_name",
+  "patient_age",
+  "patient_sex",
+  "patient_mobile",
+  "collection_section",
+  "sample_collected_at",
+  "collection_datetime",
+  "column_break_coll",
+  "processing_location",
+  "processing_unit",
+  "result_format",
+  "single_results_section",
+  "lab_report_tests",
+  "numeric_results_section",
+  "numeric_results",
+  "qualitative_results_section",
+  "qualitative_results",
+  "descriptive_results_section",
+  "descriptive_results",
+  "grouped_results_section",
+  "grouped_results",
+  "section_comments_section",
+  "custom_section_comments",
+  "samples_section",
+  "samples",
+  "clinical_section",
+  "clinical_notes",
+  "column_break_2",
+  "diagnosis",
+  "referring_section",
+  "referral_source",
+  "referring_doctor",
+  "referring_doctor_name",
+  "column_break_3",
+  "department",
+  "approval_section",
+  "status",
+  "column_break_4",
+  "approved_by",
+  "approval_datetime",
+  "pathologist_remarks",
+  "is_printed",
+  "pathologist_section",
+  "pathologist",
+  "pathologist_name",
+  "pathologist_qualification",
+  "pathologist_reg_no",
+  "signature_section",
+  "lab_technician",
+  "lab_technician_signature",
+  "column_break_sig",
+  "pathologist_signature",
+  "accreditation_section",
+  "accreditation_type",
+  "accreditation_logos",
+  "nabl_number",
+  "billing_section",
+  "sales_invoice",
+  "billing_status",
+  "column_break_5",
+  "total_amount",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "LRPT-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "report_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Report ID",
+   "no_copy": 1,
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "description": "Unique Visit Identifier",
+   "fieldname": "vid",
+   "fieldtype": "Data",
+   "label": "VID (Visit ID)"
+  },
+  {
+   "description": "Unique Patient Identifier",
+   "fieldname": "pid",
+   "fieldtype": "Data",
+   "label": "PID (Patient ID)"
+  },
+  {
+   "default": "Today",
+   "fieldname": "report_date",
+   "fieldtype": "Date",
+   "label": "Report Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "patient",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Patient",
+   "options": "Patient",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "patient.patient_name",
+   "fieldname": "patient_name",
+   "fieldtype": "Data",
+   "label": "Patient Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "patient_age",
+   "fieldtype": "Data",
+   "label": "Patient Age",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "patient.sex",
+   "fieldname": "patient_sex",
+   "fieldtype": "Data",
+   "label": "Sex",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "patient.mobile",
+   "fieldname": "patient_mobile",
+   "fieldtype": "Data",
+   "label": "Mobile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "collection_section",
+   "fieldtype": "Section Break",
+   "label": "Sample Collection Details"
+  },
+  {
+   "description": "Location where sample was collected",
+   "fieldname": "sample_collected_at",
+   "fieldtype": "Data",
+   "label": "Sample Collected At"
+  },
+  {
+   "fieldname": "collection_datetime",
+   "fieldtype": "Datetime",
+   "label": "Collection Date/Time"
+  },
+  {
+   "fieldname": "column_break_coll",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Lab location where sample is processed",
+   "fieldname": "processing_location",
+   "fieldtype": "Data",
+   "label": "Processing Location"
+  },
+  {
+   "description": "Specific processing unit or department",
+   "fieldname": "processing_unit",
+   "fieldtype": "Data",
+   "label": "Processing Unit"
+  },
+  {
+   "default": "Single",
+   "fieldname": "result_format",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Result Format",
+   "options": "Single\nNumeric\nQualitative\nDescriptive\nGrouped"
+  },
+  {
+   "fieldname": "single_results_section",
+   "fieldtype": "Section Break",
+   "label": "Single Test Results"
+  },
+  {
+   "fieldname": "lab_report_tests",
+   "fieldtype": "Table",
+   "label": "Lab Tests",
+   "options": "Lab Report Test"
+  },
+  {
+   "fieldname": "numeric_results_section",
+   "fieldtype": "Section Break",
+   "label": "Numeric Results"
+  },
+  {
+   "fieldname": "numeric_results",
+   "fieldtype": "Table",
+   "label": "Numeric Results",
+   "options": "Lab Report Numeric Result"
+  },
+  {
+   "fieldname": "qualitative_results_section",
+   "fieldtype": "Section Break",
+   "label": "Qualitative Results"
+  },
+  {
+   "fieldname": "qualitative_results",
+   "fieldtype": "Table",
+   "label": "Qualitative Results",
+   "options": "Lab Report Qualitative Result"
+  },
+  {
+   "fieldname": "descriptive_results_section",
+   "fieldtype": "Section Break",
+   "label": "Descriptive Results"
+  },
+  {
+   "fieldname": "descriptive_results",
+   "fieldtype": "Table",
+   "label": "Descriptive Results",
+   "options": "Lab Report Descriptive Result"
+  },
+  {
+   "fieldname": "grouped_results_section",
+   "fieldtype": "Section Break",
+   "label": "Grouped Results"
+  },
+  {
+   "fieldname": "grouped_results",
+   "fieldtype": "Table",
+   "label": "Grouped Results",
+   "options": "Lab Report Grouped Result"
+  },
+  {
+   "fieldname": "section_comments_section",
+   "fieldtype": "Section Break",
+   "hidden": 1,
+   "label": "Section Comments"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "custom_section_comments",
+   "fieldtype": "JSON",
+   "hidden": 1,
+   "label": "Section Comments"
+  },
+  {
+   "fieldname": "samples_section",
+   "fieldtype": "Section Break",
+   "label": "Samples"
+  },
+  {
+   "fieldname": "samples",
+   "fieldtype": "Table",
+   "label": "Samples",
+   "options": "Lab Report Sample"
+  },
+  {
+   "fieldname": "clinical_section",
+   "fieldtype": "Section Break",
+   "label": "Clinical Information"
+  },
+  {
+   "fieldname": "clinical_notes",
+   "fieldtype": "Text",
+   "label": "Clinical Notes"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "diagnosis",
+   "fieldtype": "Small Text",
+   "label": "Diagnosis"
+  },
+  {
+   "fieldname": "referring_section",
+   "fieldtype": "Section Break",
+   "label": "Referring Information"
+  },
+  {
+   "fieldname": "referral_source",
+   "fieldtype": "Data",
+   "label": "Referral Source"
+  },
+  {
+   "fieldname": "referring_doctor",
+   "fieldtype": "Link",
+   "label": "Referring Doctor",
+   "options": "Healthcare Practitioner"
+  },
+  {
+   "fetch_from": "referring_doctor.practitioner_name",
+   "fieldname": "referring_doctor_name",
+   "fieldtype": "Data",
+   "label": "Doctor Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Medical Department"
+  },
+  {
+   "fieldname": "approval_section",
+   "fieldtype": "Section Break",
+   "label": "Approval"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nPending Review\nApproved\nRejected\nDelivered",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "Healthcare Practitioner"
+  },
+  {
+   "fieldname": "approval_datetime",
+   "fieldtype": "Datetime",
+   "label": "Approval Date/Time"
+  },
+  {
+   "fieldname": "pathologist_remarks",
+   "fieldtype": "Small Text",
+   "label": "Pathologist Remarks"
+  },
+  {
+   "fieldname": "is_printed",
+   "fieldtype": "Check",
+   "label": "Is Printed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pathologist_section",
+   "fieldtype": "Section Break",
+   "label": "Pathologist Details"
+  },
+  {
+   "fieldname": "pathologist",
+   "fieldtype": "Link",
+   "label": "Pathologist",
+   "options": "Healthcare Practitioner"
+  },
+  {
+   "fetch_from": "pathologist.practitioner_name",
+   "fieldname": "pathologist_name",
+   "fieldtype": "Data",
+   "label": "Pathologist Name",
+   "read_only": 1
+  },
+  {
+   "description": "e.g., MD, MBBS, DCP",
+   "fieldname": "pathologist_qualification",
+   "fieldtype": "Data",
+   "label": "Qualification"
+  },
+  {
+   "description": "Medical council registration number",
+   "fieldname": "pathologist_reg_no",
+   "fieldtype": "Data",
+   "label": "Registration No."
+  },
+  {
+   "fieldname": "signature_section",
+   "fieldtype": "Section Break",
+   "label": "Digital Signature"
+  },
+  {
+   "fieldname": "lab_technician",
+   "fieldtype": "Data",
+   "label": "Lab Technician"
+  },
+  {
+   "depends_on": "lab_technician",
+   "fetch_from": "lab_technician.signature",
+   "fieldname": "lab_technician_signature",
+   "fieldtype": "Signature",
+   "label": "Lab Technician Signature",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sig",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pathologist_signature",
+   "fieldtype": "Signature",
+   "label": "Pathologist Signature"
+  },
+  {
+   "fieldname": "accreditation_section",
+   "fieldtype": "Section Break",
+   "label": "Accreditation Details"
+  },
+  {
+   "fieldname": "accreditation_type",
+   "fieldtype": "Select",
+   "label": "Accreditation Type",
+   "options": "\nNABL\nKENAS\nCAP\nISO 15189"
+  },
+  {
+   "description": "NABL/KENAS/CAP Certificate Number",
+   "fieldname": "nabl_number",
+   "fieldtype": "Data",
+   "label": "Accreditation Number"
+  },
+  {
+   "fieldname": "accreditation_logos",
+   "fieldtype": "Attach Image",
+   "label": "Accreditation Logo"
+  },
+  {
+   "fieldname": "billing_section",
+   "fieldtype": "Section Break",
+   "label": "Billing"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "billing_status",
+   "fieldtype": "Select",
+   "label": "Billing Status",
+   "options": "Pending\nInvoiced\nPaid"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Lab Report",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-01-26 22:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Lab Report",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Lab Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Pathologist",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Lab Technician",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Lab Quality Officer",
+   "read": 1,
+   "report": 1,
+   "print": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "report_id,patient,patient_name,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "report_id",
+ "track_changes": 1,
+ "custom": 0
+}

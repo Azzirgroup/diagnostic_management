@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "lab_sample",
+  "sample_type",
+  "collection_datetime"
+ ],
+ "fields": [
+  {
+   "fieldname": "lab_sample",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Lab Sample",
+   "options": "Sample Collection",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample_type",
+   "fieldtype": "Data",
+   "fetch_from": "lab_sample.sample",
+   "in_list_view": 1,
+   "label": "Sample Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "collection_datetime",
+   "fieldtype": "Datetime",
+   "fetch_from": "lab_sample.collected_time",
+   "in_list_view": 1,
+   "label": "Collection Date/Time",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Lab Report Sample",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "custom": 0
+}

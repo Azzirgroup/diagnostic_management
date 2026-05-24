@@ -148,6 +148,79 @@ def create_invoice_for_order(service_request: str, submit: int = 0) -> dict:
 
 
 @frappe.whitelist()
+def create_invoice_for_tests(
+	patient: str,
+	items: list | str,
+	service_requests: list | str | None = None,
+	mode_of_payment: str | None = None,
+	paid_amount: float | None = None,
+	reference_no: str | None = None,
+	submit: int = 1,
+) -> dict:
+	"""Create ONE Sales Invoice covering several ordered tests, with per-line
+	quantity + discount, and optionally record a payment.
+
+	`items`: list of {template_dt, template_dn, qty, discount_percentage, label}.
+	`service_requests`: optional list (parallel to items) to link each line back
+	to its order. With `paid_amount` > 0 a Payment Entry is recorded too.
+	"""
+	import json
+
+	items = json.loads(items) if isinstance(items, str) else (items or [])
+	srs = json.loads(service_requests) if isinstance(service_requests, str) else (service_requests or [])
+	if not items:
+		frappe.throw("No tests to invoice")
+
+	customer = frappe.db.get_value("Patient", patient, "customer") or frappe.db.get_value("Patient", patient, "patient_name")
+	if not customer or not frappe.db.exists("Customer", customer):
+		frappe.throw(f"No Customer linked to patient {patient}")
+	company = frappe.defaults.get_user_default("company") or frappe.db.get_value("Company", {}, "name")
+	if not company:
+		frappe.throw("No Company configured on the site")
+
+	inv = frappe.get_doc({"doctype": "Sales Invoice", "customer": customer, "company": company, "posting_date": nowdate()})
+	if _has_field("Sales Invoice", "patient"):
+		inv.patient = patient
+	for i, it in enumerate(items):
+		base = _template_rate(it.get("template_dt"), it.get("template_dn"))
+		disc = flt(it.get("discount_percentage") or 0)
+		row = {
+			"item_code": _ensure_item_for_template(it.get("template_dt"), it.get("template_dn")),
+			"qty": flt(it.get("qty") or 1),
+			# Set price_list_rate + discount_percentage so ERPNext applies the
+			# discount; rate is the resulting net (kept consistent).
+			"price_list_rate": base,
+			"discount_percentage": disc,
+			"rate": base * (1 - disc / 100),
+			"description": it.get("label") or it.get("template_dn"),
+		}
+		if srs and i < len(srs) and srs[i]:
+			row["reference_dt"] = "Service Request"
+			row["reference_dn"] = srs[i]
+		inv.append("items", row)
+	inv.insert(ignore_permissions=False)
+	if int(submit or 0):
+		inv.submit()
+
+	payment = None
+	if paid_amount and flt(paid_amount) > 0 and inv.docstatus == 1:
+		try:
+			payment = record_payment(inv.name, flt(paid_amount), mode_of_payment)
+		except Exception as e:
+			frappe.log_error(title="billing.create_invoice_for_tests: payment failed")
+			payment = {"error": str(e)}
+
+	return {
+		"ok": True,
+		"invoice": inv.name,
+		"grand_total": flt(inv.grand_total),
+		"outstanding": flt(inv.outstanding_amount),
+		"docstatus": inv.docstatus,
+		"payment": payment,
+	}
+
+
+@frappe.whitelist()
 def record_payment(invoice: str, amount: float, mode_of_payment: str | None = None) -> dict:
 	"""Record a payment against a submitted Sales Invoice.
 

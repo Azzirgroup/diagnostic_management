@@ -51,6 +51,9 @@ const rows = computed<OrderDisplay[]>(() =>
 
 <template>
   <Topbar title="Orders" />
+  <div class="flex justify-end mb-4">
+    <button class="btn-primary" @click="router.push('/orders/new')">+ New Order</button>
+  </div>
   <div class="card p-1 mb-4">
     <DataTable
       :rows="rows"
@@ -85,8 +88,5 @@ const rows = computed<OrderDisplay[]>(() =>
         </div>
       </template>
     </DataTable>
-  </div>
-  <div class="text-right">
-    <button class="btn-primary" @click="router.push('/orders/new')">+ New Order</button>
   </div>
 </template>
