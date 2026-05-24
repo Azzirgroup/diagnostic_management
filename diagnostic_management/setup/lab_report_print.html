@@ -87,6 +87,9 @@
 .clinical-notes h4 { color: #f57c00; margin: 0 0 8px 0; font-size: 11px; }
 .clinical-notes p { margin: 0; color: #5d4037; }
 
+/* Blank box before signatures — full width, 6cm tall */
+.blank-box { width: 100%; height: 6cm; box-sizing: border-box; border: 1px solid #1a4a6e; margin: 15px 0; }
+
 /* Signature Section */
 .signature-section { margin-top: 30px; padding-top: 15px; border-top: 2px solid #1a4a6e; }
 .signature-grid { display: table; width: 100%; }
@@ -402,6 +405,9 @@
         {% if doc.pathologist_remarks %}<p><b>Pathologist Remarks:</b> {{ doc.pathologist_remarks }}</p>{% endif %}
     </div>
     {% endif %}
+
+    <!-- ===== BLANK BOX (full width, 6cm tall) ===== -->
+    <div class="blank-box"></div>
 
     <!-- ===== SIGNATURE SECTION ===== -->
     <div class="signature-section">
