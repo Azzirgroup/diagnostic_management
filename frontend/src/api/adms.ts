@@ -253,6 +253,14 @@ export interface CatalogItem {
   rate?: number
   sample?: string
   category: string
+  template_type?: string
+}
+
+export type CatalogCategory = 'lab' | 'rad' | 'pkg' | 'fav' | 'all'
+
+export interface FavoriteRef {
+  template_dt: string
+  template_dn: string
 }
 
 export const ordersApi = {
@@ -283,8 +291,12 @@ export const ordersApi = {
     call<OrderRow[]>('diagnostic_management.api.orders.worklist', { status, priority, limit }),
   cancel: (name: string, reason = '') =>
     call<{ ok: boolean; name: string; status: string }>('diagnostic_management.api.orders.cancel', { name, reason }),
-  testCatalog: (query = '', limit = 50) =>
-    call<CatalogItem[]>('diagnostic_management.api.orders.test_catalog', { query, limit }),
+  testCatalog: (query = '', category: CatalogCategory = 'all', limit = 50) =>
+    call<CatalogItem[]>('diagnostic_management.api.orders.test_catalog', { query, category, limit }),
+  toggleFavorite: (template_dt: string, template_dn: string) =>
+    call<{ favorited: boolean; template_dt: string; template_dn: string }>('diagnostic_management.api.orders.toggle_favorite', { template_dt, template_dn }),
+  listFavorites: () =>
+    call<FavoriteRef[]>('diagnostic_management.api.orders.list_favorites'),
   detail: (name: string) =>
     call<OrderDetail>('diagnostic_management.api.orders.detail', { name }),
   inProgress: (limit = 15) =>
@@ -644,11 +656,29 @@ export const radiologyApi = {
 // Critical findings
 // -------------------------------------------------------------------------
 
+export type CriticalResultPayload = {
+  shape: 'sample' | 'lab_test' | 'none'
+  sample?: SampleResults
+  lab_test?: LabTestResult
+  report: Record<string, any>
+}
+
 export const criticalApi = {
   listOpen: (severity?: string, limit = 100) =>
     call<DiagnosticReportRow[]>('diagnostic_management.api.critical.list_open', { severity, limit }),
+  detail: (report: string) =>
+    call<DiagnosticReportRow & Record<string, any>>('diagnostic_management.api.critical.detail', { report }),
+  resultPayload: (report: string) =>
+    call<CriticalResultPayload>('diagnostic_management.api.critical.result_payload', { report }),
   acknowledge: (report: string, notes = '') =>
     call<{ ok: boolean; report: string }>('diagnostic_management.api.critical.acknowledge', { report, notes }),
+  submitPeerReview: (payload: {
+    report: string
+    outcome: 'Agree' | 'Minor Disagreement' | 'Major Disagreement' | 'Amendment Required'
+    review_notes?: string
+    discrepancy_severity?: 'None' | 'Minor' | 'Major' | 'Critical'
+    concurrence?: number
+  }) => call<{ ok: boolean; report: string; case: string; outcome: string }>('diagnostic_management.api.critical.submit_peer_review', payload),
   logFinding: (payload: {
     report: string
     severity?: string

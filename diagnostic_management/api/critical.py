@@ -117,6 +117,114 @@ def detail(report: str) -> dict:
 
 
 @frappe.whitelist()
+def result_payload(report: str) -> dict:
+	"""Full result body behind a critical finding — the lab tests + every result
+	row (numeric with reference ranges, descriptive) on the linked sample or
+	test, plus the report's sign-off fields (diagnosis/clinical notes/etc.).
+
+	Resolves the right shape from the Diagnostic Report's `sample_collection`
+	(per-sample, the modern ADMS shape) or its legacy `docname`/`ref_doctype`
+	(per-Lab Test). Returns `{shape, sample?|lab_test?, report_fields}` so the
+	UI can render the full result instead of just metadata.
+	"""
+	if not frappe.db.exists("Diagnostic Report", report):
+		frappe.throw(f"Diagnostic Report {report} not found", frappe.DoesNotExistError)
+
+	fields = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+	report_fields = ["status", "is_critical", "critical_acknowledged"]
+	for f in ("diagnosis", "clinical_notes", "pathologist_remarks", "accreditation_type",
+	          "pathologist_name", "is_urgent", "urgent_review_status",
+	          "ref_doctype", "docname", "sample_collection"):
+		if f in fields:
+			report_fields.append(f)
+	rpt = frappe.db.get_value("Diagnostic Report", report, report_fields, as_dict=True) or {}
+
+	# Prefer the per-Sample shape (current ADMS model) when present.
+	sample = rpt.get("sample_collection")
+	if not sample and rpt.get("ref_doctype") == "Sample Collection":
+		sample = rpt.get("docname")
+	if sample and frappe.db.exists("Sample Collection", sample):
+		from diagnostic_management.api.results import get_sample
+		return {
+			"shape": "sample",
+			"sample": get_sample(sample),
+			"report": rpt,
+		}
+
+	# Fallback: per-Lab Test (legacy shape — early ADMS reports).
+	lt = rpt.get("docname") if rpt.get("ref_doctype") == "Lab Test" else None
+	if lt and frappe.db.exists("Lab Test", lt):
+		from diagnostic_management.api.results import get_lab_test
+		return {
+			"shape": "lab_test",
+			"lab_test": get_lab_test(lt),
+			"report": rpt,
+		}
+
+	return {"shape": "none", "report": rpt}
+
+
+@frappe.whitelist()
+def submit_peer_review(
+	report: str,
+	outcome: str = "Agree",
+	review_notes: str = "",
+	discrepancy_severity: str | None = None,
+	concurrence: float | None = None,
+) -> dict:
+	"""Submit a real Peer Review Case for a critical Diagnostic Report.
+
+	If no Peer Review Case exists yet for this report, we create one on the fly
+	(linked to the report + patient) and immediately close it with the
+	reviewer's outcome — that's the natural workflow when a clinician reviews
+	a critical result from the dashboard. Also marks the critical finding as
+	acknowledged so it leaves the Pending Review tab.
+	"""
+	if not frappe.db.exists("Diagnostic Report", report):
+		frappe.throw(f"Diagnostic Report {report} not found", frappe.DoesNotExistError)
+	rpt = frappe.db.get_value(
+		"Diagnostic Report", report,
+		["patient", "patient_name", "practitioner", "owner"],
+		as_dict=True,
+	) or {}
+
+	existing = frappe.db.get_value("Peer Review Case", {"subject_report": report}, "name")
+	if existing:
+		case_name = existing
+	else:
+		case = frappe.get_doc({
+			"doctype": "Peer Review Case",
+			"subject_report": report,
+			"patient": rpt.get("patient"),
+			"patient_name": rpt.get("patient_name"),
+			"section": "Lab",
+			"priority": "Urgent",
+			"original_reporter": rpt.get("owner") or rpt.get("practitioner"),
+			"assigned_reviewer": frappe.session.user,
+			"status": "In Review",
+		})
+		case.insert(ignore_permissions=True)
+		case_name = case.name
+
+	from diagnostic_management.api.lab import submit_peer_review as lab_submit
+	res = lab_submit(
+		name=case_name,
+		outcome=outcome,
+		review_notes=review_notes,
+		discrepancy_severity=discrepancy_severity,
+		concurrence=concurrence,
+	)
+
+	# Also close out the critical-finding side so this leaves the "Pending Review" tab.
+	try:
+		acknowledge(report, notes=f"Peer review — {outcome}" + (f": {review_notes}" if review_notes else ""))
+	except Exception:
+		frappe.log_error(title="critical.submit_peer_review: acknowledge failed")
+
+	return {"ok": True, "report": report, "case": case_name, "outcome": res.get("outcome", outcome)}
+
+
+@frappe.whitelist()
 def log_finding(
 	report: str,
 	severity: str = "High",

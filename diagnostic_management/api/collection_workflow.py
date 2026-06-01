@@ -96,15 +96,43 @@ def _stamp(doc, new_status: str) -> None:
 		doc.processed_datetime = now
 
 
+def _trigger_work_orders_on_tested(sample_name: str, new_status: str, old_status: str | None) -> None:
+	"""On first transition to 'Tested', enqueue Work Order auto-creation (genetest
+	parity). Each Lab Test on the sample carries `custom_sales_invoice`; a Work
+	Order is created per SI item with an active default BOM. Falls back to inline
+	execution if the queue/Redis is unavailable."""
+	if new_status != "Tested" or old_status == "Tested":
+		return
+	from diagnostic_management.overrides.work_order_hooks import create_work_orders_from_sample_by_name
+	try:
+		frappe.enqueue(
+			"diagnostic_management.overrides.work_order_hooks.create_work_orders_from_sample_by_name",
+			sample_name=sample_name,
+			queue="long",
+			now=frappe.flags.in_test,
+			enqueue_after_commit=True,
+		)
+	except Exception:
+		try:
+			create_work_orders_from_sample_by_name(sample_name)
+		except Exception as e:
+			frappe.log_error(
+				f"Work Order auto-creation failed for Sample Collection {sample_name}: {str(e)}",
+				"Sample Collection - Work Order",
+			)
+
+
 @frappe.whitelist()
 def update_lab_sample_status(sample_name: str, new_status: str, is_urgent: int = 0) -> dict:
 	if new_status not in (*STATUS_ORDER, "Rejected", "Disposed"):
 		frappe.throw(f"Invalid status: {new_status}")
 	doc = frappe.get_doc("Sample Collection", sample_name)
+	old_status = doc.get("workflow_status")
 	_stamp(doc, new_status)
 	if "is_urgent" in {df.fieldname for df in doc.meta.fields}:
 		doc.is_urgent = 1 if int(is_urgent or 0) else 0
 	doc.save(ignore_permissions=False)
+	_trigger_work_orders_on_tested(sample_name, new_status, old_status)
 	return {
 		"success": True,
 		"new_status": new_status,
@@ -141,11 +169,13 @@ def collect_lab_samples(session_id: str | None = None, samples_data: list | str 
 def update_sample_processing_status(session_id=None, sample_name=None, status=None, data=None) -> dict:
 	"""Fast-track / processing transition. `status` is the target (e.g. Tested)."""
 	doc = frappe.get_doc("Sample Collection", sample_name)
+	old_status = doc.get("workflow_status")
 	# Fast-track stamps the skipped received/processed times too.
 	if "received_datetime" in {df.fieldname for df in doc.meta.fields} and not doc.get("received_datetime"):
 		doc.received_datetime = now_datetime()
 	_stamp(doc, status or "Tested")
 	doc.save(ignore_permissions=False)
+	_trigger_work_orders_on_tested(sample_name, status or "Tested", old_status)
 	return {
 		"success": True,
 		"new_status": status or "Tested",

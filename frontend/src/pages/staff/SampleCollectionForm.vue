@@ -1,11 +1,27 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import WorkflowStepper from '@/components/ui/WorkflowStepper.vue'
+import Combobox from '@/components/ui/Combobox.vue'
 import { getDoc } from '@/api/client'
 import { collectionApi } from '@/api/adms'
+
+// One row in any of this form's searchable dropdowns. `value` is what gets
+// stored on the doc field; `label` is what's shown to the user. An empty-value
+// row labelled "—" is prepended so the user can clear a selection.
+type Opt = { value: string; label: string }
+const optKey = (o: Opt) => o.value
+const optLabel = (o: Opt) => o.label
+// Filter an in-memory list by case-insensitive substring match on the label.
+// Always prepends the "—" clear row so it's reachable in every search.
+function filterOpts(items: Opt[], q: string): Opt[] {
+  const head: Opt = { value: '', label: '—' }
+  if (!q) return [head, ...items]
+  const lq = q.toLowerCase()
+  return [head, ...items.filter((o) => o.label.toLowerCase().includes(lq))]
+}
 
 // Full-page editor for a Healthcare Sample Collection record, mirroring the
 // desk form (Patient Details, Sample Details, Samples child table, Collection
@@ -58,6 +74,35 @@ const users = ref<Array<{ name: string; full_name?: string }>>([])
 const practitioners = ref<Array<{ name: string; practitioner_name?: string }>>([])
 const companies = ref<Array<{ name: string }>>([])
 const obsTemplates = ref<Array<{ name: string }>>([])
+
+// Each dropdown gets an Opt[] derived from its source list, a `loadOptions`
+// the Combobox calls per keystroke, and a `labelFor*` that turns the stored
+// `name` back into the human label so the closed Combobox shows it.
+const containerOpts = computed<Opt[]>(() => CONTAINERS.map((c) => ({ value: c, label: c })))
+const conditionOpts = computed<Opt[]>(() => CONDITIONS.map((c) => ({ value: c, label: c })))
+const specimenOpts  = computed<Opt[]>(() => specimens.value.map((s) => ({ value: s.name, label: s.name })))
+const unitOpts      = computed<Opt[]>(() => units.value.map((u) => ({ value: u.name, label: u.name })))
+const practitionerOpts = computed<Opt[]>(() => practitioners.value.map((p) => ({ value: p.name, label: p.practitioner_name || p.name })))
+const companyOpts   = computed<Opt[]>(() => companies.value.map((c) => ({ value: c.name, label: c.name })))
+const collectorOpts = computed<Opt[]>(() => users.value.map((u) => ({ value: u.name, label: u.full_name || u.name })))
+const obsTemplateOpts = computed<Opt[]>(() => obsTemplates.value.map((o) => ({ value: o.name, label: o.name })))
+
+const loadContainers = (q: string) => Promise.resolve(filterOpts(containerOpts.value, q))
+const loadConditions = (q: string) => Promise.resolve(filterOpts(conditionOpts.value, q))
+const loadSpecimens  = (q: string) => Promise.resolve(filterOpts(specimenOpts.value, q))
+const loadUnits      = (q: string) => Promise.resolve(filterOpts(unitOpts.value, q))
+const loadPractitioners = (q: string) => Promise.resolve(filterOpts(practitionerOpts.value, q))
+const loadCompanies  = (q: string) => Promise.resolve(filterOpts(companyOpts.value, q))
+const loadCollectors = (q: string) => Promise.resolve(filterOpts(collectorOpts.value, q))
+const loadObsTemplates = (q: string) => Promise.resolve(filterOpts(obsTemplateOpts.value, q))
+
+// Return the human label for a stored value. Empty string when nothing is
+// selected — the Combobox shows its `placeholder` in that case (we no longer
+// stuff a literal "—" into the input text). The "—" clear-row still lives at
+// the top of every dropdown list inside `filterOpts` for explicit unselect.
+const labelForPractitioner = (v: string) => practitioners.value.find((p) => p.name === v)?.practitioner_name || v || ''
+const labelForCollector    = (v: string) => users.value.find((u) => u.name === v)?.full_name || v || ''
+const labelForName = (v: string) => v || ''
 
 function toLocal(dt?: string): string {
   if (!dt) return ''
@@ -213,31 +258,37 @@ function printLabel() {
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Container / Tube</label>
-          <select v-model="form.container" class="input">
-            <option value="">—</option>
-            <option v-for="c in CONTAINERS" :key="c" :value="c">{{ c }}</option>
-          </select>
+          <Combobox
+            :load-options="loadContainers" :option-key="optKey" :option-label="optLabel"
+            :model-label="labelForName(form.container)" placeholder="Select…"
+            @select="(o) => (form.container = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Collection Point</label>
-          <select v-model="form.collection_point" class="input" :disabled="!units.length">
-            <option value="">{{ units.length ? '—' : 'No service units configured' }}</option>
-            <option v-for="u in units" :key="u.name" :value="u.name">{{ u.name }}</option>
-          </select>
+          <Combobox
+            :load-options="loadUnits" :option-key="optKey" :option-label="optLabel"
+            :model-label="labelForName(form.collection_point)"
+            :placeholder="units.length ? 'Select…' : 'No service units configured'"
+            :disabled="!units.length"
+            @select="(o) => (form.collection_point = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Referring Practitioner</label>
-          <select v-model="form.referring_practitioner" class="input">
-            <option value="">—</option>
-            <option v-for="p in practitioners" :key="p.name" :value="p.name">{{ p.practitioner_name || p.name }}</option>
-          </select>
+          <Combobox
+            :load-options="loadPractitioners" :option-key="optKey" :option-label="optLabel"
+            :model-label="labelForPractitioner(form.referring_practitioner)" placeholder="Search practitioner…"
+            @select="(o) => (form.referring_practitioner = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Company</label>
-          <select v-model="form.company" class="input">
-            <option value="">—</option>
-            <option v-for="c in companies" :key="c.name" :value="c.name">{{ c.name }}</option>
-          </select>
+          <Combobox
+            :load-options="loadCompanies" :option-key="optKey" :option-label="optLabel"
+            :model-label="labelForName(form.company)" placeholder="Select…"
+            @select="(o) => (form.company = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Invoiced</label>
@@ -252,10 +303,11 @@ function printLabel() {
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
         <div>
           <label class="block text-xs text-surface-500 mb-1">Sample</label>
-          <select v-model="form.sample" class="input">
-            <option value="">—</option>
-            <option v-for="s in specimens" :key="s.name" :value="s.name">{{ s.name }}</option>
-          </select>
+          <Combobox
+            :load-options="loadSpecimens" :option-key="optKey" :option-label="optLabel"
+            :model-label="labelForName(form.sample)" placeholder="Select sample…"
+            @select="(o) => (form.sample = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">UOM</label>
@@ -267,10 +319,11 @@ function printLabel() {
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Collected By</label>
-          <select v-model="form.collected_by" class="input">
-            <option value="">—</option>
-            <option v-for="u in users" :key="u.name" :value="u.name">{{ u.full_name || u.name }}</option>
-          </select>
+          <Combobox
+            :load-options="loadCollectors" :option-key="optKey" :option-label="optLabel"
+            :model-label="labelForCollector(form.collected_by)" placeholder="Search user…"
+            @select="(o) => (form.collected_by = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Collected On</label>
@@ -306,23 +359,27 @@ function printLabel() {
             <tr v-if="!rows.length"><td colspan="7" class="text-center text-surface-400 py-6">No rows</td></tr>
             <tr v-for="(r, i) in rows" :key="i" class="border-b border-surface-100">
               <td class="py-2 pr-3">
-                <select v-model="r.observation_template" class="input !py-1.5">
-                  <option value="">—</option>
-                  <option v-for="o in obsTemplates" :key="o.name" :value="o.name">{{ o.name }}</option>
-                </select>
+                <Combobox
+                  :load-options="loadObsTemplates" :option-key="optKey" :option-label="optLabel"
+                  :model-label="labelForName(r.observation_template || '')" placeholder="Select…"
+                  @select="(o) => (r.observation_template = o.value)"
+                />
               </td>
               <td class="pr-3">
-                <select v-model="r.sample" class="input !py-1.5">
-                  <option value="">—</option>
-                  <option v-for="s in specimens" :key="s.name" :value="s.name">{{ s.name }}</option>
-                </select>
+                <Combobox
+                  :load-options="loadSpecimens" :option-key="optKey" :option-label="optLabel"
+                  :model-label="labelForName(r.sample || '')" placeholder="Select…"
+                  @select="(o) => (r.sample = o.value)"
+                />
               </td>
               <td class="pr-3"><input v-model.number="r.sample_qty" type="number" step="any" min="0" class="input !py-1.5 w-24" /></td>
               <td class="pr-3">
-                <select v-model="r.collection_point" class="input !py-1.5" :disabled="!units.length">
-                  <option value="">—</option>
-                  <option v-for="u in units" :key="u.name" :value="u.name">{{ u.name }}</option>
-                </select>
+                <Combobox
+                  :load-options="loadUnits" :option-key="optKey" :option-label="optLabel"
+                  :model-label="labelForName(r.collection_point || '')" placeholder="Select…"
+                  :disabled="!units.length"
+                  @select="(o) => (r.collection_point = o.value)"
+                />
               </td>
               <td class="pr-3"><input v-model="r.collection_date_time" type="datetime-local" class="input !py-1.5" /></td>
               <td class="pr-3">
@@ -347,10 +404,12 @@ function printLabel() {
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Received Condition</label>
-          <select v-model="form.received_condition" class="input">
-            <option value="">Not recorded</option>
-            <option v-for="c in CONDITIONS" :key="c" :value="c">{{ c }}</option>
-          </select>
+          <Combobox
+            :load-options="loadConditions" :option-key="optKey" :option-label="optLabel"
+            :model-label="form.received_condition"
+            placeholder="Not recorded"
+            @select="(o) => (form.received_condition = o.value)"
+          />
         </div>
         <div>
           <label class="block text-xs text-surface-500 mb-1">Rejection Reason</label>

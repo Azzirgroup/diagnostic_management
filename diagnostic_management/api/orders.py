@@ -471,59 +471,162 @@ def cancel(name: str, reason: str = "") -> dict:
 
 
 @frappe.whitelist()
-def test_catalog(query: str = "", limit: int = 50) -> list[dict]:
-	"""Return a unified test catalog (Lab + Imaging) for the order intake search."""
+def test_catalog(query: str = "", category: str = "all", limit: int = 50) -> list[dict]:
+	"""Unified test catalog for the Order Intake picker, scoped by tab.
+
+	`category` controls which slice is returned:
+	  - "lab" : Lab Test Templates of type Single/Compound/Descriptive only
+	            (the individual analytes — Grouped templates live under Packages).
+	  - "rad" : Clinical Procedure Templates (imaging modalities).
+	  - "pkg" : Lab Test Templates of type Grouped — Marley's native bundling
+	            (e.g. "Health Screen Panel" → CBC + Lipid + FBS).
+	  - "fav" : The current user's starred templates (joined from
+	            ADMS Favorite Test). Empty if the user hasn't starred anything.
+	  - "all" : Everything (back-compat for callers that filter client-side).
+
+	`query` does a case-insensitive substring match against label/name.
+	"""
 	q = (query or "").strip()
+	cat = (category or "all").lower()
 	rows: list[dict] = []
-	lab_filters = {"disabled": 0} if _has_field("Lab Test Template", "disabled") else {}
-	if q:
-		lab_filters_or = [
+
+	# Pre-build the "Grouped vs not" filter once so lab/pkg can share the
+	# Lab Test Template fetch path.
+	def _ltt_rows(grouped_only: bool) -> list[dict]:
+		filters: dict = {}
+		if _has_field("Lab Test Template", "disabled"):
+			filters["disabled"] = 0
+		if _has_field("Lab Test Template", "lab_test_template_type"):
+			filters["lab_test_template_type"] = "Grouped" if grouped_only else ["!=", "Grouped"]
+		or_filters = [
 			["Lab Test Template", "lab_test_name", "like", f"%{q}%"],
 			["Lab Test Template", "name", "like", f"%{q}%"],
-		]
-	else:
-		lab_filters_or = None
-	try:
-		labs = frappe.get_all(
-			"Lab Test Template",
-			fields=["name", "lab_test_name", "lab_test_rate", "sample"],
-			filters=lab_filters,
-			or_filters=lab_filters_or,
-			limit_page_length=int(limit),
-			order_by="lab_test_name",
-		)
-	except Exception:
-		labs = []
-	for r in labs:
-		rows.append({
-			"template_dt": "Lab Test Template",
-			"template_dn": r["name"],
-			"label": r.get("lab_test_name") or r["name"],
-			"rate": r.get("lab_test_rate"),
-			"sample": r.get("sample"),
-			"category": "Lab",
-		})
-	# Optional: imaging templates if installed (Clinical Procedure Template etc.)
-	try:
-		if frappe.db.exists("DocType", "Clinical Procedure Template"):
-			proc = frappe.get_all(
+		] if q else None
+		try:
+			return frappe.get_all(
+				"Lab Test Template",
+				fields=["name", "lab_test_name", "lab_test_rate", "sample", "lab_test_template_type"],
+				filters=filters,
+				or_filters=or_filters,
+				limit_page_length=int(limit),
+				order_by="lab_test_name",
+			)
+		except Exception:
+			return []
+
+	def _proc_rows() -> list[dict]:
+		if not frappe.db.exists("DocType", "Clinical Procedure Template"):
+			return []
+		try:
+			return frappe.get_all(
 				"Clinical Procedure Template",
 				fields=["name", "template", "rate"],
 				or_filters=[["Clinical Procedure Template", "template", "like", f"%{q}%"]] if q else None,
 				limit_page_length=int(limit),
 				order_by="template",
 			)
-			for r in proc:
-				rows.append({
-					"template_dt": "Clinical Procedure Template",
-					"template_dn": r["name"],
-					"label": r.get("template") or r["name"],
-					"rate": r.get("rate"),
-					"category": "Procedure",
-				})
-	except Exception:
-		pass
+		except Exception:
+			return []
+
+	def _push_ltt(r, category_label):
+		rows.append({
+			"template_dt": "Lab Test Template",
+			"template_dn": r["name"],
+			"label": r.get("lab_test_name") or r["name"],
+			"rate": r.get("lab_test_rate"),
+			"sample": r.get("sample"),
+			"category": category_label,
+			"template_type": r.get("lab_test_template_type"),
+		})
+
+	def _push_proc(r):
+		rows.append({
+			"template_dt": "Clinical Procedure Template",
+			"template_dn": r["name"],
+			"label": r.get("template") or r["name"],
+			"rate": r.get("rate"),
+			"category": "Procedure",
+		})
+
+	if cat in ("lab", "all"):
+		for r in _ltt_rows(grouped_only=False):
+			_push_ltt(r, "Lab")
+	if cat in ("pkg", "all"):
+		for r in _ltt_rows(grouped_only=True):
+			_push_ltt(r, "Package")
+	if cat in ("rad", "all"):
+		for r in _proc_rows():
+			_push_proc(r)
+	if cat == "fav":
+		favs = frappe.get_all(
+			"ADMS Favorite Test",
+			fields=["template_dt", "template_dn", "template_label"],
+			filters={"user": frappe.session.user},
+			limit_page_length=int(limit),
+		)
+		# Resolve each fav back to a catalog row (so rate/sample/category stay in sync).
+		for f in favs:
+			if f.template_dt == "Lab Test Template":
+				lt = frappe.db.get_value(
+					"Lab Test Template", f.template_dn,
+					["name", "lab_test_name", "lab_test_rate", "sample", "lab_test_template_type"],
+					as_dict=True,
+				)
+				if lt and (not q or q.lower() in (lt.get("lab_test_name") or lt["name"]).lower()):
+					_push_ltt(lt, "Package" if lt.get("lab_test_template_type") == "Grouped" else "Lab")
+			elif f.template_dt == "Clinical Procedure Template" and frappe.db.exists("DocType", "Clinical Procedure Template"):
+				cp = frappe.db.get_value(
+					"Clinical Procedure Template", f.template_dn,
+					["name", "template", "rate"],
+					as_dict=True,
+				)
+				if cp and (not q or q.lower() in (cp.get("template") or cp["name"]).lower()):
+					_push_proc(cp)
 	return rows
+
+
+@frappe.whitelist()
+def toggle_favorite(template_dt: str, template_dn: str) -> dict:
+	"""Star/unstar a template for the current user. Returns {favorited: bool}."""
+	if template_dt not in ("Lab Test Template", "Clinical Procedure Template"):
+		frappe.throw(f"Unsupported template type for favorites: {template_dt}")
+	if not frappe.db.exists(template_dt, template_dn):
+		frappe.throw(f"{template_dt} {template_dn} not found")
+	existing = frappe.db.get_value(
+		"ADMS Favorite Test",
+		{"user": frappe.session.user, "template_dt": template_dt, "template_dn": template_dn},
+		"name",
+	)
+	if existing:
+		frappe.delete_doc("ADMS Favorite Test", existing, ignore_permissions=True)
+		return {"favorited": False, "template_dt": template_dt, "template_dn": template_dn}
+	# Cache the human-readable label so the Favorites tab list query stays cheap.
+	if template_dt == "Lab Test Template":
+		label = frappe.db.get_value(template_dt, template_dn, "lab_test_name") or template_dn
+	else:
+		label = frappe.db.get_value(template_dt, template_dn, "template") or template_dn
+	fav = frappe.get_doc({
+		"doctype": "ADMS Favorite Test",
+		"user": frappe.session.user,
+		"template_dt": template_dt,
+		"template_dn": template_dn,
+		"template_label": label,
+	})
+	fav.insert(ignore_permissions=True)
+	return {"favorited": True, "template_dt": template_dt, "template_dn": template_dn}
+
+
+@frappe.whitelist()
+def list_favorites() -> list[dict]:
+	"""Set of `{template_dt, template_dn}` the current user has starred. Used by
+	the Order Intake picker to light up the star on rows the user already
+	favorited (across the Lab / Radiology / Packages tabs)."""
+	return frappe.get_all(
+		"ADMS Favorite Test",
+		fields=["template_dt", "template_dn"],
+		filters={"user": frappe.session.user},
+		limit_page_length=1000,
+	)
 
 
 def _has_field(doctype: str, fieldname: str) -> bool:

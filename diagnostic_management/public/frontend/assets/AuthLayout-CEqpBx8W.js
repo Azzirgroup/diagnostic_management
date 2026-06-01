@@ -1,2 +1,0 @@
-import{_ as t}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{B as o,w as r,f as s,k as c}from"./vendor-BJwbc7nR.js";const n={},a={class:"min-h-screen flex items-stretch bg-gradient-to-br from-surface-50 via-white to-brand-teal-50/30"};function i(_,f){const e=o("RouterView");return r(),s("div",a,[c(e)])}const l=t(n,[["render",i]]);export{l as default};
-//# sourceMappingURL=AuthLayout-CEqpBx8W.js.map

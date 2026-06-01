@@ -237,6 +237,15 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 		submit=1,
 	)
 
+	# 2b) Stamp the Sales Invoice link on every Lab Test fanned out from these
+	# orders. This is the link Work Order auto-creation walks back through
+	# (Sample → Lab Test → custom_sales_invoice → SI → BOM items) when the
+	# sample reaches "Tested".
+	if "custom_sales_invoice" in {df.fieldname for df in frappe.get_meta("Lab Test").fields}:
+		for sr in created_orders:
+			for lt_name in frappe.get_all("Lab Test", filters={"service_request": sr, "docstatus": ["!=", 2]}, pluck="name"):
+				frappe.db.set_value("Lab Test", lt_name, "custom_sales_invoice", inv["invoice"], update_modified=False)
+
 	# 3) Link to the session.
 	if session_id and frappe.db.exists("Lab Workflow Session", session_id):
 		try:

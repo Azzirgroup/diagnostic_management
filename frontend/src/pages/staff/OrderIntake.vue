@@ -3,10 +3,30 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import Combobox from '@/components/ui/Combobox.vue'
-import { patientsApi, ordersApi, collectionApi, type CatalogItem, type PatientLite } from '@/api/adms'
+import { patientsApi, ordersApi, collectionApi, type CatalogItem, type CatalogCategory, type PatientLite } from '@/api/adms'
 import { getDoc } from '@/api/client'
 
 type Test = { name: string; lab_test_name: string; lab_test_rate?: number; sample?: string; template_dt: string }
+
+// Maps the UI tab to the backend `category` param of `test_catalog`.
+const TAB_TO_CATEGORY: Record<'lab' | 'rad' | 'pkg' | 'fav', CatalogCategory> = {
+  lab: 'lab', rad: 'rad', pkg: 'pkg', fav: 'fav',
+}
+// Current user's starred templates, used to light up the star on each row.
+// Keyed by `${template_dt}::${template_dn}` so lookups are O(1).
+const favorites = ref<Set<string>>(new Set())
+const favKey = (template_dt: string, template_dn: string) => `${template_dt}::${template_dn}`
+async function refreshFavorites() {
+  try {
+    const rows = await ordersApi.listFavorites()
+    favorites.value = new Set(rows.map((r) => favKey(r.template_dt, r.template_dn)))
+  } catch { /* leave existing set */ }
+}
+async function toggleFavorite(item: CatalogItem) {
+  const r = await ordersApi.toggleFavorite(item.template_dt, item.template_dn)
+  const k = favKey(item.template_dt, item.template_dn)
+  if (r.favorited) favorites.value.add(k); else favorites.value.delete(k)
+}
 
 const selectedPatient = ref<PatientLite | null>(null)
 
@@ -17,9 +37,10 @@ const selectedTests = ref<Test[]>([])
 const patientKey = (p: PatientLite) => p.name
 const patientLabel = (p: PatientLite) => p.patient_name || p.name
 const patientSub = (p: PatientLite) => `${p.sex || '—'} · ${p.mobile || 'no phone'}`
-const testKey = (t: Test) => t.name
-const testLabel = (t: Test) => t.lab_test_name
-const testSub = (t: Test) => (t.sample ? `Specimen: ${t.sample}` : '')
+const testKey = (c: CatalogItem) => `${c.template_dt}::${c.template_dn}`
+const testLabel = (c: CatalogItem) => c.label
+const testSub = (c: CatalogItem) =>
+  c.sample ? `Specimen: ${c.sample}` : c.category === 'Package' ? 'Package' : c.category === 'Procedure' ? 'Procedure' : ''
 
 const priority = ref<'Routine' | 'High' | 'Stat'>('Routine')
 const sampleComments = ref('')
@@ -98,27 +119,23 @@ async function loadPatients(q: string): Promise<PatientLite[]> {
   try { return await patientsApi.search(q, q ? 10 : 50) } catch { return [] }
 }
 
-// Test/service picker, scoped to the active tab (Radiology → procedures,
-// otherwise lab templates). Empty query returns the full catalog.
-async function loadTestOptions(q: string): Promise<Test[]> {
+// Test/service picker, scoped to the active tab. The backend slices the
+// catalog: lab=Single/Compound/Descriptive Lab Test Templates; rad=Clinical
+// Procedure Templates; pkg=Grouped Lab Test Templates (e.g. Health Screen
+// Panel); fav=this user's starred templates. Empty query = the full slice.
+async function loadTestOptions(q: string): Promise<CatalogItem[]> {
   try {
-    const catalog: CatalogItem[] = await ordersApi.testCatalog(q, 30)
-    return catalog
-      .filter((c) => (tab.value === 'rad' ? c.category === 'Procedure' : c.category === 'Lab'))
-      .map((c) => ({
-        name: c.template_dn,
-        lab_test_name: c.label,
-        lab_test_rate: c.rate,
-        sample: c.sample,
-        template_dt: c.template_dt,
-      }))
+    return await ordersApi.testCatalog(q, TAB_TO_CATEGORY[tab.value], 30)
   } catch { return [] }
+}
+function asTest(c: CatalogItem): Test {
+  return { name: c.template_dn, lab_test_name: c.label, lab_test_rate: c.rate, sample: c.sample, template_dt: c.template_dt }
 }
 
 // Try to auto-derive modality + body part from the picked procedure name
 // (e.g. "MRI Brain Plain" → MRI / Brain). The user can still override.
 function deriveImagingFromTemplate(t: Test) {
-  if (tab.value !== 'rad') return
+  if (tab.value !== 'rad' && t.template_dt !== 'Clinical Procedure Template') return
   const label = (t.lab_test_name || t.name || '').toLowerCase()
   const modalityHits = ['MRI', 'CT', 'X-Ray', 'Ultrasound', 'Mammography', 'PET', 'Fluoroscopy']
   const mod = modalityHits.find((m) => label.includes(m.toLowerCase()))
@@ -128,11 +145,12 @@ function deriveImagingFromTemplate(t: Test) {
   if (part && !imagingBodyPart.value) imagingBodyPart.value = part
 }
 onMounted(async () => {
-  await loadForEdit()
+  await Promise.all([loadForEdit(), refreshFavorites()])
 })
 
-function addTest(t: Test) {
-  if (selectedTests.value.find((s) => s.name === t.name)) return
+function addTest(c: CatalogItem) {
+  const t = asTest(c)
+  if (selectedTests.value.find((s) => s.name === t.name && s.template_dt === t.template_dt)) return
   selectedTests.value.push(t)
   deriveImagingFromTemplate(t)
 }
@@ -236,7 +254,8 @@ async function saveOrder(submit: boolean) {
         <button :class="['btn-ghost', tab === 'fav' && '!bg-brand-navy-700 !text-white !border-transparent']" @click="tab = 'fav'">Favorites</button>
       </div>
       <Combobox
-        placeholder="Click to browse, or search tests (CBC, Lipid Profile…)"
+        :key="tab"
+        :placeholder="tab === 'fav' ? 'Your starred tests appear here' : 'Click to browse, or search…'"
         :load-options="loadTestOptions"
         :option-key="testKey"
         :option-label="testLabel"
@@ -244,7 +263,27 @@ async function saveOrder(submit: boolean) {
         clear-on-select
         keep-open-on-select
         @select="addTest"
-      />
+      >
+        <template #row="{ item, choose }">
+          <div class="flex items-center gap-2 px-3 py-2 hover:bg-brand-teal-50/40">
+            <button type="button" class="flex-1 text-left" @click="choose(item)">
+              <div class="text-sm text-surface-800 flex items-center gap-2">
+                {{ item.label }}
+                <span v-if="item.category === 'Package'" class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">PACKAGE</span>
+                <span v-else-if="item.category === 'Procedure'" class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">IMAGING</span>
+              </div>
+              <div v-if="testSub(item)" class="text-xs text-surface-500">{{ testSub(item) }}</div>
+            </button>
+            <button
+              type="button"
+              class="text-lg leading-none shrink-0"
+              :class="favorites.has(favKey(item.template_dt, item.template_dn)) ? 'text-amber-500' : 'text-surface-300 hover:text-amber-400'"
+              :title="favorites.has(favKey(item.template_dt, item.template_dn)) ? 'Unstar' : 'Star'"
+              @click.stop="toggleFavorite(item)"
+            >★</button>
+          </div>
+        </template>
+      </Combobox>
 
       <div class="mt-5 font-semibold text-sm text-surface-700">Selected Tests ({{ selectedTests.length }})</div>
       <table class="w-full mt-2 text-sm">

@@ -332,4 +332,27 @@ def _field_map() -> dict[str, list[dict]]:
 				"insert_after": "urgent_reviewed_by",
 			},
 		],
+		# Work Order automation (ported from genetest): each Lab Test created
+		# from billing carries the Sales Invoice link, and each auto-created
+		# Work Order carries the originating Sales Invoice for traceability.
+		"Lab Test": [
+			{
+				"fieldname": "custom_sales_invoice",
+				"label": "Sales Invoice",
+				"fieldtype": "Link",
+				"options": "Sales Invoice",
+				"insert_after": "service_request",
+				"read_only": 1,
+			},
+		],
+		"Work Order": [
+			{
+				"fieldname": "custom_sales_invoice",
+				"label": "Sales Invoice",
+				"fieldtype": "Link",
+				"options": "Sales Invoice",
+				"insert_after": "sales_order",
+				"read_only": 1,
+			},
+		],
 	}

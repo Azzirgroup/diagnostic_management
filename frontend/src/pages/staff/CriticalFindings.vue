@@ -1,17 +1,26 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import Topbar from '@/components/layout/Topbar.vue'
 import KpiCard from '@/components/ui/KpiCard.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import DetailPane from '@/components/ui/DetailPane.vue'
 import { criticalApi, type DiagnosticReportRow } from '@/api/adms'
+import { frappeError } from '@/api/client'
 
+const router = useRouter()
 const rows = ref<DiagnosticReportRow[]>([])
 const selected = ref<DiagnosticReportRow | null>(null)
 const tab = ref<'all' | 'unack' | 'ack'>('all')
+
+// Peer review form (matches the detail page so the actions stay consistent
+// across both views).
+const outcome = ref<'Agree' | 'Minor Disagreement' | 'Major Disagreement' | 'Amendment Required'>('Agree')
+const discrepancy = ref<'' | 'None' | 'Minor' | 'Major' | 'Critical'>('')
 const reviewNotes = ref('')
 const busy = ref(false)
+const error = ref('')
 
 async function load() {
   try { rows.value = await criticalApi.listOpen() } catch { rows.value = [] }
@@ -26,14 +35,33 @@ const filtered = computed(() => {
   return rows.value
 })
 
+function resetForm() {
+  outcome.value = 'Agree'
+  discrepancy.value = ''
+  reviewNotes.value = ''
+  error.value = ''
+}
+function pickRow(r: DiagnosticReportRow) {
+  selected.value = r
+  resetForm()
+}
+
 async function submitPeerReview() {
   if (!selected.value) return
   busy.value = true
+  error.value = ''
   try {
-    await criticalApi.acknowledge(selected.value.name, reviewNotes.value)
-    reviewNotes.value = ''
+    await criticalApi.submitPeerReview({
+      report: selected.value.name,
+      outcome: outcome.value,
+      review_notes: reviewNotes.value,
+      discrepancy_severity: discrepancy.value || undefined,
+    })
     selected.value = null
+    resetForm()
     await load()
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to submit peer review')
   } finally { busy.value = false }
 }
 </script>
@@ -55,21 +83,27 @@ async function submitPeerReview() {
           {{ label }}
         </button>
       </div>
-      <DataTable :rows="filtered" row-key="name" :selectable="true" @select="(r) => (selected = r as any)" empty-text="No critical results"
+      <DataTable :rows="filtered" row-key="name" :selectable="true" @select="(r) => pickRow(r as any)" empty-text="No critical results"
         :columns="[
           { key: 'patient_name', label: 'Patient' },
           { key: 'name', label: 'Report ID' },
           { key: 'status', label: 'Report Status' },
           { key: 'creation', label: 'Detected' },
-          { key: 'critical_acknowledged', label: 'Peer Review' },
+          { key: 'critical_acknowledged', label: 'Actions' },
         ]"
       >
-        <template #cell-name="{ value }">
-          <button class="text-brand-teal-600 hover:underline" @click.stop="$router.push(`/critical-findings/${value}`)">{{ value }}</button>
+        <template #cell-name="{ row, value }">
+          <div class="flex flex-col">
+            <button class="text-brand-teal-600 hover:underline text-left" @click.stop="router.push(`/critical-findings/${value}`)">{{ value }}</button>
+            <button class="text-xs text-brand-teal-500 hover:underline text-left mt-0.5" @click.stop="router.push(`/critical-findings/${value}`)">View Full Result →</button>
+          </div>
         </template>
         <template #cell-status="{ value }"><StatusPill :status="value as string"/></template>
-        <template #cell-critical_acknowledged="{ value }">
-          <StatusPill :status="value ? 'Reviewed' : 'Pending Review'" />
+        <template #cell-critical_acknowledged="{ row, value }">
+          <div class="flex items-center gap-2">
+            <StatusPill :status="value ? 'Reviewed' : 'Pending Review'" />
+            <button v-if="!value" class="text-xs text-brand-navy-700 hover:underline" @click.stop="pickRow(row as any)">Review →</button>
+          </div>
         </template>
       </DataTable>
     </div>
@@ -78,6 +112,7 @@ async function submitPeerReview() {
         <div class="text-sm font-semibold text-status-danger">Critical Result · Peer Review</div>
         <p class="text-sm text-surface-700 mt-1">Document: {{ selected.docname || selected.name }}</p>
         <p class="text-sm text-surface-700 mt-1">Status: {{ selected.status }}</p>
+        <button class="text-xs text-brand-teal-600 hover:underline mt-2" @click="router.push(`/critical-findings/${selected.name}`)">View Full Result →</button>
       </div>
       <h4 class="font-semibold text-sm mb-2">Peer Review Timeline</h4>
       <ul class="text-xs space-y-2 mb-4">
@@ -87,11 +122,27 @@ async function submitPeerReview() {
           <span class="text-surface-500">{{ l.detected_at || l.acknowledged_at }}</span>
         </li>
       </ul>
-      <label class="block text-xs text-surface-500 mb-1">Peer Review Notes</label>
-      <textarea v-model="reviewNotes" class="input w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="3" placeholder="Reviewer comments, agreement / disagreement, follow-up actions..."></textarea>
-      <button class="btn-primary w-full mt-4" :disabled="busy || !!selected.critical_acknowledged" @click="submitPeerReview">
-        {{ selected.critical_acknowledged ? 'Already Reviewed' : 'Submit Peer Review' }}
-      </button>
+      <template v-if="!selected.critical_acknowledged">
+        <label class="block text-xs text-surface-500 mb-1">Outcome</label>
+        <select v-model="outcome" class="input mb-3">
+          <option>Agree</option>
+          <option>Minor Disagreement</option>
+          <option>Major Disagreement</option>
+          <option>Amendment Required</option>
+        </select>
+        <label class="block text-xs text-surface-500 mb-1">Discrepancy Severity</label>
+        <select v-model="discrepancy" class="input mb-3">
+          <option value="">—</option>
+          <option>None</option><option>Minor</option><option>Major</option><option>Critical</option>
+        </select>
+        <label class="block text-xs text-surface-500 mb-1">Reviewer Notes</label>
+        <textarea v-model="reviewNotes" class="input w-full mb-3" rows="3" placeholder="Agreement / disagreement, follow-up actions..."></textarea>
+        <p v-if="error" class="text-sm text-status-danger mb-2">{{ error }}</p>
+        <button class="btn-primary w-full" :disabled="busy" @click="submitPeerReview">
+          {{ busy ? 'Submitting…' : 'Submit Peer Review' }}
+        </button>
+      </template>
+      <div v-else class="text-sm text-surface-500">Already reviewed.</div>
     </DetailPane>
     <div v-else class="card p-6 text-center text-surface-400">Select a result to review</div>
   </div>
