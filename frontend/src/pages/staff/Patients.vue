@@ -28,6 +28,9 @@ function onSelect(p: Patient) {
 function openDetail() {
   if (selectedPatient.value) router.push(`/patients/${selectedPatient.value.name}`)
 }
+function openEdit() {
+  if (selectedPatient.value) router.push(`/patients/${selectedPatient.value.name}/edit`)
+}
 
 function age(dob?: string): string {
   if (!dob) return '—'
@@ -60,7 +63,7 @@ function age(dob?: string): string {
           { key: 'uid', label: 'Patient ID / MRN' },
           { key: 'sex', label: 'Sex' },
           { key: 'mobile', label: 'Phone' },
-          { key: 'blood_group', label: 'Blood Group' },
+          { key: 'blood_group', label: 'Actions' },
         ]"
       >
         <template #cell-patient_name="{ row }">
@@ -77,9 +80,15 @@ function age(dob?: string): string {
         <template #cell-uid="{ row }">
           <span class="text-surface-700">{{ row.uid || row.name }}</span>
         </template>
-        <template #cell-blood_group="{ value }">
-          <StatusPill v-if="value" :status="value as string" tone="info" />
-          <span v-else class="text-surface-400">—</span>
+        <template #cell-blood_group="{ row, value }">
+          <div class="flex items-center gap-2 flex-wrap">
+            <StatusPill v-if="value" :status="value as string" tone="info" />
+            <span v-else class="text-surface-400 text-xs">—</span>
+            <button class="text-xs text-brand-teal-600 hover:underline ml-2"
+              @click.stop="router.push(`/patients/${(row as Patient).name}`)">View</button>
+            <button class="text-xs text-brand-navy-700 hover:underline"
+              @click.stop="router.push(`/patients/${(row as Patient).name}/edit`)">Edit</button>
+          </div>
         </template>
       </DataTable>
     </div>
@@ -97,7 +106,10 @@ function age(dob?: string): string {
           <div class="flex justify-between"><dt class="text-surface-500">Blood Group</dt><dd class="text-surface-800">{{ selectedPatient.blood_group || '—' }}</dd></div>
           <div class="flex justify-between"><dt class="text-surface-500">Registered</dt><dd class="text-surface-800">—</dd></div>
         </dl>
-        <button class="btn-primary w-full mt-6" @click="openDetail">View Patient</button>
+        <div class="grid grid-cols-2 gap-2 mt-6">
+          <button class="btn-primary" @click="openDetail">View</button>
+          <button class="btn-ghost" @click="openEdit">Edit</button>
+        </div>
         <button class="btn-ghost w-full mt-2">Open Results</button>
       </DetailPane>
       <div v-else class="card p-6 text-center text-surface-400">Select a patient to see details.</div>

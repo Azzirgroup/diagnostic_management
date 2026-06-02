@@ -418,8 +418,9 @@
             <div class="col-span-2">Department</div>
             <div class="col-span-1">Sample</div>
             <div class="col-span-1 text-right">Rate</div>
-            <div class="col-span-2 text-center">Qty</div>
-            <div class="col-span-2 text-center">Disc %</div>
+            <div class="col-span-1 text-center">Qty</div>
+            <div class="col-span-1 text-center">Disc %</div>
+            <div class="col-span-2 text-center">Disc Amount</div>
           </div>
 
           <!-- Table Body -->
@@ -459,13 +460,26 @@
               <div class="col-span-1 text-right">
                 <span class="font-semibold text-gray-900">{{ formatCurrency(test.lab_test_rate) }}</span>
               </div>
-              <div class="col-span-2 text-center">
+              <div class="col-span-1 text-center">
                 <input
                   v-if="selectedTests.includes(test.name)"
                   type="number"
                   min="1"
                   :value="(testOverrides[test.name]?.qty) || 1"
-                  @input="testOverrides[test.name] = { ...(testOverrides[test.name] || {}), qty: parseInt($event.target.value) || 1 }"
+                  @input="setQty(test, $event.target.value)"
+                  class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-green-500"
+                />
+                <span v-else class="text-gray-400">&mdash;</span>
+              </div>
+              <div class="col-span-1 text-center">
+                <input
+                  v-if="selectedTests.includes(test.name)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  :value="(testOverrides[test.name]?.discount_percentage) || 0"
+                  @input="setDiscountPct(test, $event.target.value)"
                   class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-green-500"
                 />
                 <span v-else class="text-gray-400">&mdash;</span>
@@ -475,10 +489,10 @@
                   v-if="selectedTests.includes(test.name)"
                   type="number"
                   min="0"
-                  max="100"
-                  :value="(testOverrides[test.name]?.discount_percentage) || 0"
-                  @input="testOverrides[test.name] = { ...(testOverrides[test.name] || {}), discount_percentage: parseFloat($event.target.value) || 0 }"
-                  class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-green-500"
+                  step="0.01"
+                  :value="discountAmountFor(test)"
+                  @input="setDiscountAmount(test, $event.target.value)"
+                  class="w-24 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-green-500"
                 />
                 <span v-else class="text-gray-400">&mdash;</span>
               </div>
@@ -730,8 +744,38 @@ const createdPayment = ref(null)
 const paymentLoading = ref(false)
 const paymentErrors = ref([])
 
-// Per-test overrides
+// Per-test overrides — { [testName]: { qty, discount_percentage } }. Discount
+// percentage is the SOURCE OF TRUTH (that's what the backend invoice uses);
+// the discount-amount column is just a two-way derived view. Decimal % is
+// supported (step=0.01) — entering 7.5% yields a 7.5 figure here.
 const testOverrides = ref({})
+
+function setQty(test, raw) {
+  const qty = Math.max(1, parseInt(raw, 10) || 1)
+  testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || {}), qty }
+}
+function setDiscountPct(test, raw) {
+  const pct = Math.max(0, Math.min(100, parseFloat(raw) || 0))
+  testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || { qty: 1 }), discount_percentage: pct }
+}
+// Discount Amount → recompute discount_percentage so the source of truth and
+// the invoice line stay consistent. Capped at the line subtotal (rate × qty).
+function setDiscountAmount(test, raw) {
+  const ov = testOverrides.value[test.name] || { qty: 1 }
+  const qty = ov.qty || 1
+  const rate = test.lab_test_rate || 0
+  const base = qty * rate
+  const amount = Math.max(0, Math.min(base, parseFloat(raw) || 0))
+  const pct = base > 0 ? (amount / base) * 100 : 0
+  testOverrides.value[test.name] = { ...ov, discount_percentage: pct }
+}
+// Live discount amount derived from qty × rate × pct. Two decimals so the
+// number input renders cleanly (e.g. 157.50, not 157.4999999).
+function discountAmountFor(test) {
+  const ov = testOverrides.value[test.name] || { qty: 1, discount_percentage: 0 }
+  const base = (ov.qty || 1) * (test.lab_test_rate || 0)
+  return +(base * ((ov.discount_percentage || 0) / 100)).toFixed(2)
+}
 
 // Payment type options
 const paymentTypeOptions = [

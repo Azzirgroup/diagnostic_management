@@ -68,6 +68,7 @@ if (base === '/doctor-login') {
         { path: 'workflow/:session', name: 'workflow-session', component: () => import('@/pages/staff/WorkflowWizard.vue') },
         { path: 'patients', name: 'patients', component: () => import('@/pages/staff/Patients.vue') },
         { path: 'patients/new', name: 'patient-new', component: () => import('@/pages/staff/NewPatient.vue') },
+        { path: 'patients/:name/edit', name: 'patient-edit', component: () => import('@/pages/staff/NewPatient.vue') },
         { path: 'patients/:name', name: 'patient-detail', component: () => import('@/pages/staff/PatientProfile.vue') },
         { path: 'orders', name: 'orders', component: () => import('@/pages/staff/Orders.vue') },
         { path: 'orders/new', name: 'order-new', component: () => import('@/pages/staff/OrderIntake.vue') },

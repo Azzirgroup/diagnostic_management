@@ -240,6 +240,18 @@ export const patientsApi = {
     uid?: string
     permanent_address?: string
   }) => call<{ ok: boolean; name: string; patient_name: string }>('diagnostic_management.api.patients.create_basic', payload),
+  updateBasic: (payload: {
+    name: string
+    first_name?: string
+    last_name?: string
+    sex?: string
+    dob?: string
+    mobile?: string
+    email?: string
+    blood_group?: string
+    uid?: string
+    permanent_address?: string
+  }) => call<{ ok: boolean; name: string; patient_name: string }>('diagnostic_management.api.patients.update_basic', payload),
 }
 
 // -------------------------------------------------------------------------

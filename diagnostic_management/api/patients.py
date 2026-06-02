@@ -114,3 +114,40 @@ def create_basic(
 		"status": "Active",
 	}).insert(ignore_permissions=False)
 	return {"ok": True, "name": doc.name, "patient_name": doc.patient_name}
+
+
+@frappe.whitelist()
+def update_basic(
+	name: str,
+	first_name: str | None = None,
+	last_name: str | None = None,
+	sex: str | None = None,
+	dob: str | None = None,
+	mobile: str | None = None,
+	email: str | None = None,
+	blood_group: str | None = None,
+	uid: str | None = None,
+	permanent_address: str | None = None,
+) -> dict:
+	"""Edit the same basic fields exposed by `create_basic`. Only fields the
+	caller actually sends are written — None means "leave it alone". Empty
+	string is a real value, so the user can clear an optional field by passing
+	"".
+	"""
+	doc = frappe.get_doc("Patient", name)
+	# Map of arg -> value; only apply when the caller sent it.
+	updates = {
+		"first_name": first_name, "last_name": last_name, "sex": sex, "dob": dob,
+		"mobile": mobile, "email": email, "blood_group": blood_group, "uid": uid,
+		"permanent_address": permanent_address,
+	}
+	for field, value in updates.items():
+		if value is not None:
+			doc.set(field, value)
+	# Marley Healthcare's Patient.set_contact saves the linked Contact in the
+	# same transaction, which bumps Contact.modified and then makes its own
+	# follow-up Contact save trip Frappe's timestamp check. Skip the version
+	# check on this save — we already loaded the latest Patient doc above.
+	doc.flags.ignore_version = True
+	doc.save(ignore_permissions=False)
+	return {"ok": True, "name": doc.name, "patient_name": doc.patient_name}
