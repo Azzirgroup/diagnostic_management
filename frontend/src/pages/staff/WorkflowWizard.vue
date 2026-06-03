@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Combobox from '@/components/ui/Combobox.vue'
 import ResultsStep from '@/components/workflow/ResultsStep.vue'
@@ -7,6 +7,7 @@ import {
   patientsApi, workflowApi,
   type PatientLite, type WorkflowSession,
 } from '@/api/adms'
+import { frappeError } from '@/api/client'
 // @ts-ignore — ported genetest component uses a JS <script setup>
 import BillingStep from '@/components/workflow/BillingStep.vue'
 // @ts-ignore — ported genetest component uses a JS <script setup>
@@ -33,7 +34,34 @@ const STEPS = [
 // ---- Step 1: patient ----
 const selectedPatient = ref<PatientLite | null>(null)
 const showNewPatient = ref(false)
-const np = ref({ first_name: '', last_name: '', sex: 'Female', mobile: '' })
+// Mirror the full /patients/new form so a tech doesn't have to leave the
+// workflow to capture everything they'd capture there.
+const np = ref({
+  first_name: '', last_name: '', sex: 'Female', dob: '',
+  mobile: '', email: '', blood_group: '', uid: '', permanent_address: '',
+})
+const BLOOD_GROUPS = [
+  'A Positive', 'A Negative', 'AB Positive', 'AB Negative',
+  'B Positive', 'B Negative', 'O Positive', 'O Negative',
+]
+// True once Billing created at least one Service Request / Sales Invoice in
+// this session, so going back to step 2 should show a read-only "already
+// submitted" summary instead of opening BillingStep for another submission.
+const orderAlreadySubmitted = computed(() => {
+  if (!session.value) return false
+  if (session.value.service_request) return true
+  try {
+    const draft = session.value.draft_data ? JSON.parse(session.value.draft_data) : null
+    return !!(draft && (draft.invoice || (draft.orders && draft.orders.length)))
+  } catch { return false }
+})
+const submittedSummary = computed(() => {
+  if (!session.value?.draft_data) return null
+  try {
+    const d = JSON.parse(session.value.draft_data)
+    return { invoice: d.invoice as string | undefined, orders: (d.orders as string[]) || [] }
+  } catch { return null }
+})
 const patientKey = (p: PatientLite) => p.name
 const patientLabel = (p: PatientLite) => p.patient_name || p.name
 const patientSub = (p: PatientLite) => `${p.sex || '—'} · ${p.mobile || 'no phone'}`
@@ -90,13 +118,24 @@ async function pickPatient(p: PatientLite) {
   } catch (e: any) { error.value = e?.message || 'Failed' } finally { busy.value = false }
 }
 async function createPatient() {
-  if (!np.value.first_name) { error.value = 'First name required'; return }
+  if (!np.value.first_name.trim()) { error.value = 'First name required'; return }
+  if (!np.value.sex) { error.value = 'Gender required'; return }
   busy.value = true; error.value = ''
   try {
-    const r = await patientsApi.createBasic({ ...np.value })
+    // Strip empty optional fields so we don't carry "" into the doc insert.
+    const payload: Record<string, string> = {
+      first_name: np.value.first_name.trim(),
+      sex: np.value.sex,
+    }
+    for (const k of ['last_name','dob','mobile','email','blood_group','uid','permanent_address'] as const) {
+      const v = (np.value[k] || '').trim()
+      if (v) payload[k] = v
+    }
+    const r = await patientsApi.createBasic(payload as any)
     await pickPatient({ name: r.name, patient_name: r.patient_name })
     showNewPatient.value = false
-  } catch (e: any) { error.value = e?.response?.data?.message || 'Failed to create patient' } finally { busy.value = false }
+  } catch (e: any) { error.value = frappeError(e, 'Failed to create patient') }
+  finally { busy.value = false }
 }
 
 async function toResults() {
@@ -162,16 +201,83 @@ async function finish() {
             {{ showNewPatient ? 'Cancel' : '+ Register new patient' }}
           </button>
         </div>
-        <div v-if="showNewPatient" class="mt-3 grid grid-cols-2 gap-3">
-          <input v-model="np.first_name" class="input" placeholder="First name *" />
-          <input v-model="np.last_name" class="input" placeholder="Last name" />
-          <select v-model="np.sex" class="input"><option>Female</option><option>Male</option><option>Other</option></select>
-          <input v-model="np.mobile" class="input" placeholder="Mobile" />
-          <button class="btn-primary col-span-2" :disabled="busy" @click="createPatient">Register &amp; Continue</button>
+        <div v-if="showNewPatient" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">First Name <span class="text-status-danger">*</span></label>
+            <input v-model="np.first_name" class="input" placeholder="First name" />
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Last Name</label>
+            <input v-model="np.last_name" class="input" placeholder="Last name" />
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Gender <span class="text-status-danger">*</span></label>
+            <select v-model="np.sex" class="input">
+              <option value="" disabled>Select…</option>
+              <option>Female</option><option>Male</option><option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Date of Birth</label>
+            <input v-model="np.dob" class="input" type="date" />
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Mobile</label>
+            <input v-model="np.mobile" class="input" type="tel" placeholder="+92…" />
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Email</label>
+            <input v-model="np.email" class="input" type="email" placeholder="patient@example.com" />
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Blood Group</label>
+            <select v-model="np.blood_group" class="input">
+              <option value="">—</option>
+              <option v-for="bg in BLOOD_GROUPS" :key="bg" :value="bg">{{ bg }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-surface-500 mb-1">Patient ID / UID</label>
+            <input v-model="np.uid" class="input" placeholder="National ID, MRN, etc." />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs text-surface-500 mb-1">Address</label>
+            <textarea v-model="np.permanent_address" class="input" rows="2"></textarea>
+          </div>
+          <button class="btn-primary md:col-span-2" :disabled="busy" @click="createPatient">{{ busy ? 'Saving…' : 'Register &amp; Continue' }}</button>
         </div>
       </div>
 
-      <!-- Step 2: Billing (ported genetest component) -->
+      <!-- Step 2: Billing. If this session already submitted the order, show a
+           read-only summary instead of letting the user re-bill. -->
+      <div v-else-if="step === 2 && session && orderAlreadySubmitted" class="card p-5">
+        <h3 class="font-semibold mb-3">2. Order — already submitted</h3>
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-4 text-sm text-amber-800">
+          ⚠ This workflow's order has already been submitted. It can't be modified from here.
+        </div>
+        <dl class="text-sm grid grid-cols-1 sm:grid-cols-2 gap-y-2 mb-4">
+          <dt class="text-surface-500">Patient</dt><dd>{{ session.patient_name || session.patient || '—' }}</dd>
+          <dt class="text-surface-500">Sales Invoice</dt>
+          <dd>
+            <button v-if="submittedSummary?.invoice" class="text-brand-teal-600 hover:underline"
+              @click="router.push(`/billing/${submittedSummary.invoice}`)">{{ submittedSummary.invoice }}</button>
+            <span v-else>—</span>
+          </dd>
+          <dt class="text-surface-500">Service Requests</dt>
+          <dd>
+            <div v-if="submittedSummary?.orders?.length" class="flex flex-wrap gap-2">
+              <button v-for="o in submittedSummary.orders" :key="o" class="text-brand-teal-600 hover:underline"
+                @click="router.push(`/orders/${o}`)">{{ o }}</button>
+            </div>
+            <span v-else>—</span>
+          </dd>
+        </dl>
+        <div class="flex justify-end">
+          <button class="btn-primary" @click="step = 3">Continue to Collection →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Billing (ported genetest component) — only when not yet submitted -->
       <BillingStep v-else-if="step === 2 && session" :session="(session as any)" @continue="onBillingContinue" />
 
       <!-- Step 3: Collection (full genetest port) -->

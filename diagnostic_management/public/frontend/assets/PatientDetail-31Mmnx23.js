@@ -1,2 +1,0 @@
-import{_ as t}from"./PatientProfile.vue_vue_type_script_setup_true_lang-7ckzV9Df.js";import{m as o,w as e,d as r}from"./vendor-CuKR31Qh.js";import"./Topbar.vue_vue_type_script_setup_true_lang-DRPlEasw.js";import"./index-BIGH5VHF.js";import"./adms-DMOpVgYQ.js";import"./StatusPill.vue_vue_type_script_setup_true_lang-vM_Pytq5.js";const l=o({__name:"PatientDetail",setup(a){return(m,p)=>(e(),r(t))}});export{l as default};
-//# sourceMappingURL=PatientDetail-31Mmnx23.js.map

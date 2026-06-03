@@ -27,12 +27,21 @@ def _session_orders(session_id: str) -> list[str]:
 	return [o for o in orders if o and frappe.db.exists("Service Request", o)]
 
 
-def _sample_payload(name: str) -> dict:
+def _sample_payload(name: str, session_orders: list[str] | None = None) -> dict:
 	sc = frappe.get_doc("Sample Collection", name)
 	status = sc.get("workflow_status") or ("Collected" if sc.get("collected_time") else "To Be Collected")
+	# Marley reuses the same Sample Collection across orders for a patient +
+	# sample type, so `Lab Test.sample == name` returns every Lab Test ever
+	# linked to this sample (including ones from prior workflows). Scope to
+	# the current session's orders when we know them, so the Collection step
+	# only shows the tests THIS order requested. Falls back to all linked
+	# tests when called without a session context.
+	lt_filters: dict = {"sample": name}
+	if session_orders:
+		lt_filters["service_request"] = ["in", session_orders]
 	lab_tests = frappe.get_all(
 		"Lab Test",
-		filters={"sample": name},
+		filters=lt_filters,
 		fields=["name", "template", "status", "department"],
 	)
 	return {
@@ -71,12 +80,13 @@ def _sample_payload(name: str) -> dict:
 
 @frappe.whitelist()
 def get_session_lab_samples(session_id: str) -> dict:
+	orders = _session_orders(session_id)
 	names = []
-	for o in _session_orders(session_id):
+	for o in orders:
 		for s in resolve_order_samples(o):
 			if s["name"] not in names:
 				names.append(s["name"])
-	return {"samples": [_sample_payload(n) for n in names]}
+	return {"samples": [_sample_payload(n, session_orders=orders) for n in names]}
 
 
 def _stamp(doc, new_status: str) -> None:
