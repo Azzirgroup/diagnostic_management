@@ -44,23 +44,31 @@ def _allow_blanks(doc) -> None:
 
 
 def _lab_test_rows(doc) -> dict:
-	"""Shape one Lab Test's expanded result rows for the entry UI."""
+	"""Shape one Lab Test's expanded result rows for the entry UI. Each
+	normal-test row is overlaid with the reference range / UoM that matches
+	THIS patient (via the template's ADMS Reference Range child table). Empty
+	overlay → fall back to Marley's row-level normal_range / lab_test_uom."""
+	from diagnostic_management.utils.reference_ranges import pick_reference_range
+	normal = []
+	for r in doc.normal_test_items:
+		analyte = r.lab_test_name or r.lab_test_event
+		picked = pick_reference_range(doc.template, analyte, doc.patient)
+		normal.append({
+			"name": r.name, "idx": r.idx,
+			"lab_test_name": analyte,
+			"result_value": r.result_value,
+			"normal_range": (picked["range_text"] if picked else None) or r.normal_range,
+			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
+			"lab_test_comment": r.lab_test_comment,
+			"result_type": (picked["result_type"] if picked else None) or "Numeric",
+			"result_options": (picked["result_options"] if picked else None) or "",
+		})
 	return {
 		"name": doc.name,
 		"template": doc.template,
 		"status": doc.status,
 		"docstatus": doc.docstatus,
-		"normal_test_items": [
-			{
-				"name": r.name, "idx": r.idx,
-				"lab_test_name": r.lab_test_name or r.lab_test_event,
-				"result_value": r.result_value,
-				"normal_range": r.normal_range,
-				"lab_test_uom": r.lab_test_uom,
-				"lab_test_comment": r.lab_test_comment,
-			}
-			for r in doc.normal_test_items
-		],
+		"normal_test_items": normal,
 		"descriptive_test_items": [
 			{
 				"name": r.name, "idx": r.idx,
@@ -254,8 +262,27 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 
 @frappe.whitelist()
 def get_lab_test(name: str) -> dict:
-	"""Return a Lab Test with its expanded result rows for the entry screen."""
+	"""Return a Lab Test with its expanded result rows for the entry screen.
+	Each normal-test row's `normal_range` / `lab_test_uom` is overlaid with the
+	patient-matched ADMS Reference Range row when one is configured."""
+	from diagnostic_management.utils.reference_ranges import pick_reference_range
 	doc = frappe.get_doc("Lab Test", name)
+	normal = []
+	for r in doc.normal_test_items:
+		analyte = r.lab_test_name or r.lab_test_event
+		picked = pick_reference_range(doc.template, analyte, doc.patient)
+		normal.append({
+			"name": r.name, "idx": r.idx,
+			"lab_test_name": analyte,
+			"result_value": r.result_value,
+			"normal_range": (picked["range_text"] if picked else None) or r.normal_range,
+			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
+			"lab_test_comment": r.lab_test_comment,
+			"allow_blank": r.allow_blank,
+			"require_result_value": r.require_result_value,
+			"result_type": (picked["result_type"] if picked else None) or "Numeric",
+			"result_options": (picked["result_options"] if picked else None) or "",
+		})
 	return {
 		"name": doc.name,
 		"patient": doc.patient,
@@ -264,19 +291,7 @@ def get_lab_test(name: str) -> dict:
 		"status": doc.status,
 		"docstatus": doc.docstatus,
 		"practitioner": doc.get("practitioner"),
-		"normal_test_items": [
-			{
-				"name": r.name, "idx": r.idx,
-				"lab_test_name": r.lab_test_name or r.lab_test_event,
-				"result_value": r.result_value,
-				"normal_range": r.normal_range,
-				"lab_test_uom": r.lab_test_uom,
-				"lab_test_comment": r.lab_test_comment,
-				"allow_blank": r.allow_blank,
-				"require_result_value": r.require_result_value,
-			}
-			for r in doc.normal_test_items
-		],
+		"normal_test_items": normal,
 		"descriptive_test_items": [
 			{
 				"name": r.name, "idx": r.idx,
@@ -468,17 +483,42 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	for lt_name in frappe.get_all("Lab Test", filters={"sample": sample}, order_by="creation", pluck="name"):
 		lt = frappe.get_doc("Lab Test", lt_name)
 		ttype = frappe.db.get_value("Lab Test Template", lt.template, "lab_test_template_type") or "Single"
+		from diagnostic_management.utils.reference_ranges import pick_reference_range
 		for r in lt.normal_test_items:
-			flag = result_flag(r.result_value, r.normal_range)
+			analyte = r.lab_test_name or r.lab_test_event
+			picked = pick_reference_range(lt.template, analyte, lt.patient)
+			rng = (picked["range_text"] if picked else None) or r.normal_range
+			uom = (picked["uom"] if picked else None) or r.lab_test_uom
+			# Flagging respects the analyte's result_type. Numeric (default) uses
+			# the bounds parser → High/Low/Normal. For Select and Data types we
+			# treat any value that doesn't case-insensitively match the configured
+			# "normal" range as Abnormal (e.g. result Positive vs reference Negative).
+			rtype = (picked["result_type"] if picked else None) or "Numeric"
+			flag = ""
+			abnormal = 0
+			val = (r.result_value or "").strip()
+			ref = (rng or "").strip()
+			if val:
+				if rtype == "Numeric":
+					flag = result_flag(val, rng)
+					abnormal = 1 if flag in ("High", "Low") else 0
+				elif rtype in ("Select", "Data"):
+					# `status` is a strict Select on the child (Normal/High/Low/Critical),
+					# so we leave it blank for qualitative mismatches and rely on
+					# `is_abnormal` for row highlighting on the printed report.
+					if ref and val.lower() != ref.lower():
+						abnormal = 1
+					elif ref:
+						flag = "Normal"
 			row = {
 				"lab_test": lt.name,
-				"test_name": r.lab_test_name or r.lab_test_event,
+				"test_name": analyte,
 				"test_category": lt.template,
 				"result_value": r.result_value,
-				"uom": r.lab_test_uom,
-				"reference_range": r.normal_range,
+				"uom": uom,
+				"reference_range": rng,
 				"status": flag,
-				"is_abnormal": 1 if flag in ("High", "Low") else 0,
+				"is_abnormal": abnormal,
 			}
 			if ttype == "Grouped" and "grouped_results" in fns:
 				lr.append("grouped_results", {**row, "group_name": lt.template})

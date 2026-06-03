@@ -426,7 +426,7 @@ export interface SampleResults {
     template?: string
     status?: string
     docstatus?: number
-    normal_test_items: Array<{ name: string; lab_test_name?: string; result_value?: string; normal_range?: string; lab_test_uom?: string; lab_test_comment?: string }>
+    normal_test_items: Array<{ name: string; lab_test_name?: string; result_value?: string; normal_range?: string; lab_test_uom?: string; lab_test_comment?: string; result_type?: string; result_options?: string }>
     descriptive_test_items: Array<{ name: string; lab_test_particulars?: string; result_value?: string }>
   }>
 }

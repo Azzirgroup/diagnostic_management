@@ -88,6 +88,22 @@ function abnormal(value?: string, range?: string): boolean {
   const { low, high } = bounds(range)
   return (low != null && v < low) || (high != null && v > high)
 }
+// Split "Negative\nPositive\nTrace" into a clean string list.
+function optionsList(raw?: string): string[] {
+  return (raw || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+}
+// Abnormal for non-numeric result types: anything that isn't the configured
+// "normal" range (case-insensitive) gets flagged. Empty result = no flag yet.
+function abnormalQualitative(value?: string, range?: string): boolean {
+  if (!value || !range) return false
+  return value.trim().toLowerCase() !== range.trim().toLowerCase()
+}
+function isAbnormal(r: { result_value?: string; normal_range?: string; result_type?: string }): boolean {
+  const t = (r.result_type || 'Numeric').toLowerCase()
+  if (t === 'numeric') return abnormal(r.result_value, r.normal_range)
+  if (t === 'select' || t === 'data') return abnormalQualitative(r.result_value, r.normal_range)
+  return false
+}
 
 async function save(complete: boolean) {
   if (!detail.value || !selectedSample.value) return
@@ -220,9 +236,25 @@ async function printReport() {
                 <td class="py-1.5 pr-3 font-medium">{{ r.lab_test_name }}</td>
                 <td class="pr-3">
                   <div class="flex items-center gap-1">
-                    <input v-model="r.result_value" :disabled="t.docstatus === 1"
-                      :class="['input !py-1.5', abnormal(r.result_value, r.normal_range) ? '!border-status-danger text-status-danger font-semibold' : '']" />
-                    <span v-if="abnormal(r.result_value, r.normal_range)" class="text-status-danger text-xs" title="Out of range">⚠</span>
+                    <!-- Dynamic input per result_type from the picked reference row.
+                         Select falls back to a text input if no options were configured,
+                         so the field stays usable instead of locking the user to "—". -->
+                    <select v-if="(r.result_type || 'Numeric') === 'Select' && optionsList(r.result_options).length"
+                      v-model="r.result_value" :disabled="t.docstatus === 1"
+                      :class="['input !py-1.5', isAbnormal(r) ? '!border-status-danger text-status-danger font-semibold' : '']">
+                      <option value="">—</option>
+                      <option v-for="opt in optionsList(r.result_options)" :key="opt" :value="opt">{{ opt }}</option>
+                    </select>
+                    <input v-else-if="(r.result_type || 'Numeric') === 'Date'"
+                      v-model="r.result_value" :disabled="t.docstatus === 1" type="date"
+                      class="input !py-1.5" />
+                    <input v-else-if="(r.result_type || 'Numeric') === 'Numeric'"
+                      v-model="r.result_value" :disabled="t.docstatus === 1" type="number" step="any"
+                      :class="['input !py-1.5', isAbnormal(r) ? '!border-status-danger text-status-danger font-semibold' : '']" />
+                    <input v-else
+                      v-model="r.result_value" :disabled="t.docstatus === 1"
+                      :class="['input !py-1.5', isAbnormal(r) ? '!border-status-danger text-status-danger font-semibold' : '']" />
+                    <span v-if="isAbnormal(r)" class="text-status-danger text-xs" title="Outside reference">⚠</span>
                   </div>
                 </td>
                 <td class="pr-3 text-surface-500">{{ r.lab_test_uom || '—' }}</td>

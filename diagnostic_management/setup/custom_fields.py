@@ -134,6 +134,24 @@ def _field_map() -> dict[str, list[dict]]:
 				"fieldtype": "Float",
 				"insert_after": "critical_value_low",
 			},
+			# Per-(gender × age) reference ranges. Replaces / supplements the
+			# single `lab_test_normal_range` string with a child table users
+			# can populate per analyte. Blank gender / blank age_group on a
+			# row = "matches any". For Compound templates, `analyte` on each
+			# row picks which sub-analyte the row applies to.
+			{
+				"fieldname": "custom_reference_ranges_section",
+				"label": "Reference Ranges",
+				"fieldtype": "Section Break",
+				"insert_after": "critical_value_high",
+			},
+			{
+				"fieldname": "custom_reference_ranges",
+				"label": "Reference Ranges",
+				"fieldtype": "Table",
+				"options": "ADMS Reference Range",
+				"insert_after": "custom_reference_ranges_section",
+			},
 		],
 		"Service Request": [
 			{

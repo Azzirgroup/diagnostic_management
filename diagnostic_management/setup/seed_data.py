@@ -40,7 +40,40 @@ def install_seed_data() -> None:
 	_seed_lab_test_samples()
 	_seed_body_parts()
 	_seed_imaging_templates()
+	_seed_age_groups()
 	_backfill_template_samples()
+
+
+# Common clinical age bands — used by ADMS Reference Range on Lab Test Templates.
+# Inclusive bounds; max_age is included. Users can edit or add more from the desk.
+_AGE_GROUPS = [
+	{"name": "Newborn",   "min_age": 0,  "max_age": 28,  "age_unit": "Days",   "description": "0–28 days"},
+	{"name": "Infant",    "min_age": 1,  "max_age": 11,  "age_unit": "Months", "description": "1–11 months"},
+	{"name": "Child",     "min_age": 1,  "max_age": 12,  "age_unit": "Years",  "description": "1–12 years"},
+	{"name": "Adolescent","min_age": 13, "max_age": 17,  "age_unit": "Years",  "description": "13–17 years"},
+	{"name": "Adult",     "min_age": 18, "max_age": 64,  "age_unit": "Years",  "description": "18–64 years"},
+	{"name": "Elderly",   "min_age": 65, "max_age": 130, "age_unit": "Years",  "description": "65+ years"},
+]
+
+
+def _seed_age_groups() -> None:
+	"""Preload common clinical age bands. Idempotent (skips existing names)."""
+	if not frappe.db.exists("DocType", "ADMS Age Group"):
+		return
+	for spec in _AGE_GROUPS:
+		if frappe.db.exists("ADMS Age Group", spec["name"]):
+			continue
+		try:
+			frappe.get_doc({
+				"doctype": "ADMS Age Group",
+				"age_group_name": spec["name"],
+				"min_age": spec["min_age"],
+				"max_age": spec["max_age"],
+				"age_unit": spec["age_unit"],
+				"description": spec["description"],
+			}).insert(ignore_permissions=True)
+		except Exception:
+			frappe.log_error(title=f"ADMS: failed to seed Age Group {spec['name']}")
 
 
 def _seed_sample_types() -> None:
