@@ -13,7 +13,7 @@ const auth = useAuthStore()
 // aggregating every test on that sample). Master-detail: pick a sample,
 // enter results for all its tests, complete & release as one report.
 const props = defineProps<{
-  session: { name?: string; order_detail?: { samples?: SampleRow[]; reports?: Array<{ name: string; status?: string; docname?: string; sample_collection?: string }> } | null }
+  session: { name?: string; order_detail?: { samples?: SampleRow[]; reports?: Array<{ name: string; status?: string; docname?: string; sample_collection?: string; is_urgent?: number; urgent_review_status?: string }> } | null }
 }>()
 const emit = defineEmits<{ (e: 'reload'): void; (e: 'finish'): void }>()
 
@@ -49,6 +49,17 @@ const urgentAuthorized = computed(() => !!detail.value?.urgent_authorized)
 const canAuthorizeUrgent = computed(() => !!detail.value?.can_authorize_urgent || auth.roles.includes('Urgent Review Officer'))
 // Non-urgent → always allowed. Urgent → only once authorized.
 const verifyAllowed = computed(() => !isUrgent.value || urgentAuthorized.value)
+// Across the WHOLE workflow: is there any sample whose report is urgent and
+// hasn't been authorized yet? Used to give the user a specific reason when
+// Finish is locked on an urgent case.
+const pendingUrgentAuth = computed(() =>
+  reports.value.some((r) => !!r.is_urgent && r.urgent_review_status !== 'Authorized')
+)
+// Finish Workflow gate: every sample's report must be Verified & Released
+// (status === 'Approved'). This implicitly subsumes the urgent gate (an
+// urgent case can't be released without authorization) but the hint is more
+// specific when urgent authorization is the actual blocker.
+const allReleased = computed(() => samples.value.length > 0 && samples.value.every((s) => released(s.name)))
 
 async function loadDetail() {
   if (!selectedSample.value) { detail.value = null; return }
@@ -152,7 +163,13 @@ async function printReport() {
         <h3 class="font-semibold">Results</h3>
         <p class="text-sm text-surface-500"><strong class="text-surface-800">{{ doneCount }}</strong> of {{ samples.length }} sample report(s) done</p>
       </div>
-      <button v-if="allDone" class="btn-primary" @click="emit('finish')">Finish Workflow →</button>
+      <div v-if="allDone" class="flex items-center gap-3">
+        <span v-if="pendingUrgentAuth" class="text-xs text-amber-600">Urgent case awaits authorization — Finish locked</span>
+        <span v-else-if="!allReleased" class="text-xs text-amber-600">Verify &amp; Release every sample before finishing</span>
+        <button class="btn-primary" :disabled="!allReleased"
+          :title="!allReleased ? (pendingUrgentAuth ? 'An Urgent Review Officer must authorize the urgent case first' : 'Verify & Release each sample before finishing the workflow') : ''"
+          @click="emit('finish')">Finish Workflow →</button>
+      </div>
       <span v-else class="text-xs text-amber-600">Complete results for every sample to finish</span>
     </div>
 
@@ -259,8 +276,11 @@ async function printReport() {
                   <span v-else class="text-xs text-red-500">You do not have the Urgent Review Officer role.</span>
                 </div>
               </div>
-              <div v-else-if="isUrgent && urgentAuthorized" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-medium text-emerald-700">
-                ✓ Urgent review authorized — you may now verify &amp; release.
+              <div v-else-if="isUrgent && urgentAuthorized" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center justify-between gap-3">
+                <span class="text-xs font-medium text-emerald-700">✓ Urgent review authorized — you may now verify &amp; release.</span>
+                <button class="btn-primary" :disabled="saving" @click="verify">
+                  {{ saving ? 'Releasing…' : 'Verify &amp; Release' }}
+                </button>
               </div>
               <h4 class="font-semibold mb-3">Clinical Notes &amp; Sign-off</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">

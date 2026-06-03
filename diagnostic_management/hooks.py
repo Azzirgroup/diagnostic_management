@@ -71,6 +71,7 @@ fixtures = [
 		"filters": [["role_name", "in", [
 			"Receptionist", "Phlebotomist", "Sample Receiver", "Lab Technician",
 			"Lab Quality Officer", "Pathologist", "Lab Manager",
+			"Urgent Review Officer",
 			"Radiology Technologist", "Radiologist", "Radiology Manager",
 			"Diagnostic Director", "Billing Officer", "Insurance Officer",
 			"Referring Doctor", "Auditor",

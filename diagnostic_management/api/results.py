@@ -101,6 +101,38 @@ def get_sample(sample: str) -> dict:
 	}
 
 
+def reset_sample_report_state(sample: str) -> None:
+	"""Reset a sample's Diagnostic Report so a fresh workflow starts from a
+	clean slate. Clears verification + urgent authorization + reporter sign-off
+	so the gate fires again on the next Save & Complete. No-op when no DR exists
+	for this sample yet.
+
+	Why this matters: Marley reuses the same Sample Collection across orders
+	for a patient + sample type, so a re-billing flow lands on the SAME DR as
+	the previous clinical event. Without this reset the prior `Approved` /
+	`Authorized` state would leak in and the gate would silently skip itself.
+	"""
+	existing = _report_for_sample(sample)
+	if not existing:
+		return
+	fields = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+	updates: dict = {}
+	if "status" in fields:
+		updates["status"] = "Pending Review"
+	# Nullable fields → None; Check fields are NOT NULL so must use 0.
+	for f in (
+		"urgent_review_status", "urgent_reviewed_by", "urgent_reviewed_at",
+		"report_signature", "pathologist_signature", "signed_by",
+		"diagnosis", "clinical_notes", "pathologist_remarks", "pathologist_name",
+		"critical_acknowledged_at", "conclusion",
+	):
+		if f in fields:
+			updates[f] = None
+	if "critical_acknowledged" in fields:
+		updates["critical_acknowledged"] = 0
+	frappe.db.set_value("Diagnostic Report", existing, updates)
+
+
 def _report_for_sample(sample: str) -> str | None:
 	"""The Diagnostic Report for a Sample Collection, if one exists yet."""
 	if not frappe.db.exists("DocType", "Diagnostic Report"):
@@ -169,11 +201,28 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 			updates["is_critical"] = 1
 		if "conclusion" in fields and conclusion:
 			updates["conclusion"] = conclusion
+		# A fresh Save & Complete on a sample whose DR was previously Approved
+		# means the user has entered NEW results — those need fresh verification,
+		# so reset the report to Pending Review and clear the prior sign-off /
+		# urgent authorization. (Without this, reusing a sample across workflows
+		# would keep the gate "Authorized" from the previous clinical event.)
+		current_status = frappe.db.get_value("Diagnostic Report", existing, "status")
+		if current_status == "Approved":
+			updates["status"] = "Pending Review"
+			for f in ("report_signature", "pathologist_signature", "signed_by", "diagnosis",
+			          "clinical_notes", "pathologist_remarks", "pathologist_name"):
+				if f in fields:
+					updates[f] = None
 		if "is_urgent" in fields and urgent:
 			updates["is_urgent"] = 1
-			# Start the review gate as Pending (don't clobber a prior Authorized).
-			if "urgent_review_status" in fields and not frappe.db.get_value("Diagnostic Report", existing, "urgent_review_status"):
+			# Re-set Pending (overwriting any prior Authorized) — fresh results need
+			# fresh authorization. Also wipe who/when so the audit shows the new cycle.
+			if "urgent_review_status" in fields:
 				updates["urgent_review_status"] = "Pending"
+			if "urgent_reviewed_by" in fields:
+				updates["urgent_reviewed_by"] = None
+			if "urgent_reviewed_at" in fields:
+				updates["urgent_reviewed_at"] = None
 		if updates:
 			frappe.db.set_value("Diagnostic Report", existing, updates)
 		return existing

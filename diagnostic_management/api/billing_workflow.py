@@ -219,6 +219,13 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 				},
 				update_modified=False,
 			)
+			# Marley reuses the same Sample Collection across orders for a
+			# patient + sample type — so the Diagnostic Report linked to this
+			# sample may still be `Approved`/`Authorized` from a previous
+			# workflow. Reset it so the urgent gate (and verification flow)
+			# fires fresh for this new clinical event.
+			from diagnostic_management.api.results import reset_sample_report_state
+			reset_sample_report_state(s["name"])
 
 	# 2) One Sales Invoice for the whole set, with qty + discount + optional payment.
 	include_payment = bool(bd.get("include_payment"))

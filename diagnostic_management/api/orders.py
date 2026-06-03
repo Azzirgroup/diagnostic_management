@@ -168,6 +168,14 @@ def create_order(
 			_low = (resolved_priority or "").lower()
 			if "urgent" in _low or "stat" in _low:
 				_flag_samples_urgent(doc.name)
+			# Marley reuses samples across orders for the same patient + sample
+			# type, so reset each sample's Diagnostic Report so this new order
+			# gets a fresh verification + urgent-review cycle (prior Approved /
+			# Authorized state from an older order doesn't leak in).
+			from diagnostic_management.api.collection import resolve_order_samples
+			from diagnostic_management.api.results import reset_sample_report_state
+			for s in resolve_order_samples(doc.name):
+				reset_sample_report_state(s["name"])
 		created.append(doc.name)
 
 	return {"ok": True, "orders": created, "count": len(created)}
