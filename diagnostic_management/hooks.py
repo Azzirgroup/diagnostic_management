@@ -77,4 +77,29 @@ fixtures = [
 			"Referring Doctor", "Auditor",
 		]]],
 	},
+	# Custom Field records that attach ADMS extensions to Marley/ERPNext
+	# doctypes. setup/custom_fields.install_custom_fields is the canonical
+	# installer (idempotent on every migrate). Exporting them as fixtures
+	# means a plain `git pull` + restart on live is enough.
+	{
+		"dt": "Custom Field",
+		"filters": [["fieldname", "in", [
+			"loinc_code", "tat_routine_minutes", "tat_urgent_minutes", "tat_stat_minutes",
+			"critical_value_low", "critical_value_high",
+			"custom_reference_ranges_section", "custom_reference_ranges",
+			"mrn_group", "preferred_result_channel", "preferred_language_for_reports",
+			"consent_contrast", "consent_radiation",
+			"practitioner_role", "is_external_referrer", "referrer_commission_pct",
+			"e_signature_image", "external_practice_name",
+			"imaging_modality", "imaging_body_part", "contrast_required", "clinical_history_text",
+			"barcode", "container", "workflow_status", "is_urgent",
+			"received_datetime", "processed_datetime", "department_barcodes",
+			"received_condition", "rejection_reason_text",
+			"is_critical", "critical_acknowledged", "critical_acknowledged_at",
+			"diagnosis", "clinical_notes", "pathologist_remarks", "accreditation_type",
+			"report_signature", "signed_by", "pathologist_signature", "pathologist_name",
+			"urgent_review_status", "urgent_reviewed_by", "urgent_reviewed_at",
+			"custom_sales_invoice",
+		]]],
+	},
 ]
