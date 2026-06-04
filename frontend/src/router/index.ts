@@ -87,6 +87,7 @@ if (base === '/doctor-login') {
         { path: 'lab/analyzer-monitor', name: 'analyzer-monitor', component: () => import('@/pages/staff/AnalyzerMonitor.vue') },
         { path: 'lab/verification', name: 'verification', component: () => import('@/pages/staff/VerificationQueue.vue') },
         { path: 'lab/peer-review', name: 'peer-review', component: () => import('@/pages/staff/PeerReview.vue') },
+        { path: 'lab/reports', name: 'lab-reports', component: () => import('@/pages/staff/LabReports.vue') },
         { path: 'radiology', name: 'radiology', component: () => import('@/pages/staff/RadiologyDashboard.vue') },
         { path: 'radiology/worklist', name: 'reading-worklist', component: () => import('@/pages/staff/ReadingWorklist.vue') },
         { path: 'radiology/viewer/:name?', name: 'image-viewer', component: () => import('@/pages/staff/ImageViewer.vue') },

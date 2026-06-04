@@ -504,6 +504,36 @@ export interface LabHubSummary {
   peer_review_open: number
 }
 
+export interface LabReportRow {
+  name: string
+  report_date?: string
+  patient?: string
+  patient_name?: string
+  patient_sex?: string
+  status: string
+  referring_doctor?: string
+  referring_doctor_name?: string
+  department?: string
+  pathologist_name?: string
+  approved_by?: string
+  creation?: string
+  modified?: string
+  samples?: string[]
+}
+
+export interface LabReportSummary {
+  total: number
+  approved: number
+  pending: number
+  today: number
+}
+
+export const labReportsApi = {
+  list: (payload: { query?: string; status?: string; date_from?: string; date_to?: string; limit?: number } = {}) =>
+    call<LabReportRow[]>('diagnostic_management.api.lab.list_lab_reports', payload),
+  summary: () => call<LabReportSummary>('diagnostic_management.api.lab.lab_report_summary'),
+}
+
 export const labApi = {
   hubSummary: () => call<LabHubSummary>('diagnostic_management.api.lab.hub_summary'),
   verificationQueue: (limit = 100) =>

@@ -115,3 +115,85 @@ def submit_peer_review(
 	doc.completed_at = now_datetime()
 	doc.save(ignore_permissions=False)
 	return {"ok": True, "name": name, "status": "Closed", "outcome": outcome}
+
+
+# -- Lab Reports browser ---------------------------------------------------
+
+@frappe.whitelist()
+def list_lab_reports(
+	query: str = "",
+	status: str | None = None,
+	date_from: str | None = None,
+	date_to: str | None = None,
+	limit: int = 100,
+) -> list[dict]:
+	"""Browseable list of Lab Reports — what the SPA's Lab Reports page shows.
+
+	Filters:
+	  - `query`: substring match against report name OR patient_name (case-insensitive).
+	  - `status`: exact match on Lab Report.status (e.g. 'Approved', 'Pending').
+	  - `date_from` / `date_to`: inclusive bounds on report_date (YYYY-MM-DD).
+	"""
+	if not frappe.db.exists("DocType", "Lab Report"):
+		return []
+	filters: dict = {}
+	or_filters = None
+	if status:
+		filters["status"] = status
+	if date_from:
+		filters["report_date"] = [">=", date_from]
+	if date_to:
+		# When both bounds given, merge into a between filter.
+		if "report_date" in filters:
+			filters["report_date"] = ["between", [date_from, date_to]]
+		else:
+			filters["report_date"] = ["<=", date_to]
+	if query:
+		q = f"%{query.strip()}%"
+		or_filters = [
+			["Lab Report", "name", "like", q],
+			["Lab Report", "patient_name", "like", q],
+			["Lab Report", "patient", "like", q],
+		]
+	fields = [
+		"name", "report_date", "patient", "patient_name", "patient_sex",
+		"status", "referring_doctor", "referring_doctor_name", "department",
+		"pathologist_name", "approved_by", "creation", "modified",
+	]
+	# Only fetch fields that exist on the doctype (Lab Report has lots of
+	# optional custom fields the user may not have set up).
+	available = {df.fieldname for df in frappe.get_meta("Lab Report").fields}
+	fields = [f for f in fields if f in available or f in {"name", "creation", "modified"}]
+	rows = frappe.get_all(
+		"Lab Report",
+		fields=fields,
+		filters=filters,
+		or_filters=or_filters,
+		order_by="report_date desc, modified desc",
+		limit_page_length=int(limit),
+	)
+	# Attach the linked Sample Collection (so the UI can deep-link back).
+	if rows and "samples" in {df.fieldname for df in frappe.get_meta("Lab Report").fields}:
+		report_names = [r["name"] for r in rows]
+		samples_by_parent: dict[str, list[str]] = {}
+		for lr_sample in frappe.get_all(
+			"Lab Report Sample",
+			fields=["parent", "lab_sample", "sample_type"],
+			filters={"parent": ["in", report_names]},
+		):
+			samples_by_parent.setdefault(lr_sample.parent, []).append(lr_sample.lab_sample)
+		for r in rows:
+			r["samples"] = samples_by_parent.get(r["name"], [])
+	return rows
+
+
+@frappe.whitelist()
+def lab_report_summary() -> dict:
+	"""KPIs for the Lab Reports page header (total / approved / pending counts)."""
+	if not frappe.db.exists("DocType", "Lab Report"):
+		return {"total": 0, "approved": 0, "pending": 0, "today": 0}
+	total = frappe.db.count("Lab Report")
+	approved = frappe.db.count("Lab Report", {"status": "Approved"})
+	pending = total - approved
+	today = frappe.db.count("Lab Report", {"report_date": frappe.utils.today()})
+	return {"total": total, "approved": approved, "pending": pending, "today": today}

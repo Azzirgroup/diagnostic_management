@@ -28,6 +28,7 @@ const items = computed(() => {
     { to: '/orders', label: 'Test Orders', icon: 'orders', key: 'orders' },
     { to: '/collection', label: 'Collection', icon: 'collection', key: 'collection' },
     { to: '/lab', label: 'Lab', icon: 'lab', key: 'lab' },
+    { to: '/lab/reports', label: 'Lab Reports', icon: 'reports', key: 'lab-reports' },
     { to: '/radiology', label: 'Radiology', icon: 'radiology', key: 'radiology' },
     { to: '/critical-findings', label: 'Critical Findings', icon: 'critical', key: 'critical' },
     { to: '/billing', label: 'Billing', icon: 'billing', key: 'billing' },
