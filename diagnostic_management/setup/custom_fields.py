@@ -349,6 +349,18 @@ def _field_map() -> dict[str, list[dict]]:
 				"fieldtype": "Datetime",
 				"insert_after": "urgent_reviewed_by",
 			},
+			# Comma-separated Lab Test names that THIS report covers. Set by
+			# save_sample when the user finalises results, so _build_lab_report
+			# pulls exactly the current batch — even when a sample has stale
+			# submitted Lab Tests from previous workflows (Marley reuses
+			# Sample Collection docs across orders).
+			{
+				"fieldname": "custom_lab_tests_csv",
+				"label": "Lab Tests (CSV)",
+				"fieldtype": "Small Text",
+				"insert_after": "urgent_reviewed_at",
+				"read_only": 1,
+			},
 		],
 		# Work Order automation (ported from genetest): each Lab Test created
 		# from billing carries the Sales Invoice link, and each auto-created

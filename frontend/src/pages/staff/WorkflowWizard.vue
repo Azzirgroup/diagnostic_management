@@ -91,7 +91,25 @@ onMounted(async () => {
   if (id && id !== 'new') {
     try {
       session.value = await workflowApi.get(id)
-      step.value = Math.min(session.value.current_step || 1, 4)
+      // Step the wizard lands on = the FURTHEST point the session has reached.
+      // Use the persisted `current_step` AND the live stage derived from the
+      // session's orders (reports → 4, stored → 4, collected → 3, else 2 if an
+      // order exists). That way the wizard self-corrects when scripted flows or
+      // older sessions didn't bump current_step at every milestone.
+      const persistedStep = session.value.current_step || 1
+      const od: any = session.value.order_detail
+      let derivedStep = persistedStep
+      if (od?.reports?.length) derivedStep = 4
+      else if (od?.samples?.length && od.samples.every((s: any) => ['Tested','Stored'].includes(s.workflow_status))) derivedStep = 4
+      else if (od?.samples?.some((s: any) => s.collected_time)) derivedStep = 3
+      else if (od?.orders?.length) derivedStep = Math.max(2, persistedStep)
+      const effectiveStep = Math.min(Math.max(persistedStep, derivedStep), 4)
+      step.value = effectiveStep
+      // Keep session.current_step in sync so the sidebar's "click any step up
+      // to current" gating opens every step that's actually been reached.
+      if (effectiveStep > persistedStep) {
+        (session.value as any).current_step = effectiveStep
+      }
       if (session.value.patient) {
         selectedPatient.value = { name: session.value.patient, patient_name: session.value.patient_name || session.value.patient }
       }

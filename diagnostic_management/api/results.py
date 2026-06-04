@@ -188,6 +188,14 @@ def save_sample(
 	report = None
 	if int(complete or 0):
 		report = _ensure_sample_report(sample, is_critical=int(is_critical or 0), conclusion=conclusion)
+		# Stamp THIS submission's Lab Test names onto the DR so the Lab Report
+		# builder pulls exactly this batch (and not stale Lab Tests left on the
+		# reused Sample Collection from previous workflows).
+		if report and tests:
+			submitted = ",".join(t["name"] for t in tests if t.get("name"))
+			fns = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+			if "custom_lab_tests_csv" in fns:
+				frappe.db.set_value("Diagnostic Report", report, "custom_lab_tests_csv", submitted)
 	return {"ok": True, "sample": sample, "report": report}
 
 
@@ -480,7 +488,32 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	if "samples" in fns:
 		lr.append("samples", {"lab_sample": sample, "sample_type": sc.get("sample"), "collection_datetime": sc.get("collected_time")})
 
-	for lt_name in frappe.get_all("Lab Test", filters={"sample": sample}, order_by="creation", pluck="name"):
+	# Build the report from the CURRENT batch only. Prefer the explicit list
+	# stored on the DR by save_sample (`custom_lab_tests_csv` — this workflow's
+	# submissions); fall back to a 30-minute window around the most recent
+	# Lab Test on the sample if the field isn't populated.
+	existing_dr_for_sample = _report_for_sample(sample)
+	csv_names = None
+	if existing_dr_for_sample:
+		csv_names = frappe.db.get_value("Diagnostic Report", existing_dr_for_sample, "custom_lab_tests_csv")
+	if csv_names:
+		current_lt_names = [n.strip() for n in csv_names.split(",") if n.strip() and frappe.db.exists("Lab Test", n.strip())]
+	else:
+		latest_creation = frappe.db.get_value(
+			"Lab Test", {"sample": sample, "docstatus": 1},
+			"creation", order_by="creation desc",
+		)
+		if not latest_creation:
+			current_lt_names = []
+		else:
+			threshold = frappe.utils.add_to_date(latest_creation, minutes=-30)
+			current_lt_names = frappe.get_all(
+				"Lab Test",
+				filters={"sample": sample, "docstatus": 1, "creation": [">=", threshold]},
+				order_by="creation asc",
+				pluck="name",
+			)
+	for lt_name in current_lt_names:
 		lt = frappe.get_doc("Lab Test", lt_name)
 		ttype = frappe.db.get_value("Lab Test Template", lt.template, "lab_test_template_type") or "Single"
 		from diagnostic_management.utils.reference_ranges import pick_reference_range
