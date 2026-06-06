@@ -367,6 +367,7 @@ def approve_report(
 	accreditation_type: str | None = None,
 	pathologist_signature: str | None = None,
 	pathologist_name: str | None = None,
+	has_image_space: int = 0,
 ) -> dict:
 	"""Verify & release a Diagnostic Report (status → Approved) with the full
 	sign-off: clinical notes / diagnosis / remarks / accreditation and both the
@@ -414,6 +415,7 @@ def approve_report(
 			"pathologist_name": pathologist_name,
 			"signature": signature,
 			"pathologist_signature": pathologist_signature,
+			"has_image_space": 1 if int(has_image_space or 0) else 0,
 		})
 	return {"ok": True, "report": report, "status": "Approved", "lab_report": lab_report}
 
@@ -570,6 +572,9 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	setf("pathologist_name", signoff.get("pathologist_name"))
 	setf("lab_technician_signature", signoff.get("signature"))
 	setf("pathologist_signature", signoff.get("pathologist_signature"))
+	# Carry the "include blank box on print" decision onto the Lab Report doc
+	# so the print HTML conditional fires the way the user picked at release.
+	setf("custom_has_image_space", 1 if signoff.get("has_image_space") else 0)
 
 	lr.flags.ignore_permissions = True
 	lr.save()

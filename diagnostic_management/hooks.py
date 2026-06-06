@@ -60,6 +60,12 @@ jinja = {
 after_install = "diagnostic_management.setup.after_install"
 after_migrate = "diagnostic_management.setup.after_migrate"
 
+# Override Marley's Lab Test Template controller so sample_qty=0 is allowed
+# (qualitative tests / swabs / panel-billed entries don't have a numeric qty).
+override_doctype_class = {
+	"Lab Test Template": "diagnostic_management.overrides.lab_test_template.LabTestTemplate",
+}
+
 # Ship workspace + ADMS roles with the app so a fresh install boots usable.
 fixtures = [
 	{

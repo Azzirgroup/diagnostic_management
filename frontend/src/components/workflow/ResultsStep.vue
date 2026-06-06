@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 // @ts-ignore — genetest SignaturePad uses a JS <script setup>
 import SignaturePad from '@/components/common/SignaturePad.vue'
-import { resultsApi, type SampleResults, type SampleRow } from '@/api/adms'
+import { resultsApi, labReportsApi, type SampleResults, type SampleRow } from '@/api/adms'
 import { frappeError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
@@ -30,6 +30,10 @@ const clinicalNotes = ref('')
 const pathologistRemarks = ref('')
 const accreditation = ref('')
 const pathologistName = ref('')
+// "Reserve image space on print" — when ticked the Lab Report HTML reserves
+// a 6cm blank box above the signatures so a stamp/manual signature/scanned
+// image fits there. Carried through approve_report into the Lab Report doc.
+const hasImageSpace = ref(false)
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -140,6 +144,7 @@ async function verify() {
       pathologist_remarks: pathologistRemarks.value || undefined,
       accreditation_type: accreditation.value || undefined,
       pathologist_name: pathologistName.value || undefined,
+      has_image_space: hasImageSpace.value ? 1 : 0,
     })
     emit('reload')
   } catch (e: any) { error.value = frappeError(e, 'Failed to release report') }
@@ -155,6 +160,44 @@ async function authorizeUrgent() {
     await loadDetail()
   } catch (e: any) { error.value = frappeError(e, 'Failed to authorize urgent review') }
   finally { saving.value = false }
+}
+
+// Persistent "Reserve image space" toggle for the released-state UI. Each
+// sample has its own Lab Report; we cache its name + current flag value per
+// sample so the released branch can render + edit the checkbox without an
+// extra round-trip on every click.
+const releasedLabReport = ref<Record<string, { name: string; hasImageSpace: boolean }>>({})
+const togglingImageSpace = ref(false)
+async function loadLabReportForSelected() {
+  if (!selectedSample.value) return
+  const key = selectedSample.value.name
+  if (releasedLabReport.value[key]) return
+  try {
+    const lrName = await resultsApi.labReportForSample(key)
+    if (!lrName) return
+    const lr = await labReportsApi.detail(lrName)
+    releasedLabReport.value[key] = {
+      name: lrName,
+      hasImageSpace: !!lr.custom_has_image_space,
+    }
+  } catch { /* silent — checkbox just shows unchecked */ }
+}
+watch(selectedIdx, loadLabReportForSelected)
+watch(samples, loadLabReportForSelected, { immediate: true })
+
+async function toggleReleasedImageSpace(checked: boolean) {
+  if (!selectedSample.value) return
+  const entry = releasedLabReport.value[selectedSample.value.name]
+  if (!entry) return
+  togglingImageSpace.value = true
+  try {
+    const r = await labReportsApi.setImageSpace(entry.name, checked ? 1 : 0)
+    entry.hasImageSpace = !!r.custom_has_image_space
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to update image-space preference')
+  } finally {
+    togglingImageSpace.value = false
+  }
 }
 
 async function printReport() {
@@ -342,14 +385,41 @@ async function printReport() {
                   <input v-model="pathologistName" class="input mt-2" placeholder="Pathologist name" />
                 </div>
               </div>
+              <!-- Print preference: reserve a blank box on the Lab Report
+                   print so a stamp or manual signature can be placed there. -->
+              <div class="flex items-center gap-2 text-sm border-t border-surface-100 pt-3 mb-3">
+                <input id="rs-imgspace" v-model="hasImageSpace" type="checkbox" class="accent-brand-navy-700" />
+                <label for="rs-imgspace" class="cursor-pointer select-none">
+                  Reserve image space on print
+                  <span class="text-xs text-surface-500 ml-1">(adds a blank box above the signature area)</span>
+                </label>
+              </div>
               <div class="flex items-center justify-end">
                 <button v-if="verifyAllowed" class="btn-primary" :disabled="saving" @click="verify">{{ saving ? 'Releasing…' : 'Verify & Release' }}</button>
                 <span v-else class="text-xs text-surface-400">Verify &amp; Release unlocks once urgent review is authorized.</span>
               </div>
             </div>
-            <div v-else class="flex items-center justify-between">
-              <span class="pill-success">Released</span>
-              <button class="btn-ghost" @click="printReport">Print Report</button>
+            <div v-else>
+              <div class="flex items-center justify-between mb-3">
+                <span class="pill-success">Released</span>
+                <button class="btn-ghost" @click="printReport">Print Report</button>
+              </div>
+              <!-- Even after release the technologist may want to change the
+                   "image space" preference and reprint. Persists onto the Lab
+                   Report doc so the next print HTML reflects the choice. -->
+              <div v-if="releasedLabReport[selectedSample.name]"
+                class="flex items-center gap-2 text-sm border-t border-surface-100 pt-3">
+                <input :id="`rs-imgspace-released-${selectedSample.name}`" type="checkbox"
+                  class="accent-brand-navy-700"
+                  :checked="releasedLabReport[selectedSample.name].hasImageSpace"
+                  :disabled="togglingImageSpace"
+                  @change="toggleReleasedImageSpace(($event.target as HTMLInputElement).checked)" />
+                <label :for="`rs-imgspace-released-${selectedSample.name}`" class="cursor-pointer select-none">
+                  Reserve image space on print
+                  <span class="text-xs text-surface-500 ml-1">(adds a blank box above the signatures)</span>
+                </label>
+                <span v-if="togglingImageSpace" class="text-xs text-surface-400 ml-auto">Saving…</span>
+              </div>
             </div>
           </div>
         </template>

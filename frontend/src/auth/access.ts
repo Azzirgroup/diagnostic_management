@@ -1,0 +1,98 @@
+// Central role-based access control for the ADMS staff SPA.
+//
+// Each sidebar item OR route declares the roles that may see it. Users with
+// ANY of those roles get access. Administrator / System Manager always pass
+// (they're treated as super-users by Frappe). A route guard in router/index
+// reuses the same predicate so a user typing the URL directly can't bypass
+// the sidebar filter.
+
+export interface SidebarItem {
+  to: string
+  label: string
+  icon: string
+  key: string
+  /** Roles that may see this page. Empty / undefined → everyone. */
+  roles?: string[]
+}
+
+// Super-roles that always have access to every page.
+export const ADMIN_ROLES = ['Administrator', 'System Manager']
+
+export function hasAnyRole(userRoles: string[], required: string[]): boolean {
+  if (!required || !required.length) return true
+  if (userRoles.some((r) => ADMIN_ROLES.includes(r))) return true
+  return userRoles.some((r) => required.includes(r))
+}
+
+export function canSee(item: { roles?: string[] }, userRoles: string[]): boolean {
+  return hasAnyRole(userRoles, item.roles || [])
+}
+
+// The single source of truth for the SPA sidebar. The same `roles` list gates
+// access in router/index.ts so URL-typing can't get around the sidebar.
+export const SIDEBAR_ITEMS: SidebarItem[] = [
+  { to: '/', label: 'Home', icon: 'home', key: 'home' /* everyone */ },
+  { to: '/workflow', label: 'Workflow', icon: 'workflow', key: 'workflow',
+    roles: ['Phlebotomist','Sample Receiver','Lab Technician','Lab Quality Officer','Pathologist','Lab Manager','Diagnostic Director','Receptionist'] },
+  { to: '/patients', label: 'Patients', icon: 'patients', key: 'patients',
+    roles: ['Receptionist','Phlebotomist','Sample Receiver','Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Billing Officer'] },
+  { to: '/orders', label: 'Test Orders', icon: 'orders', key: 'orders',
+    roles: ['Receptionist','Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Billing Officer'] },
+  { to: '/collection', label: 'Collection', icon: 'collection', key: 'collection',
+    roles: ['Phlebotomist','Sample Receiver','Lab Technician','Lab Quality Officer','Lab Manager','Diagnostic Director'] },
+  { to: '/lab', label: 'Lab', icon: 'lab', key: 'lab',
+    roles: ['Lab Technician','Lab Quality Officer','Pathologist','Lab Manager','Diagnostic Director','Urgent Review Officer'] },
+  { to: '/lab/reports', label: 'Lab Reports', icon: 'reports', key: 'lab-reports',
+    roles: ['Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Auditor','Referring Doctor'] },
+  { to: '/radiology', label: 'Radiology', icon: 'radiology', key: 'radiology',
+    roles: ['Radiology Technologist','Radiologist','Radiology Manager','Diagnostic Director'] },
+  { to: '/critical-findings', label: 'Critical Findings', icon: 'critical', key: 'critical',
+    roles: ['Pathologist','Lab Manager','Diagnostic Director','Urgent Review Officer','Radiologist','Radiology Manager'] },
+  { to: '/billing', label: 'Billing', icon: 'billing', key: 'billing',
+    roles: ['Billing Officer','Insurance Officer','Lab Manager','Diagnostic Director'] },
+  { to: '/reports', label: 'Reports', icon: 'reports', key: 'reports',
+    roles: ['Lab Manager','Radiology Manager','Diagnostic Director','Auditor','Billing Officer'] },
+  { to: '/analytics', label: 'Analytics', icon: 'analytics', key: 'analytics',
+    roles: ['Lab Manager','Radiology Manager','Diagnostic Director','Auditor'] },
+  { to: '/audit', label: 'Audit & Compliance', icon: 'audit', key: 'audit',
+    roles: ['Auditor','Diagnostic Director','Lab Manager'] },
+  { to: '/settings', label: 'Settings', icon: 'settings', key: 'settings' /* everyone — basic profile */ },
+]
+
+// Build a path → roles lookup used by the route guard.
+export const ROUTE_ROLES: Record<string, string[] | undefined> = SIDEBAR_ITEMS.reduce(
+  (acc, item) => { acc[item.to] = item.roles; return acc },
+  {} as Record<string, string[] | undefined>,
+)
+
+// Path roles for sub-routes that aren't directly in the sidebar — they inherit
+// from their section's top-level item.
+export const ROUTE_PREFIX_ROLES: Array<{ prefix: string; roles?: string[] }> = [
+  { prefix: '/lab/reports',   roles: ROUTE_ROLES['/lab/reports'] },
+  { prefix: '/lab',           roles: ROUTE_ROLES['/lab'] },
+  { prefix: '/radiology',     roles: ROUTE_ROLES['/radiology'] },
+  { prefix: '/critical-findings', roles: ROUTE_ROLES['/critical-findings'] },
+  { prefix: '/billing',       roles: ROUTE_ROLES['/billing'] },
+  { prefix: '/orders',        roles: ROUTE_ROLES['/orders'] },
+  { prefix: '/collection',    roles: ROUTE_ROLES['/collection'] },
+  { prefix: '/patients',      roles: ROUTE_ROLES['/patients'] },
+  { prefix: '/workflow',      roles: ROUTE_ROLES['/workflow'] },
+  { prefix: '/reports',       roles: ROUTE_ROLES['/reports'] },
+  { prefix: '/analytics',     roles: ROUTE_ROLES['/analytics'] },
+  { prefix: '/audit',         roles: ROUTE_ROLES['/audit'] },
+]
+
+/** Required roles for a given route path; undefined = no restriction. */
+export function rolesForPath(path: string): string[] | undefined {
+  if (ROUTE_ROLES[path] !== undefined) return ROUTE_ROLES[path]
+  for (const r of ROUTE_PREFIX_ROLES) {
+    if (path === r.prefix || path.startsWith(r.prefix + '/')) return r.roles
+  }
+  return undefined
+}
+
+/** Can this user navigate to `path`? */
+export function canNavigate(path: string, userRoles: string[]): boolean {
+  const required = rolesForPath(path)
+  return hasAnyRole(userRoles, required || [])
+}

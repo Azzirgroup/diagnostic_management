@@ -204,30 +204,49 @@ def format_report_date(dt, format_str: str = "dd-MMM-yyyy") -> str:
 def get_patient_test_history(patient, test_name, limit=6):
 	"""Historical results for a patient+test (oldest->newest) for trend charts.
 
-	Reads the ported Lab Report Test child table of Approved/Delivered reports.
+	Looks across EVERY result child table on Lab Report so trend graphs work
+	regardless of template type:
+	  - Lab Report Test            → Single
+	  - Lab Report Numeric Result  → Compound
+	  - Lab Report Grouped Result  → Grouped
+
+	The earlier version only queried `tabLab Report Test`, which silently
+	hid trend graphs on Compound / Grouped templates (the bulk of analytes).
 	"""
 	if not patient or not test_name:
 		return []
 	try:
 		results = frappe.db.sql(
 			"""
-			SELECT
-				lr.report_date as date,
-				lrt.result_value as value,
-				lrt.reference_min,
-				lrt.reference_max,
-				lrt.uom
-			FROM `tabLab Report Test` lrt
-			INNER JOIN `tabLab Report` lr ON lrt.parent = lr.name
-			WHERE lr.patient = %s
-			AND lrt.test_name = %s
-			AND lr.status IN ('Approved', 'Delivered')
-			AND lrt.result_value IS NOT NULL
-			AND lrt.result_value != ''
-			ORDER BY lr.report_date DESC
+			SELECT date, value, reference_min, reference_max, uom FROM (
+				SELECT lr.report_date as date, lrt.result_value as value,
+				       lrt.reference_min, lrt.reference_max, lrt.uom
+				FROM `tabLab Report Test` lrt
+				JOIN `tabLab Report` lr ON lrt.parent = lr.name
+				WHERE lr.patient = %s AND lrt.test_name = %s
+				  AND lr.status IN ('Approved','Delivered')
+				  AND lrt.result_value IS NOT NULL AND lrt.result_value != ''
+				UNION ALL
+				SELECT lr.report_date as date, lrn.result_value as value,
+				       lrn.reference_min, lrn.reference_max, lrn.uom
+				FROM `tabLab Report Numeric Result` lrn
+				JOIN `tabLab Report` lr ON lrn.parent = lr.name
+				WHERE lr.patient = %s AND lrn.test_name = %s
+				  AND lr.status IN ('Approved','Delivered')
+				  AND lrn.result_value IS NOT NULL AND lrn.result_value != ''
+				UNION ALL
+				SELECT lr.report_date as date, lrg.result_value as value,
+				       lrg.reference_min, lrg.reference_max, lrg.uom
+				FROM `tabLab Report Grouped Result` lrg
+				JOIN `tabLab Report` lr ON lrg.parent = lr.name
+				WHERE lr.patient = %s AND lrg.test_name = %s
+				  AND lr.status IN ('Approved','Delivered')
+				  AND lrg.result_value IS NOT NULL AND lrg.result_value != ''
+			) merged
+			ORDER BY date DESC
 			LIMIT %s
 			""",
-			(patient, test_name, limit),
+			(patient, test_name, patient, test_name, patient, test_name, limit),
 			as_dict=True,
 		)
 		# Reverse to oldest->newest (left to right on the chart).

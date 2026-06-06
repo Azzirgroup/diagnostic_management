@@ -448,8 +448,8 @@ export const resultsApi = {
     call<LabTestResult>('diagnostic_management.api.results.get_lab_test', { name }),
   save: (payload: { name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>>; complete?: number; is_critical?: number; conclusion?: string }) =>
     call<{ ok: boolean; name: string; status?: string; docstatus?: number; report?: string }>('diagnostic_management.api.results.save_results', payload),
-  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string }) =>
-    call<{ ok: boolean; report: string; status: string }>('diagnostic_management.api.results.approve_report', payload),
+  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string; has_image_space?: number }) =>
+    call<{ ok: boolean; report: string; status: string; lab_report?: string }>('diagnostic_management.api.results.approve_report', payload),
   getSample: (sample: string) =>
     call<SampleResults>('diagnostic_management.api.results.get_sample', { sample }),
   saveSample: (payload: { sample: string; tests: Array<{ name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>> }>; complete?: number; is_critical?: number; conclusion?: string }) =>
@@ -528,10 +528,95 @@ export interface LabReportSummary {
   today: number
 }
 
+export interface ReportsOverview {
+  window: { from: string; to: string; days: number }
+  reports: number; tests: number; samples: number
+  revenue_billed: number; revenue_collected: number; outstanding: number
+  invoice_count: number
+  cogs: number; gross_profit: number; margin_pct: number
+}
+export interface ActivityRow { day: string; reports: number; tests: number; samples: number; revenue: number }
+export interface TopTestRow { template: string; count: number; rate: number; department: string; revenue: number }
+export interface SampleMixRow { sample_type: string; count: number }
+export interface BillingSummaryData {
+  billed: number; collected: number; outstanding: number; invoices: number
+  mode_mix: Array<{ mode: string; amount: number }>
+}
+export interface PLSeries { day: string; revenue: number; cogs: number; profit: number }
+export interface PLData {
+  series: PLSeries[]; revenue: number; cogs: number; profit: number; margin_pct: number
+}
+
+export const reportsApi = {
+  overview: (days = 30) => call<ReportsOverview>('diagnostic_management.api.reports.overview', { days }),
+  activityTrend: (days = 30) => call<ActivityRow[]>('diagnostic_management.api.reports.activity_trend', { days }),
+  topTests: (days = 30, limit = 10) => call<TopTestRow[]>('diagnostic_management.api.reports.top_tests', { days, limit }),
+  sampleMix: (days = 30) => call<SampleMixRow[]>('diagnostic_management.api.reports.sample_mix', { days }),
+  billingSummary: (days = 30) => call<BillingSummaryData>('diagnostic_management.api.reports.billing_summary', { days }),
+  profitAndLoss: (days = 30) => call<PLData>('diagnostic_management.api.reports.profit_and_loss', { days }),
+}
+
+export interface LabReportResultRow {
+  name: string
+  lab_test?: string
+  test_name?: string
+  test_category?: string
+  group_name?: string
+  result_value?: string
+  uom?: string
+  reference_range?: string
+  reference_min?: number
+  reference_max?: number
+  status?: string
+  is_abnormal?: number
+  is_critical?: number
+  interpretation?: string
+  method?: string
+  instrument?: string
+  previous_value?: string
+  previous_date?: string
+  result_type?: string
+  result_options?: string
+}
+
+export interface LabReportDetail {
+  name: string
+  report_date?: string
+  status: string
+  patient: { name?: string; patient_name?: string; sex?: string; dob?: string; mobile?: string; email?: string }
+  patient_name?: string
+  patient_sex?: string
+  referring_doctor?: string
+  referring_doctor_name?: string
+  department?: string
+  pathologist?: string
+  pathologist_name?: string
+  pathologist_qualification?: string
+  accreditation_type?: string
+  diagnosis?: string
+  clinical_notes?: string
+  pathologist_remarks?: string
+  lab_technician_signature?: string
+  pathologist_signature?: string
+  custom_has_image_space?: number
+  samples: Array<{ lab_sample?: string; sample_type?: string; collection_datetime?: string }>
+  section_comments: Record<string, string>
+  numeric_results: LabReportResultRow[]
+  lab_report_tests: LabReportResultRow[]
+  grouped_results: LabReportResultRow[]
+  descriptive_results: LabReportResultRow[]
+  qualitative_results: LabReportResultRow[]
+}
+
 export const labReportsApi = {
   list: (payload: { query?: string; status?: string; date_from?: string; date_to?: string; limit?: number } = {}) =>
     call<LabReportRow[]>('diagnostic_management.api.lab.list_lab_reports', payload),
   summary: () => call<LabReportSummary>('diagnostic_management.api.lab.lab_report_summary'),
+  detail: (name: string) =>
+    call<LabReportDetail>('diagnostic_management.api.lab.lab_report_detail', { name }),
+  setImageSpace: (name: string, has_image_space: number) =>
+    call<{ ok: boolean; name: string; custom_has_image_space: number }>(
+      'diagnostic_management.api.lab.set_image_space', { name, has_image_space }),
 }
 
 export const labApi = {

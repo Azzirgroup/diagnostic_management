@@ -197,3 +197,100 @@ def lab_report_summary() -> dict:
 	pending = total - approved
 	today = frappe.db.count("Lab Report", {"report_date": frappe.utils.today()})
 	return {"total": total, "approved": approved, "pending": pending, "today": today}
+
+
+@frappe.whitelist()
+def lab_report_detail(name: str) -> dict:
+	"""Full Lab Report payload for the SPA detail page — patient header, every
+	result child table (numeric / lab_report_tests / grouped / descriptive /
+	qualitative), reporter sign-off, and the linked samples."""
+	if not name or not frappe.db.exists("Lab Report", name):
+		frappe.throw(f"Lab Report {name} not found", frappe.DoesNotExistError)
+	doc = frappe.get_doc("Lab Report", name)
+
+	def _row(r, *fields):
+		out = {}
+		for f in fields:
+			out[f] = getattr(r, f, None)
+		return out
+
+	# Compute patient age + age band for the header
+	patient_info = {}
+	if doc.patient and frappe.db.exists("Patient", doc.patient):
+		p = frappe.db.get_value("Patient", doc.patient,
+			["patient_name", "sex", "dob", "mobile", "email"], as_dict=True) or {}
+		patient_info = dict(p)
+		patient_info["name"] = doc.patient
+
+	# Linked samples (Lab Report Sample child)
+	samples = []
+	if "samples" in {df.fieldname for df in frappe.get_meta("Lab Report").fields}:
+		for s in (doc.get("samples") or []):
+			samples.append(_row(s, "lab_sample", "sample_type", "collection_datetime"))
+
+	# Build a section-comments dict so the SPA can show the same callouts the
+	# printed report shows.
+	try:
+		comments = doc.get_section_comments_dict() or {}
+	except Exception:
+		comments = {}
+
+	return {
+		"name": doc.name,
+		"report_date": str(doc.report_date or ""),
+		"status": doc.status,
+		"patient": patient_info,
+		"patient_name": doc.patient_name,
+		"patient_sex": doc.patient_sex,
+		"referring_doctor": getattr(doc, "referring_doctor", None),
+		"referring_doctor_name": getattr(doc, "referring_doctor_name", None),
+		"department": getattr(doc, "department", None),
+		"pathologist": getattr(doc, "pathologist", None),
+		"pathologist_name": getattr(doc, "pathologist_name", None),
+		"pathologist_qualification": getattr(doc, "pathologist_qualification", None),
+		"accreditation_type": getattr(doc, "accreditation_type", None),
+		"diagnosis": getattr(doc, "diagnosis", None),
+		"clinical_notes": getattr(doc, "clinical_notes", None),
+		"pathologist_remarks": getattr(doc, "pathologist_remarks", None),
+		"lab_technician_signature": getattr(doc, "lab_technician_signature", None),
+		"pathologist_signature": getattr(doc, "pathologist_signature", None),
+		"custom_has_image_space": int(getattr(doc, "custom_has_image_space", 0) or 0),
+		"samples": samples,
+		"section_comments": comments,
+		"numeric_results": [
+			_row(r, "name", "lab_test", "test_name", "test_category", "result_value", "uom",
+			     "reference_range", "reference_min", "reference_max", "status", "is_abnormal",
+			     "is_critical", "interpretation", "method", "instrument", "previous_value", "previous_date")
+			for r in (doc.get("numeric_results") or [])
+		],
+		"lab_report_tests": [
+			_row(r, "name", "lab_test", "test_name", "test_category", "result_value", "uom",
+			     "reference_range", "reference_min", "reference_max", "status", "is_abnormal",
+			     "is_critical", "interpretation", "method", "instrument")
+			for r in (doc.get("lab_report_tests") or [])
+		],
+		"grouped_results": [
+			_row(r, "name", "lab_test", "test_name", "test_category", "group_name", "result_value", "uom",
+			     "reference_range", "reference_min", "reference_max", "status", "is_abnormal", "is_critical")
+			for r in (doc.get("grouped_results") or [])
+		],
+		"descriptive_results": [
+			_row(r, "name", "lab_test", "test_name", "test_category", "result_value", "interpretation")
+			for r in (doc.get("descriptive_results") or [])
+		],
+		"qualitative_results": [
+			_row(r, "name", "lab_test", "test_name", "test_category", "result_value", "result_type", "result_options", "is_abnormal")
+			for r in (doc.get("qualitative_results") or [])
+		],
+	}
+
+
+@frappe.whitelist()
+def set_image_space(name: str, has_image_space: int = 0) -> dict:
+	"""Toggle the 'Has image space' flag on a Lab Report so the next print
+	either reserves a blank box above the signatures or skips it."""
+	if not frappe.db.exists("Lab Report", name):
+		frappe.throw(f"Lab Report {name} not found", frappe.DoesNotExistError)
+	val = 1 if int(has_image_space or 0) else 0
+	frappe.db.set_value("Lab Report", name, "custom_has_image_space", val)
+	return {"ok": True, "name": name, "custom_has_image_space": val}

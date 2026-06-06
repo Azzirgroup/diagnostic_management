@@ -84,8 +84,9 @@ function openPrint(name: string) {
   })
   window.open(`/printview?${params.toString()}`, '_blank')
 }
-function openForm(name: string) {
-  window.open(`/app/lab-report/${name}`, '_blank')
+// "View" now stays inside the SPA — opens the new LabReportDetail page.
+function openDetail(name: string) {
+  router.push(`/lab/reports/${name}`)
 }
 </script>
 
@@ -158,7 +159,7 @@ function openForm(name: string) {
     >
       <template #cell-name="{ row, value }">
         <div class="flex flex-col">
-          <button class="text-brand-teal-600 hover:underline text-left font-medium" @click.stop="openPrint(value as string)">{{ value }}</button>
+          <button class="text-brand-teal-600 hover:underline text-left font-medium" @click.stop="openDetail(value as string)">{{ value }}</button>
           <span v-if="(row as LabReportRow).samples?.length" class="text-xs text-surface-400">
             sample: {{ (row as LabReportRow).samples?.join(', ') }}
           </span>
@@ -173,8 +174,8 @@ function openForm(name: string) {
       <template #cell-status="{ value }"><StatusPill :status="value as string"/></template>
       <template #cell-creation="{ row }">
         <div class="flex gap-2 justify-end">
+          <button class="text-xs text-brand-navy-700 hover:underline" @click.stop="openDetail((row as LabReportRow).name)" title="Open Lab Report detail">View</button>
           <button class="text-xs text-brand-teal-600 hover:underline" @click.stop="openPrint((row as LabReportRow).name)" title="Open printable Lab Report">Print</button>
-          <button class="text-xs text-brand-navy-700 hover:underline" @click.stop="openForm((row as LabReportRow).name)" title="Open form view in Desk">View</button>
         </div>
       </template>
     </DataTable>

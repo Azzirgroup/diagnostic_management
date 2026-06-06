@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { canNavigate } from '@/auth/access'
 
 // The SPA is mounted by Frappe at one of four URL roots, each served by a
 // thin www/<root>.html shim. Detect the root at boot from window.__ADMS_BASE__
@@ -88,6 +89,8 @@ if (base === '/doctor-login') {
         { path: 'lab/verification', name: 'verification', component: () => import('@/pages/staff/VerificationQueue.vue') },
         { path: 'lab/peer-review', name: 'peer-review', component: () => import('@/pages/staff/PeerReview.vue') },
         { path: 'lab/reports', name: 'lab-reports', component: () => import('@/pages/staff/LabReports.vue') },
+        { path: 'lab/reports/:name', name: 'lab-report-detail', component: () => import('@/pages/staff/LabReportDetail.vue') },
+        { path: 'reports', name: 'reports', component: () => import('@/pages/staff/Reports.vue') },
         { path: 'radiology', name: 'radiology', component: () => import('@/pages/staff/RadiologyDashboard.vue') },
         { path: 'radiology/worklist', name: 'reading-worklist', component: () => import('@/pages/staff/ReadingWorklist.vue') },
         { path: 'radiology/viewer/:name?', name: 'image-viewer', component: () => import('@/pages/staff/ImageViewer.vue') },
@@ -146,6 +149,13 @@ router.beforeEach(async (to) => {
       r === 'Lab Director',
     )
     if (!allowed) return { name: 'home' }
+  }
+
+  // Role-based access for the staff portal — gate the route by the same
+  // role list the sidebar uses. Skip on auth-only routes (login etc).
+  if (to.meta.requiresAuth && auth.isLoggedIn) {
+    const roles = auth.roles || []
+    if (!canNavigate(to.path, roles)) return { name: 'home' }
   }
 })
 

@@ -134,6 +134,15 @@ def _field_map() -> dict[str, list[dict]]:
 				"fieldtype": "Float",
 				"insert_after": "critical_value_low",
 			},
+			# Free-form clinical comment per analyte — rendered in the Lab
+			# Report print under "Section Comments" (genetest parity).
+			{
+				"fieldname": "custom_comment",
+				"label": "Comment / Interpretation",
+				"fieldtype": "Long Text",
+				"insert_after": "critical_value_high",
+				"description": "Interpretive comment to print under the test results.",
+			},
 			# Per-(gender × age) reference ranges. Replaces / supplements the
 			# single `lab_test_normal_range` string with a child table users
 			# can populate per analyte. Blank gender / blank age_group on a
@@ -383,6 +392,20 @@ def _field_map() -> dict[str, list[dict]]:
 				"options": "Sales Invoice",
 				"insert_after": "sales_order",
 				"read_only": 1,
+			},
+		],
+		# When checked, the Lab Report print format reserves a 6cm-tall blank
+		# box above the signature section (for a stamp, manual signature, or
+		# attached image). Unchecked → no space, signatures sit right under
+		# the clinical notes.
+		"Lab Report": [
+			{
+				"fieldname": "custom_has_image_space",
+				"label": "Has image space (print)",
+				"fieldtype": "Check",
+				"default": "0",
+				"insert_after": "status",
+				"description": "Reserve a blank box on the print format above the signatures.",
 			},
 		],
 	}

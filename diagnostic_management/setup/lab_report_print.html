@@ -406,8 +406,8 @@
     </div>
     {% endif %}
 
-    <!-- ===== BLANK BOX (full width, 6cm tall) ===== -->
-    <div class="blank-box"></div>
+    <!-- ===== BLANK BOX (full width, 6cm tall) — only when "Has image space" is ticked ===== -->
+    {% if doc.custom_has_image_space %}<div class="blank-box"></div>{% endif %}
 
     <!-- ===== SIGNATURE SECTION ===== -->
     <div class="signature-section">
