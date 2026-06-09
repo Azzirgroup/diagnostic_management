@@ -91,6 +91,7 @@ if (base === '/doctor-login') {
         { path: 'lab/reports', name: 'lab-reports', component: () => import('@/pages/staff/LabReports.vue') },
         { path: 'lab/reports/:name', name: 'lab-report-detail', component: () => import('@/pages/staff/LabReportDetail.vue') },
         { path: 'reports', name: 'reports', component: () => import('@/pages/staff/Reports.vue') },
+        { path: 'checkin', name: 'checkin', component: () => import('@/pages/staff/Checkin.vue') },
         { path: 'radiology', name: 'radiology', component: () => import('@/pages/staff/RadiologyDashboard.vue') },
         { path: 'radiology/worklist', name: 'reading-worklist', component: () => import('@/pages/staff/ReadingWorklist.vue') },
         { path: 'radiology/viewer/:name?', name: 'image-viewer', component: () => import('@/pages/staff/ImageViewer.vue') },
@@ -113,6 +114,7 @@ if (base === '/doctor-login') {
         { path: 'reception', name: 'reception', component: () => import('@/pages/staff/ReceptionDashboard.vue') },
         { path: 'director', name: 'director', component: () => import('@/pages/staff/DirectorDashboard.vue') },
         { path: 'pathologist', name: 'pathologist', component: () => import('@/pages/staff/PathologistDashboard.vue') },
+        { path: 'shift', name: 'shift', component: () => import('@/pages/staff/ShiftList.vue') },
       ],
     },
   )

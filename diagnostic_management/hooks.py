@@ -62,6 +62,15 @@ after_migrate = "diagnostic_management.setup.after_migrate"
 
 # Override Marley's Lab Test Template controller so sample_qty=0 is allowed
 # (qualitative tests / swabs / panel-billed entries don't have a numeric qty).
+# Tag Sales Invoices created during an open shift with the cashier's
+# POS Opening Entry, so the shift-close reconciliation can pull a clean
+# invoice list rather than guess by timestamp.
+doc_events = {
+	"Sales Invoice": {
+		"validate": "diagnostic_management.api.shifts.tag_sales_invoice_with_shift",
+	},
+}
+
 override_doctype_class = {
 	"Lab Test Template": "diagnostic_management.overrides.lab_test_template.LabTestTemplate",
 }

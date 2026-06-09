@@ -107,16 +107,21 @@ def _stamp(doc, new_status: str) -> None:
 
 
 def _trigger_work_orders_on_tested(sample_name: str, new_status: str, old_status: str | None) -> None:
-	"""On first transition to 'Tested', enqueue Work Order auto-creation (genetest
-	parity). Each Lab Test on the sample carries `custom_sales_invoice`; a Work
-	Order is created per SI item with an active default BOM. Falls back to inline
-	execution if the queue/Redis is unavailable."""
+	"""On first transition to 'Tested', enqueue consumable issuance.
+
+	Switched from the Work Order chain to a direct Material Issue: each Lab
+	Test on the sample carries `custom_sales_invoice`; for each SI item with
+	a default BOM we expand the recipe and submit ONE Material Issue stock
+	entry per SI, raising ADMS Stock Alerts for any warehouse shortfall.
+	Function name kept for backward compat with import sites."""
 	if new_status != "Tested" or old_status == "Tested":
 		return
-	from diagnostic_management.overrides.work_order_hooks import create_work_orders_from_sample_by_name
+	from diagnostic_management.overrides.material_issue_hooks import (
+		create_material_issues_from_sample_by_name,
+	)
 	try:
 		frappe.enqueue(
-			"diagnostic_management.overrides.work_order_hooks.create_work_orders_from_sample_by_name",
+			"diagnostic_management.overrides.material_issue_hooks.create_material_issues_from_sample_by_name",
 			sample_name=sample_name,
 			queue="long",
 			now=frappe.flags.in_test,
@@ -124,11 +129,11 @@ def _trigger_work_orders_on_tested(sample_name: str, new_status: str, old_status
 		)
 	except Exception:
 		try:
-			create_work_orders_from_sample_by_name(sample_name)
+			create_material_issues_from_sample_by_name(sample_name)
 		except Exception as e:
 			frappe.log_error(
-				f"Work Order auto-creation failed for Sample Collection {sample_name}: {str(e)}",
-				"Sample Collection - Work Order",
+				f"Material Issue auto-creation failed for Sample Collection {sample_name}: {str(e)}",
+				"Sample Collection - Material Issue",
 			)
 
 

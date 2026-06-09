@@ -46,12 +46,14 @@ def overview(days: int = 30) -> dict:
 		WHERE docstatus = 1 AND posting_date BETWEEN %s AND %s""",
 		(frm, to), as_dict=True,
 	)[0]
-	# Lab-consumable cost via the ported Work Order automation: Stock Entries
-	# of type Manufacture stamp the consumed material into stock_entry_items.
+	# Lab-consumable cost: post-rework the issue happens through a Material
+	# Issue stock entry (no Work Order). We still include the legacy
+	# 'Manufacture' type so historical data continues to count.
 	cost = frappe.db.sql(
 		"""SELECT COALESCE(SUM(total_outgoing_value),0) AS cost
 		FROM `tabStock Entry`
-		WHERE docstatus = 1 AND stock_entry_type = 'Manufacture'
+		WHERE docstatus = 1
+		  AND stock_entry_type IN ('Material Issue','Manufacture')
 		  AND posting_date BETWEEN %s AND %s""",
 		(frm, to), as_dict=True,
 	)[0]
@@ -196,7 +198,8 @@ def profit_and_loss(days: int = 30) -> dict:
 	cogs = frappe.db.sql(
 		"""SELECT posting_date AS day, COALESCE(SUM(total_outgoing_value),0) AS amt
 		FROM `tabStock Entry`
-		WHERE docstatus = 1 AND stock_entry_type = 'Manufacture'
+		WHERE docstatus = 1
+		  AND stock_entry_type IN ('Material Issue','Manufacture')
 		  AND posting_date BETWEEN %s AND %s
 		GROUP BY posting_date""",
 		(frm, to), as_dict=True,

@@ -299,3 +299,49 @@ def _has_field(doctype: str, fieldname: str) -> bool:
 		return any(df.fieldname == fieldname for df in frappe.get_meta(doctype).fields)
 	except Exception:
 		return False
+
+
+@frappe.whitelist()
+def list_stock_alerts(status: str | None = None, limit: int = 50) -> list[dict]:
+	"""Return the most recent ADMS Stock Alerts for the Billing → Stock
+	Alerts panel. Defaults to Open + Acknowledged so resolved ones drop off."""
+	if not frappe.db.exists("DocType", "ADMS Stock Alert"):
+		return []
+	filters: dict = {}
+	if status:
+		filters["status"] = status
+	else:
+		filters["status"] = ["in", ["Open", "Acknowledged"]]
+	rows = frappe.get_all(
+		"ADMS Stock Alert",
+		fields=[
+			"name", "alert_date", "status", "severity",
+			"item_code", "item_name", "warehouse",
+			"required_qty", "available_qty", "shortage_qty", "stock_uom",
+			"sales_invoice", "sample_collection", "stock_entry",
+			"patient", "patient_name", "lab_test", "message",
+			"acknowledged_by", "acknowledged_at",
+		],
+		filters=filters,
+		order_by="alert_date desc",
+		limit_page_length=int(limit),
+	)
+	for r in rows:
+		r["alert_date"] = str(r.get("alert_date") or "")
+		r["acknowledged_at"] = str(r.get("acknowledged_at") or "")
+	return rows
+
+
+@frappe.whitelist()
+def stock_alert_summary() -> dict:
+	"""Counters for the Billing stock-alerts header."""
+	if not frappe.db.exists("DocType", "ADMS Stock Alert"):
+		return {"open": 0, "acknowledged": 0, "critical": 0, "today": 0}
+	return {
+		"open": frappe.db.count("ADMS Stock Alert", {"status": "Open"}),
+		"acknowledged": frappe.db.count("ADMS Stock Alert", {"status": "Acknowledged"}),
+		"critical": frappe.db.count("ADMS Stock Alert", {"status": "Open", "severity": "Critical"}),
+		"today": frappe.db.count("ADMS Stock Alert", {
+			"alert_date": [">=", frappe.utils.add_to_date(frappe.utils.today(), as_string=True)]
+		}),
+	}

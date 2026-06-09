@@ -408,4 +408,40 @@ def _field_map() -> dict[str, list[dict]]:
 				"description": "Reserve a blank box on the print format above the signatures.",
 			},
 		],
+		# Shift / cashier session: every Sales Invoice submitted while the
+		# user has an open POS Opening Entry gets stamped here, so the
+		# closing entry's reconciliation preview can pull a clean invoice
+		# list (rather than scraping by timestamp alone).
+		"Sales Invoice": [
+			{
+				"fieldname": "custom_pos_opening_entry",
+				"label": "POS Opening Entry (Shift)",
+				"fieldtype": "Link",
+				"options": "POS Opening Entry",
+				"insert_after": "pos_profile",
+				"read_only": 1,
+			},
+		],
+		# Stock Entry traceability — each Material Issue auto-created when a
+		# Sample Collection reaches "Tested" points back at the originating SI
+		# and Sample. Lets Reports tie consumption to revenue and lets the
+		# billing screen list the alerts for a given invoice.
+		"Stock Entry": [
+			{
+				"fieldname": "custom_sales_invoice",
+				"label": "Sales Invoice",
+				"fieldtype": "Link",
+				"options": "Sales Invoice",
+				"insert_after": "stock_entry_type",
+				"read_only": 1,
+			},
+			{
+				"fieldname": "custom_sample_collection",
+				"label": "Sample Collection",
+				"fieldtype": "Link",
+				"options": "Sample Collection",
+				"insert_after": "custom_sales_invoice",
+				"read_only": 1,
+			},
+		],
 	}

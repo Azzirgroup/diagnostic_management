@@ -15,6 +15,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      // Re-route bare `frappe-ui` imports (left over in some ported pages) to
+      // a local shim that re-exports our in-tree replacements.
+      'frappe-ui': path.resolve(__dirname, 'src/shims/frappe-ui.ts'),
     },
   },
   server: {

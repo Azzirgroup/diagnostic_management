@@ -160,6 +160,7 @@ def after_install():
 	_ensure_desk_icon()
 	_ensure_apps_screen_tiles()
 	_ensure_workspace_sidebars_populated()
+	_ensure_shift_role_perms()
 
 
 def after_migrate():
@@ -172,3 +173,49 @@ def after_migrate():
 	_ensure_desk_icon()
 	_ensure_apps_screen_tiles()
 	_ensure_workspace_sidebars_populated()
+	_ensure_shift_role_perms()
+
+
+def _ensure_shift_role_perms():
+	"""Grant the shift-using roles (Billing Officer / Receptionist / Lab
+	Manager / Diagnostic Director) read+create+write on POS Profile / POS
+	Opening Entry / POS Closing Entry. Idempotent: skips rows that exist."""
+	import frappe
+
+	plan = {
+		"POS Profile": {
+			"Billing Officer": {"read": 1},
+			"Receptionist": {"read": 1},
+			"Lab Manager": {"read": 1, "write": 1, "create": 1},
+			"Diagnostic Director": {"read": 1, "write": 1, "create": 1},
+		},
+		"POS Opening Entry": {
+			"Billing Officer": {"read": 1, "write": 1, "create": 1, "submit": 1},
+			"Receptionist": {"read": 1, "write": 1, "create": 1, "submit": 1},
+			"Lab Manager": {"read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1},
+			"Diagnostic Director": {"read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1},
+		},
+		"POS Closing Entry": {
+			"Billing Officer": {"read": 1, "write": 1, "create": 1, "submit": 1},
+			"Receptionist": {"read": 1, "write": 1, "create": 1, "submit": 1},
+			"Lab Manager": {"read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1},
+			"Diagnostic Director": {"read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1},
+		},
+	}
+	for dt, role_perms in plan.items():
+		if not frappe.db.exists("DocType", dt):
+			continue
+		for role, perms in role_perms.items():
+			if not frappe.db.exists("Role", role):
+				continue
+			existing = frappe.db.exists("Custom DocPerm", {"parent": dt, "role": role})
+			if existing:
+				continue
+			cd = frappe.get_doc({
+				"doctype": "Custom DocPerm",
+				"parent": dt, "parenttype": "DocType", "parentfield": "permissions",
+				"role": role, "permlevel": 0, **perms,
+			})
+			cd.flags.ignore_permissions = True
+			cd.insert()
+	frappe.clear_cache()

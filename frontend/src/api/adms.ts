@@ -825,6 +825,81 @@ export interface BillingSummary {
   paid: { count: number; total: number }
 }
 
+export interface StockAlertRow {
+  name: string
+  alert_date: string
+  status: 'Open' | 'Acknowledged' | 'Resolved'
+  severity: 'Low' | 'Medium' | 'High' | 'Critical'
+  item_code: string
+  item_name?: string
+  warehouse?: string
+  required_qty: number
+  available_qty: number
+  shortage_qty: number
+  stock_uom?: string
+  sales_invoice?: string
+  sample_collection?: string
+  stock_entry?: string
+  patient?: string
+  patient_name?: string
+  lab_test?: string
+  message?: string
+  acknowledged_by?: string
+  acknowledged_at?: string
+}
+export interface StockAlertSummary {
+  open: number; acknowledged: number; critical: number; today: number
+}
+
+export const stockAlertsApi = {
+  list: (payload: { status?: string; limit?: number } = {}) =>
+    call<StockAlertRow[]>('diagnostic_management.api.billing_workflow.list_stock_alerts', payload),
+  summary: () =>
+    call<StockAlertSummary>('diagnostic_management.api.billing_workflow.stock_alert_summary'),
+  acknowledge: (name: string) =>
+    call<{ ok: boolean; name: string; status: string }>(
+      'diagnostic_management.diagnostic_management.doctype.adms_stock_alert.adms_stock_alert.acknowledge',
+      { name }),
+  resolve: (name: string) =>
+    call<{ ok: boolean; name: string; status: string }>(
+      'diagnostic_management.diagnostic_management.doctype.adms_stock_alert.adms_stock_alert.resolve',
+      { name }),
+}
+
+export interface CheckinStatus {
+  employee: { name: string; employee_name?: string; company?: string }
+  last_log: { name: string; time: string; log_type: string; device_id?: string } | null
+  is_in: boolean
+}
+export interface CheckinRow {
+  name: string
+  time: string
+  log_type: string
+  device_id?: string
+  shift?: string
+  creation?: string
+}
+export interface TodaySession {
+  in_time: string
+  in_name: string
+  out_time: string | null
+  duration_minutes: number | null
+}
+export interface CheckinToday {
+  employee: { name: string; employee_name?: string }
+  sessions: TodaySession[]
+  total_minutes: number
+  raw_logs: Array<{ name: string; time: string; log_type: string }>
+}
+
+export const checkinApi = {
+  status: () => call<CheckinStatus>('diagnostic_management.api.checkin.get_status'),
+  clockIn:  () => call<{ ok: boolean; name: string; time: string; log_type: string }>('diagnostic_management.api.checkin.clock_in'),
+  clockOut: () => call<{ ok: boolean; name: string; time: string; log_type: string }>('diagnostic_management.api.checkin.clock_out'),
+  myToday:  () => call<CheckinToday>('diagnostic_management.api.checkin.my_today'),
+  myHistory: (limit = 30) => call<CheckinRow[]>('diagnostic_management.api.checkin.my_history', { limit }),
+}
+
 export const billingApi = {
   queue: (status?: string, limit = 100) =>
     call<InvoiceRow[]>('diagnostic_management.api.billing.queue', { status, limit }),

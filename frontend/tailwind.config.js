@@ -31,6 +31,10 @@ export default {
             900: '#062A2E',
           },
         },
+        // Aliases for genetest-era classes still referenced by ported pages
+        // (e.g. ShiftList header CTAs). Maps onto the ADMS brand navy so the
+        // buttons actually render against a coloured background.
+        'genetest-navy': '#102C50',
         surface: {
           0: '#FFFFFF',
           50: '#F7F9FC',
