@@ -384,6 +384,20 @@ def _field_map() -> dict[str, list[dict]]:
 				"read_only": 1,
 			},
 		],
+		# First-class Sales Invoice link on Sample Collection — auto-populated
+		# from the first Lab Test that lands on the SC (via doc events). Lets
+		# the workflow scope every list to "tests/samples for THIS invoice"
+		# without walking session → orders → SI each time.
+		"Sample Collection": [
+			{
+				"fieldname": "custom_sales_invoice",
+				"label": "Sales Invoice",
+				"fieldtype": "Link",
+				"options": "Sales Invoice",
+				"insert_after": "patient",
+				"read_only": 1,
+			},
+		],
 		"Work Order": [
 			{
 				"fieldname": "custom_sales_invoice",
@@ -394,11 +408,48 @@ def _field_map() -> dict[str, list[dict]]:
 				"read_only": 1,
 			},
 		],
-		# When checked, the Lab Report print format reserves a 6cm-tall blank
-		# box above the signature section (for a stamp, manual signature, or
-		# attached image). Unchecked → no space, signatures sit right under
-		# the clinical notes.
+		# Branch tagging — multi-tenant scoping. Each User belongs to a Branch
+		# (HRMS Branch doctype). Patients (and downstream records) inherit
+		# that branch on create so a Lab Tech in Branch A only sees patients
+		# registered at Branch A. Admins/System Managers bypass scoping.
+		"User": [
+			{
+				"fieldname": "branch",
+				"label": "Branch",
+				"fieldtype": "Link",
+				"options": "Branch",
+				"insert_after": "username",
+				"description": "Restrict this user to seeing records from this branch.",
+			},
+		],
+		"Patient": [
+			{
+				"fieldname": "branch",
+				"label": "Branch",
+				"fieldtype": "Link",
+				"options": "Branch",
+				"insert_after": "mobile",
+				"description": "Branch where the patient is registered.",
+			},
+		],
+		# POS Profile branch — when a cashier opens a shift on a POS Profile
+		# that has a branch set, the cashier's active branch lens switches
+		# to that branch for the duration of the open shift. Lets a "Main
+		# Branch" user temporarily work the "Westlands" counter.
+		"POS Profile": [
+			{
+				"fieldname": "branch",
+				"label": "Branch",
+				"fieldtype": "Link",
+				"options": "Branch",
+				"insert_after": "warehouse",
+				"description": "Cashiers on this profile's open shift see this branch's data.",
+			},
+		],
+		# Lab Report extras.
 		"Lab Report": [
+			# When checked, the print format reserves a 6cm-tall blank box
+			# above the signatures (for a stamp / manual signature / image).
 			{
 				"fieldname": "custom_has_image_space",
 				"label": "Has image space (print)",
@@ -406,6 +457,39 @@ def _field_map() -> dict[str, list[dict]]:
 				"default": "0",
 				"insert_after": "status",
 				"description": "Reserve a blank box on the print format above the signatures.",
+			},
+			# Optional image that fills the reserved box. When set AND the
+			# checkbox is on, the print renders this <img> inside the box;
+			# when unset but the checkbox is on, the box stays empty.
+			{
+				"fieldname": "custom_image_space_image",
+				"label": "Image space image",
+				"fieldtype": "Attach Image",
+				"insert_after": "custom_has_image_space",
+				"depends_on": "custom_has_image_space",
+				"description": "Image rendered inside the reserved space (stamp, scanned signature, etc.).",
+			},
+			# When checked, the per-analyte trend charts are suppressed in
+			# the print format (useful for short single-test reports where
+			# trend graphs add noise instead of value).
+			{
+				"fieldname": "custom_hide_graphs",
+				"label": "Don't show graphs on print",
+				"fieldtype": "Check",
+				"default": "0",
+				"insert_after": "custom_image_space_image",
+				"description": "Suppress trend charts on the printed Lab Report.",
+			},
+			# First-class Sales Invoice link — stamped from the sample / lab
+			# tests this Lab Report bundles, so lists can filter by SI in one
+			# step instead of walking sample → lab tests → SI.
+			{
+				"fieldname": "custom_sales_invoice",
+				"label": "Sales Invoice",
+				"fieldtype": "Link",
+				"options": "Sales Invoice",
+				"insert_after": "custom_image_space_image",
+				"read_only": 1,
 			},
 		],
 		# Shift / cashier session: every Sales Invoice submitted while the

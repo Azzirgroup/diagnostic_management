@@ -38,23 +38,94 @@ function openDeskForm() {
   window.open(`/app/lab-report/${detail.value.name}`, '_blank')
 }
 
-// Persistent "Reserve image space on print" toggle.
+// Persistent "Reserve image space on print" toggle + optional image upload.
 const savingImageSpace = ref(false)
 const imageSpaceSavedAt = ref<number | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
 async function toggleImageSpace(checked: boolean) {
   if (!detail.value) return
   savingImageSpace.value = true
   try {
     const res = await labReportsApi.setImageSpace(detail.value.name, checked ? 1 : 0)
     detail.value.custom_has_image_space = res.custom_has_image_space
+    detail.value.custom_image_space_image = res.custom_image_space_image
     imageSpaceSavedAt.value = Date.now()
-    // Clear the "Saved" hint after a moment.
     setTimeout(() => { imageSpaceSavedAt.value = null }, 2000)
   } catch (e: any) {
     error.value = frappeError(e, 'Failed to update image-space preference')
   } finally {
     savingImageSpace.value = false
   }
+}
+
+// File → data URL → persist on Lab Report. We keep it as a data URL so the
+// print HTML can embed it directly via <img src="..."> without an extra
+// File doc roundtrip. Frappe's Attach Image field accepts a data URL string.
+async function onImagePicked(ev: Event) {
+  if (!detail.value) return
+  const target = ev.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    error.value = 'Please pick an image file (PNG, JPG, etc.)'
+    target.value = ''; return
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    error.value = 'Image must be under 4 MB.'
+    target.value = ''; return
+  }
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = () => reject(new Error('Failed to read file'))
+    r.readAsDataURL(file)
+  })
+  savingImageSpace.value = true
+  try {
+    // Auto-tick the checkbox when the user uploads — they obviously want it.
+    const res = await labReportsApi.setImageSpace(detail.value.name, 1, dataUrl)
+    detail.value.custom_has_image_space = res.custom_has_image_space
+    detail.value.custom_image_space_image = res.custom_image_space_image
+    imageSpaceSavedAt.value = Date.now()
+    setTimeout(() => { imageSpaceSavedAt.value = null }, 2000)
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to upload image')
+  } finally {
+    savingImageSpace.value = false
+    target.value = ''  // allow re-uploading the same file
+  }
+}
+
+async function removeImage() {
+  if (!detail.value) return
+  savingImageSpace.value = true
+  try {
+    const res = await labReportsApi.setImageSpace(
+      detail.value.name, detail.value.custom_has_image_space ? 1 : 0, null, 1)
+    detail.value.custom_image_space_image = res.custom_image_space_image
+    imageSpaceSavedAt.value = Date.now()
+    setTimeout(() => { imageSpaceSavedAt.value = null }, 2000)
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to remove image')
+  } finally { savingImageSpace.value = false }
+}
+
+// "Don't show graphs" toggle — sister flag to has_image_space, lives in
+// the same API endpoint, persists on the same Lab Report row.
+async function toggleHideGraphs(checked: boolean) {
+  if (!detail.value) return
+  savingImageSpace.value = true
+  try {
+    const res = await labReportsApi.setImageSpace(
+      detail.value.name, detail.value.custom_has_image_space ? 1 : 0,
+      undefined, 0, checked ? 1 : 0)
+    detail.value.custom_hide_graphs = res.custom_hide_graphs
+    imageSpaceSavedAt.value = Date.now()
+    setTimeout(() => { imageSpaceSavedAt.value = null }, 2000)
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to update hide-graphs preference')
+  } finally { savingImageSpace.value = false }
 }
 
 // Patient age (years) for the header.
@@ -144,19 +215,56 @@ function flagClass(r: LabReportResultRow): string {
         </span>
       </div>
 
-      <!-- Print preference: reserve a blank box above the signatures for a
-           stamp, scan, or manual signature. Persists onto the Lab Report doc. -->
-      <div class="mt-3 pt-3 border-t border-surface-100 flex items-center gap-3 flex-wrap">
+      <!-- Print preference: reserve a blank box above the signatures, and
+           optionally drop an image into that box (stamp / scanned signature /
+           anything). Persists onto the Lab Report doc.  -->
+      <div class="mt-3 pt-3 border-t border-surface-100 flex items-start gap-4 flex-wrap">
+        <div class="flex-1 min-w-[260px]">
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input type="checkbox" class="accent-brand-navy-700"
+              :checked="!!detail.custom_has_image_space"
+              :disabled="savingImageSpace"
+              @change="toggleImageSpace(($event.target as HTMLInputElement).checked)" />
+            <span class="font-medium text-surface-700">Reserve image space on print</span>
+          </label>
+          <p class="text-xs text-surface-500 mt-0.5">
+            Adds a 6cm blank box above the signature section. Upload an image to fill it; leave empty for a manual stamp.
+          </p>
+        </div>
+        <!-- Image upload + thumbnail -->
+        <div class="flex items-center gap-2">
+          <input ref="fileInputRef" type="file" accept="image/*" class="hidden"
+            :disabled="savingImageSpace" @change="onImagePicked" />
+          <div v-if="detail.custom_image_space_image"
+            class="flex items-center gap-2 px-2 py-1 rounded border border-surface-200 bg-surface-50">
+            <img :src="detail.custom_image_space_image" alt="Image space"
+              class="max-h-12 max-w-[80px] object-contain bg-white border border-surface-100 rounded" />
+            <div class="flex flex-col gap-0.5">
+              <button class="text-xs text-brand-teal-600 hover:underline"
+                :disabled="savingImageSpace" @click="fileInputRef?.click()">Replace</button>
+              <button class="text-xs text-red-600 hover:underline"
+                :disabled="savingImageSpace" @click="removeImage">Remove</button>
+            </div>
+          </div>
+          <button v-else class="btn-ghost !py-1 !text-xs"
+            :disabled="savingImageSpace" @click="fileInputRef?.click()">
+            📎 Upload image
+          </button>
+        </div>
+        <span v-if="savingImageSpace" class="text-xs text-surface-400 self-center">Saving…</span>
+        <span v-else-if="imageSpaceSavedAt" class="text-xs text-emerald-600 self-center">Saved</span>
+      </div>
+
+      <!-- Don't show graphs on print -->
+      <div class="mt-2 pt-2 border-t border-surface-100">
         <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
           <input type="checkbox" class="accent-brand-navy-700"
-            :checked="!!detail.custom_has_image_space"
+            :checked="!!detail.custom_hide_graphs"
             :disabled="savingImageSpace"
-            @change="toggleImageSpace(($event.target as HTMLInputElement).checked)" />
-          <span class="font-medium text-surface-700">Reserve image space on print</span>
+            @change="toggleHideGraphs(($event.target as HTMLInputElement).checked)" />
+          <span class="font-medium text-surface-700">Don't show graphs on print</span>
+          <span class="text-xs text-surface-500">Suppresses trend charts; useful for short reports.</span>
         </label>
-        <span class="text-xs text-surface-500">Adds a 6cm blank box above the signature section when printed.</span>
-        <span v-if="savingImageSpace" class="text-xs text-surface-400 ml-auto">Saving…</span>
-        <span v-else-if="imageSpaceSavedAt" class="text-xs text-emerald-600 ml-auto">Saved</span>
       </div>
     </div>
 

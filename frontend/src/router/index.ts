@@ -92,6 +92,7 @@ if (base === '/doctor-login') {
         { path: 'lab/reports/:name', name: 'lab-report-detail', component: () => import('@/pages/staff/LabReportDetail.vue') },
         { path: 'reports', name: 'reports', component: () => import('@/pages/staff/Reports.vue') },
         { path: 'checkin', name: 'checkin', component: () => import('@/pages/staff/Checkin.vue') },
+        { path: 'branches', name: 'branches', component: () => import('@/pages/staff/Branches.vue') },
         { path: 'radiology', name: 'radiology', component: () => import('@/pages/staff/RadiologyDashboard.vue') },
         { path: 'radiology/worklist', name: 'reading-worklist', component: () => import('@/pages/staff/ReadingWorklist.vue') },
         { path: 'radiology/viewer/:name?', name: 'image-viewer', component: () => import('@/pages/staff/ImageViewer.vue') },

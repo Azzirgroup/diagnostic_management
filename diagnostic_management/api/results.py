@@ -81,15 +81,62 @@ def _lab_test_rows(doc) -> dict:
 
 
 @frappe.whitelist()
-def get_sample(sample: str) -> dict:
-	"""Sample-centric results payload — the Sample Collection + every Lab Test on
-	it with its expanded result rows. Mirrors genetest's per-sample Lab Report.
-	"""
-	sc = frappe.db.get_value("Sample Collection", sample, ["patient", "patient_name", "sample"], as_dict=True) or {}
-	lab_tests = frappe.get_all("Lab Test", filters={"sample": sample}, order_by="creation", pluck="name")
+def get_sample(sample: str, session_id: str | None = None,
+                sales_invoice: str | None = None) -> dict:
+	"""Sample-centric results payload — the Sample Collection + the Lab Tests
+	**of the current workflow batch** on it.
 
-	# Urgent-review state: an urgent sample needs an Urgent Review Officer to
-	# authorize the report before it can be Verified & Released.
+	**Filter precedence (which Lab Tests are 'this batch'):**
+
+	1. Explicit `sales_invoice` — scope to Lab Tests stamped with this SI.
+	   This is the authoritative link (every Lab Test created from billing
+	   carries `custom_sales_invoice`), and the SPA passes this when it
+	   knows which invoice opened the workflow.
+	2. `session_id` — derive the session's Service Requests, then walk
+	   those orders' Lab Tests. Equivalent scope, used when the SPA only
+	   has the session handle.
+	3. Otherwise — fall back to Draft (docstatus=0) Lab Tests so historical
+	   submitted tests from past visits don't leak in.
+
+	**Why this matters.** Marley reuses one Sample Collection across every
+	visit for a patient + sample type — without scoping, every historical
+	Lab Test from past orders shows up in the Results screen.
+
+	`previous_tests_count` reports how many Lab Tests on this sample are
+	NOT in the current scope, so the UI can show a hint like "8 previous
+	tests on this sample (from earlier visits)".
+	"""
+	sc = frappe.db.get_value(
+		"Sample Collection", sample,
+		["patient", "patient_name", "sample", "custom_sales_invoice"], as_dict=True,
+	) or {}
+	# Fall back to the sample's own stamp when the caller didn't pass an SI.
+	if not sales_invoice:
+		sales_invoice = sc.get("custom_sales_invoice") or None
+
+	from diagnostic_management.api.collection_workflow import _session_orders
+	session_orders: list[str] = []
+	if session_id and frappe.db.exists("Lab Workflow Session", session_id):
+		session_orders = _session_orders(session_id)
+
+	lt_filters: dict = {"sample": sample}
+	if sales_invoice:
+		# Authoritative: filter Lab Tests by the SI link directly.
+		lt_filters["custom_sales_invoice"] = sales_invoice
+	elif session_orders:
+		# Equivalent scope via the session's Service Requests.
+		lt_filters["service_request"] = ["in", session_orders]
+	else:
+		# No batch context → only Draft tests.
+		lt_filters["docstatus"] = 0
+	lab_tests = frappe.get_all(
+		"Lab Test", filters=lt_filters,
+		order_by="creation", pluck="name",
+	)
+	# Count of Lab Tests on this sample NOT in the current scope.
+	total_on_sample = frappe.db.count("Lab Test", {"sample": sample})
+	previous_tests_count = max(0, int(total_on_sample) - len(lab_tests))
+
 	is_urgent = _sample_is_urgent(sample)
 	report = _report_for_sample(sample)
 	urgent_authorized = 0
@@ -102,6 +149,10 @@ def get_sample(sample: str) -> dict:
 		"patient_name": sc.get("patient_name"),
 		"sample_type": sc.get("sample"),
 		"lab_tests": [_lab_test_rows(frappe.get_doc("Lab Test", n)) for n in lab_tests],
+		"previous_tests_count": int(previous_tests_count),
+		"sales_invoice": sales_invoice or None,
+		"session_id": session_id or None,
+		"session_orders": session_orders,
 		"is_urgent": 1 if is_urgent else 0,
 		"report": report,
 		"urgent_authorized": urgent_authorized,
@@ -368,6 +419,8 @@ def approve_report(
 	pathologist_signature: str | None = None,
 	pathologist_name: str | None = None,
 	has_image_space: int = 0,
+	image_space_image: str | None = None,
+	hide_graphs: int = 0,
 ) -> dict:
 	"""Verify & release a Diagnostic Report (status → Approved) with the full
 	sign-off: clinical notes / diagnosis / remarks / accreditation and both the
@@ -416,6 +469,8 @@ def approve_report(
 			"signature": signature,
 			"pathologist_signature": pathologist_signature,
 			"has_image_space": 1 if int(has_image_space or 0) else 0,
+			"image_space_image": image_space_image or None,
+			"hide_graphs": 1 if int(hide_graphs or 0) else 0,
 		})
 	return {"ok": True, "report": report, "status": "Approved", "lab_report": lab_report}
 
@@ -483,6 +538,13 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	lr.patient = sc.patient
 	setf("patient_name", sc.get("patient_name"))
 	setf("collection_datetime", sc.get("collected_time"))
+	# Carry the Sales Invoice forward — either from the Sample Collection's
+	# stamp, or by taking it from the first Lab Test linked to this sample.
+	si_link = sc.get("custom_sales_invoice") or frappe.db.get_value(
+		"Lab Test", {"sample": sample, "custom_sales_invoice": ["!=", ""]},
+		"custom_sales_invoice",
+	)
+	setf("custom_sales_invoice", si_link)
 
 	for tbl in ["lab_report_tests", "numeric_results", "descriptive_results", "grouped_results", "qualitative_results", "samples"]:
 		if tbl in fns:
@@ -572,9 +634,23 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	setf("pathologist_name", signoff.get("pathologist_name"))
 	setf("lab_technician_signature", signoff.get("signature"))
 	setf("pathologist_signature", signoff.get("pathologist_signature"))
-	# Carry the "include blank box on print" decision onto the Lab Report doc
-	# so the print HTML conditional fires the way the user picked at release.
+	# Carry the print-time toggles + optional uploaded image onto the Lab
+	# Report doc so the print HTML renders accordingly.
 	setf("custom_has_image_space", 1 if signoff.get("has_image_space") else 0)
+	setf("custom_hide_graphs", 1 if signoff.get("hide_graphs") else 0)
+	if signoff.get("image_space_image"):
+		# Save the binary as a File and store only its URL — data URLs are
+		# too large for the Attach Image varchar column.
+		from diagnostic_management.api.lab import _save_image_to_files
+		# Need a doc name to attach to — save the LR first if it's brand new.
+		if not lr.name:
+			lr.flags.ignore_permissions = True
+			lr.save()
+		try:
+			url = _save_image_to_files(signoff["image_space_image"], lr.name)
+			setf("custom_image_space_image", url)
+		except Exception:
+			frappe.log_error(title="_build_lab_report: image_space_image save failed")
 
 	lr.flags.ignore_permissions = True
 	lr.save()

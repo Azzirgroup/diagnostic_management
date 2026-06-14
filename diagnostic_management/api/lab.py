@@ -19,20 +19,25 @@ DR_PENDING = ["Open", "Pending Review", "Partially Approved"]
 
 @frappe.whitelist()
 def hub_summary() -> dict:
-	"""Counts the Lab Hub home page renders as quick-glance KPIs."""
-	def _count(dt: str, filters: dict | None = None) -> int:
+	"""Counts the Lab Hub home page renders as quick-glance KPIs.
+	Branch-scoped where the underlying doctype has a `patient` link."""
+	from diagnostic_management.api.branches import patient_branch_filter
+	bf = patient_branch_filter("patient")
+	def _count(dt: str, filters: dict | None = None, scoped: bool = True) -> int:
 		try:
-			return frappe.db.count(dt, filters or {})
+			f = dict(filters or {})
+			if scoped and bf: f.update(bf)
+			return frappe.db.count(dt, f)
 		except Exception:
 			return 0
-
 	return {
 		"pending_accession": _count("Sample Collection", {"status": "Pending"}),
 		"in_analysis": _count("Sample Collection", {"status": "Partly Collected"}),
 		"pending_verification": _count("Diagnostic Report", {"status": ["in", DR_PENDING]}),
-		"qc_open": _count("QC Run", {"status": "Pending Review"}),
-		"calibration_due": _count("Calibration Run", {"status": "Scheduled"}),
-		"peer_review_open": _count("Peer Review Case", {"status": ["in", ["Open", "In Review", "Discussion"]]}),
+		# QC / Calibration / Peer Review are not patient-linked — keep global.
+		"qc_open": _count("QC Run", {"status": "Pending Review"}, scoped=False),
+		"calibration_due": _count("Calibration Run", {"status": "Scheduled"}, scoped=False),
+		"peer_review_open": _count("Peer Review Case", {"status": ["in", ["Open", "In Review", "Discussion"]]}, scoped=False),
 	}
 
 
@@ -155,6 +160,10 @@ def list_lab_reports(
 			["Lab Report", "patient_name", "like", q],
 			["Lab Report", "patient", "like", q],
 		]
+	# Branch scoping — restrict to Lab Reports whose patient lives in the
+	# current user's branch. No-op for admins / unscoped users.
+	from diagnostic_management.api.branches import patient_branch_filter
+	filters.update(patient_branch_filter("patient"))
 	fields = [
 		"name", "report_date", "patient", "patient_name", "patient_sex",
 		"status", "referring_doctor", "referring_doctor_name", "department",
@@ -189,13 +198,20 @@ def list_lab_reports(
 
 @frappe.whitelist()
 def lab_report_summary() -> dict:
-	"""KPIs for the Lab Reports page header (total / approved / pending counts)."""
+	"""KPIs for the Lab Reports page header (total / approved / pending counts).
+	Branch-scoped: a user in Branch A sees counts only for Branch A's patients."""
 	if not frappe.db.exists("DocType", "Lab Report"):
 		return {"total": 0, "approved": 0, "pending": 0, "today": 0}
-	total = frappe.db.count("Lab Report")
-	approved = frappe.db.count("Lab Report", {"status": "Approved"})
+	from diagnostic_management.api.branches import patient_branch_filter
+	bf = patient_branch_filter("patient")
+	def c(extra=None):
+		f = dict(bf)
+		if extra: f.update(extra)
+		return frappe.db.count("Lab Report", f)
+	total = c()
+	approved = c({"status": "Approved"})
 	pending = total - approved
-	today = frappe.db.count("Lab Report", {"report_date": frappe.utils.today()})
+	today = c({"report_date": frappe.utils.today()})
 	return {"total": total, "approved": approved, "pending": pending, "today": today}
 
 
@@ -255,6 +271,8 @@ def lab_report_detail(name: str) -> dict:
 		"lab_technician_signature": getattr(doc, "lab_technician_signature", None),
 		"pathologist_signature": getattr(doc, "pathologist_signature", None),
 		"custom_has_image_space": int(getattr(doc, "custom_has_image_space", 0) or 0),
+		"custom_image_space_image": getattr(doc, "custom_image_space_image", None),
+		"custom_hide_graphs": int(getattr(doc, "custom_hide_graphs", 0) or 0),
 		"samples": samples,
 		"section_comments": comments,
 		"numeric_results": [
@@ -286,11 +304,95 @@ def lab_report_detail(name: str) -> dict:
 
 
 @frappe.whitelist()
-def set_image_space(name: str, has_image_space: int = 0) -> dict:
-	"""Toggle the 'Has image space' flag on a Lab Report so the next print
-	either reserves a blank box above the signatures or skips it."""
+def _save_image_to_files(image: str, attached_to: str, attached_field: str = "custom_image_space_image") -> str:
+	"""Persist `image` and return a short file URL safe to store in an
+	Attach Image field.
+
+	`image` may be either:
+	  - a base64 data URL ("data:image/png;base64,…") — decoded and written
+	    as a File document, returning its `/files/<name>` URL
+	  - an already-stored URL ("/files/foo.png", "/private/files/bar.jpg")
+	    — passed through unchanged
+
+	Data URLs can be megabytes long and won't fit in the underlying
+	varchar column; storing the URL string instead keeps the field small
+	and the binary lives on disk like every other attachment.
+	"""
+	if not image:
+		return ""
+	if not image.startswith("data:"):
+		return image  # already a URL — keep as-is
+
+	import base64, hashlib, re
+	m = re.match(r"^data:(?P<mime>[^;]+);base64,(?P<b64>.+)$", image, re.DOTALL)
+	if not m:
+		frappe.throw("Image must be a base64 data URL or an existing file URL.")
+	mime = m.group("mime")
+	try:
+		content = base64.b64decode(m.group("b64"))
+	except Exception:
+		frappe.throw("Failed to decode image data URL.")
+	ext = {"image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
+	       "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg"}.get(mime, "bin")
+	# Dedup approach: our filename embeds a stable sha1[:12] of the content,
+	# so the same bytes always produce the same filename prefix. Frappe may
+	# append its own collision suffix when inserting File, but the prefix +
+	# file_size pair is unique per content. Look up by that.
+	digest = hashlib.sha1(content).hexdigest()[:12]
+	fname = f"lab_report_imgspace_{attached_to}_{digest}.{ext}"
+	prefix = f"lab_report_imgspace_{attached_to}_{digest}"
+	existing = frappe.db.get_value("File", {
+		"file_name": ["like", f"{prefix}%"],
+		"file_size": len(content),
+		"attached_to_doctype": "Lab Report",
+		"attached_to_name": attached_to,
+	}, "file_url")
+	if existing:
+		return existing
+
+	from frappe.utils.file_manager import save_file
+	file_doc = save_file(
+		fname=fname, content=content, dt="Lab Report", dn=attached_to,
+		folder="Home/Attachments", is_private=0, df=attached_field,
+	)
+	return file_doc.file_url
+
+
+@frappe.whitelist()
+def set_image_space(name: str, has_image_space: int = 0,
+                    image: str | None = None, clear_image: int = 0,
+                    hide_graphs: int | None = None) -> dict:
+	"""Set the Lab Report's print-time options.
+
+	  has_image_space: 0/1 — toggle the reserved box above signatures.
+	  image:           data URL or file URL. Data URLs are decoded and saved
+	                   as a File attached to the report; only the short
+	                   `/files/...` URL ends up in `custom_image_space_image`.
+	  clear_image:     1 → wipe the existing image; takes precedence.
+	  hide_graphs:     0/1 — suppress trend charts in the print. None leaves
+	                   the existing value untouched (so a caller that only
+	                   cares about image space doesn't have to know about it).
+	"""
 	if not frappe.db.exists("Lab Report", name):
 		frappe.throw(f"Lab Report {name} not found", frappe.DoesNotExistError)
 	val = 1 if int(has_image_space or 0) else 0
-	frappe.db.set_value("Lab Report", name, "custom_has_image_space", val)
-	return {"ok": True, "name": name, "custom_has_image_space": val}
+	updates: dict = {"custom_has_image_space": val}
+	if int(clear_image or 0):
+		updates["custom_image_space_image"] = None
+	elif image:
+		updates["custom_image_space_image"] = _save_image_to_files(image, name)
+	if hide_graphs is not None and hide_graphs != "":
+		updates["custom_hide_graphs"] = 1 if int(hide_graphs) else 0
+	frappe.db.set_value("Lab Report", name, updates)
+	row = frappe.db.get_value(
+		"Lab Report", name,
+		["custom_has_image_space", "custom_image_space_image", "custom_hide_graphs"],
+		as_dict=True,
+	) or {}
+	return {
+		"ok": True,
+		"name": name,
+		"custom_has_image_space": int(row.get("custom_has_image_space") or 0),
+		"custom_image_space_image": row.get("custom_image_space_image"),
+		"custom_hide_graphs": int(row.get("custom_hide_graphs") or 0),
+	}

@@ -32,8 +32,30 @@ const accreditation = ref('')
 const pathologistName = ref('')
 // "Reserve image space on print" — when ticked the Lab Report HTML reserves
 // a 6cm blank box above the signatures so a stamp/manual signature/scanned
-// image fits there. Carried through approve_report into the Lab Report doc.
+// image fits there. Optional image upload fills that box. Both carried
+// through approve_report into the Lab Report doc.
 const hasImageSpace = ref(false)
+const imageSpaceImage = ref<string>('')          // data URL the user picked
+const imageSpaceFileInput = ref<HTMLInputElement | null>(null)
+// Sister flag: when ticked, the printed Lab Report HTML hides all trend
+// charts. Carried via approve_report into the Lab Report doc.
+const hideGraphs = ref(false)
+async function onPreReleaseImagePicked(ev: Event) {
+  const t = ev.target as HTMLInputElement
+  const file = t.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) { error.value = 'Pick an image file'; t.value = ''; return }
+  if (file.size > 4 * 1024 * 1024) { error.value = 'Image must be < 4 MB'; t.value = ''; return }
+  imageSpaceImage.value = await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = () => reject(new Error('read failed'))
+    r.readAsDataURL(file)
+  })
+  hasImageSpace.value = true   // picking an image implies reserving space
+  t.value = ''
+}
+function clearPreReleaseImage() { imageSpaceImage.value = '' }
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -69,7 +91,10 @@ async function loadDetail() {
   if (!selectedSample.value) { detail.value = null; return }
   loading.value = true; error.value = ''
   try {
-    detail.value = await resultsApi.getSample(selectedSample.value.name)
+    // Pass the workflow session id so the backend scopes Lab Tests to this
+    // session's orders' Sales Invoice — instead of pulling every historical
+    // Lab Test that ever touched this reused Sample Collection.
+    detail.value = await resultsApi.getSample(selectedSample.value.name, props.session?.name || undefined)
     critical.value = false
     conclusion.value = ''
   } catch (e: any) { error.value = e?.message || 'Failed to load sample' }
@@ -145,6 +170,8 @@ async function verify() {
       accreditation_type: accreditation.value || undefined,
       pathologist_name: pathologistName.value || undefined,
       has_image_space: hasImageSpace.value ? 1 : 0,
+      image_space_image: imageSpaceImage.value || undefined,
+      hide_graphs: hideGraphs.value ? 1 : 0,
     })
     emit('reload')
   } catch (e: any) { error.value = frappeError(e, 'Failed to release report') }
@@ -166,8 +193,9 @@ async function authorizeUrgent() {
 // sample has its own Lab Report; we cache its name + current flag value per
 // sample so the released branch can render + edit the checkbox without an
 // extra round-trip on every click.
-const releasedLabReport = ref<Record<string, { name: string; hasImageSpace: boolean }>>({})
+const releasedLabReport = ref<Record<string, { name: string; hasImageSpace: boolean; imageUrl: string | null; hideGraphs: boolean }>>({})
 const togglingImageSpace = ref(false)
+const releasedFileInput = ref<HTMLInputElement | null>(null)
 async function loadLabReportForSelected() {
   if (!selectedSample.value) return
   const key = selectedSample.value.name
@@ -179,6 +207,8 @@ async function loadLabReportForSelected() {
     releasedLabReport.value[key] = {
       name: lrName,
       hasImageSpace: !!lr.custom_has_image_space,
+      imageUrl: lr.custom_image_space_image || null,
+      hideGraphs: !!lr.custom_hide_graphs,
     }
   } catch { /* silent — checkbox just shows unchecked */ }
 }
@@ -193,11 +223,67 @@ async function toggleReleasedImageSpace(checked: boolean) {
   try {
     const r = await labReportsApi.setImageSpace(entry.name, checked ? 1 : 0)
     entry.hasImageSpace = !!r.custom_has_image_space
+    entry.imageUrl = r.custom_image_space_image
   } catch (e: any) {
     error.value = frappeError(e, 'Failed to update image-space preference')
   } finally {
     togglingImageSpace.value = false
   }
+}
+
+async function onReleasedImagePicked(ev: Event) {
+  if (!selectedSample.value) return
+  const entry = releasedLabReport.value[selectedSample.value.name]
+  if (!entry) return
+  const t = ev.target as HTMLInputElement
+  const file = t.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) { error.value = 'Pick an image file'; t.value = ''; return }
+  if (file.size > 4 * 1024 * 1024) { error.value = 'Image must be < 4 MB'; t.value = ''; return }
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = () => reject(new Error('read failed'))
+    r.readAsDataURL(file)
+  })
+  togglingImageSpace.value = true
+  try {
+    const r = await labReportsApi.setImageSpace(entry.name, 1, dataUrl)
+    entry.hasImageSpace = !!r.custom_has_image_space
+    entry.imageUrl = r.custom_image_space_image
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to upload image')
+  } finally {
+    togglingImageSpace.value = false
+    t.value = ''
+  }
+}
+
+async function removeReleasedImage() {
+  if (!selectedSample.value) return
+  const entry = releasedLabReport.value[selectedSample.value.name]
+  if (!entry) return
+  togglingImageSpace.value = true
+  try {
+    const r = await labReportsApi.setImageSpace(entry.name, entry.hasImageSpace ? 1 : 0, null, 1)
+    entry.imageUrl = r.custom_image_space_image
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to remove image')
+  } finally { togglingImageSpace.value = false }
+}
+
+async function toggleReleasedHideGraphs(checked: boolean) {
+  if (!selectedSample.value) return
+  const entry = releasedLabReport.value[selectedSample.value.name]
+  if (!entry) return
+  togglingImageSpace.value = true
+  try {
+    const r = await labReportsApi.setImageSpace(
+      entry.name, entry.hasImageSpace ? 1 : 0, undefined, 0, checked ? 1 : 0)
+    entry.hideGraphs = !!r.custom_hide_graphs
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to update hide-graphs preference')
+  } finally { togglingImageSpace.value = false }
 }
 
 async function printReport() {
@@ -386,12 +472,35 @@ async function printReport() {
                 </div>
               </div>
               <!-- Print preference: reserve a blank box on the Lab Report
-                   print so a stamp or manual signature can be placed there. -->
-              <div class="flex items-center gap-2 text-sm border-t border-surface-100 pt-3 mb-3">
-                <input id="rs-imgspace" v-model="hasImageSpace" type="checkbox" class="accent-brand-navy-700" />
-                <label for="rs-imgspace" class="cursor-pointer select-none">
-                  Reserve image space on print
-                  <span class="text-xs text-surface-500 ml-1">(adds a blank box above the signature area)</span>
+                   print and optionally upload an image to fill it. -->
+              <div class="flex items-start gap-3 text-sm border-t border-surface-100 pt-3 mb-3 flex-wrap">
+                <div class="flex-1 min-w-[240px]">
+                  <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input id="rs-imgspace" v-model="hasImageSpace" type="checkbox" class="accent-brand-navy-700" />
+                    <span>Reserve image space on print</span>
+                  </label>
+                  <p class="text-xs text-surface-500 mt-0.5 ml-6">Adds a blank box above the signature area; upload an image to fill it.</p>
+                </div>
+                <input ref="imageSpaceFileInput" type="file" accept="image/*" class="hidden"
+                  @change="onPreReleaseImagePicked" />
+                <div v-if="imageSpaceImage"
+                  class="flex items-center gap-2 px-2 py-1 rounded border border-surface-200 bg-surface-50">
+                  <img :src="imageSpaceImage" alt="Image space preview"
+                    class="max-h-12 max-w-[80px] object-contain bg-white border border-surface-100 rounded" />
+                  <div class="flex flex-col gap-0.5">
+                    <button type="button" class="text-xs text-brand-teal-600 hover:underline" @click="imageSpaceFileInput?.click()">Replace</button>
+                    <button type="button" class="text-xs text-red-600 hover:underline" @click="clearPreReleaseImage">Remove</button>
+                  </div>
+                </div>
+                <button v-else type="button" class="btn-ghost !py-1 !text-xs self-center"
+                  @click="imageSpaceFileInput?.click()">📎 Upload image</button>
+              </div>
+              <!-- Don't show graphs on print -->
+              <div class="flex items-center gap-2 text-sm pt-2 mb-3">
+                <input id="rs-hidegraphs" v-model="hideGraphs" type="checkbox" class="accent-brand-navy-700" />
+                <label for="rs-hidegraphs" class="cursor-pointer select-none">
+                  Don't show graphs on print
+                  <span class="text-xs text-surface-500 ml-1">(suppress trend charts)</span>
                 </label>
               </div>
               <div class="flex items-center justify-end">
@@ -405,20 +514,49 @@ async function printReport() {
                 <button class="btn-ghost" @click="printReport">Print Report</button>
               </div>
               <!-- Even after release the technologist may want to change the
-                   "image space" preference and reprint. Persists onto the Lab
-                   Report doc so the next print HTML reflects the choice. -->
+                   "image space" preference, swap the image, and reprint. -->
               <div v-if="releasedLabReport[selectedSample.name]"
-                class="flex items-center gap-2 text-sm border-t border-surface-100 pt-3">
-                <input :id="`rs-imgspace-released-${selectedSample.name}`" type="checkbox"
+                class="flex items-start gap-3 text-sm border-t border-surface-100 pt-3 flex-wrap">
+                <div class="flex-1 min-w-[240px]">
+                  <label :for="`rs-imgspace-released-${selectedSample.name}`" class="flex items-center gap-2 cursor-pointer select-none">
+                    <input :id="`rs-imgspace-released-${selectedSample.name}`" type="checkbox"
+                      class="accent-brand-navy-700"
+                      :checked="releasedLabReport[selectedSample.name].hasImageSpace"
+                      :disabled="togglingImageSpace"
+                      @change="toggleReleasedImageSpace(($event.target as HTMLInputElement).checked)" />
+                    <span>Reserve image space on print</span>
+                  </label>
+                  <p class="text-xs text-surface-500 mt-0.5 ml-6">Adds a blank box above the signatures; upload an image to fill it.</p>
+                </div>
+                <input ref="releasedFileInput" type="file" accept="image/*" class="hidden"
+                  @change="onReleasedImagePicked" />
+                <div v-if="releasedLabReport[selectedSample.name].imageUrl"
+                  class="flex items-center gap-2 px-2 py-1 rounded border border-surface-200 bg-surface-50">
+                  <img :src="releasedLabReport[selectedSample.name].imageUrl || ''" alt="Image space"
+                    class="max-h-12 max-w-[80px] object-contain bg-white border border-surface-100 rounded" />
+                  <div class="flex flex-col gap-0.5">
+                    <button type="button" class="text-xs text-brand-teal-600 hover:underline"
+                      :disabled="togglingImageSpace" @click="releasedFileInput?.click()">Replace</button>
+                    <button type="button" class="text-xs text-red-600 hover:underline"
+                      :disabled="togglingImageSpace" @click="removeReleasedImage">Remove</button>
+                  </div>
+                </div>
+                <button v-else type="button" class="btn-ghost !py-1 !text-xs self-center"
+                  :disabled="togglingImageSpace" @click="releasedFileInput?.click()">📎 Upload image</button>
+                <span v-if="togglingImageSpace" class="text-xs text-surface-400 self-center">Saving…</span>
+              </div>
+              <!-- Don't show graphs on print (released-state mirror) -->
+              <div v-if="releasedLabReport[selectedSample.name]"
+                class="flex items-center gap-2 text-sm pt-2">
+                <input :id="`rs-hidegraphs-released-${selectedSample.name}`" type="checkbox"
                   class="accent-brand-navy-700"
-                  :checked="releasedLabReport[selectedSample.name].hasImageSpace"
+                  :checked="releasedLabReport[selectedSample.name].hideGraphs"
                   :disabled="togglingImageSpace"
-                  @change="toggleReleasedImageSpace(($event.target as HTMLInputElement).checked)" />
-                <label :for="`rs-imgspace-released-${selectedSample.name}`" class="cursor-pointer select-none">
-                  Reserve image space on print
-                  <span class="text-xs text-surface-500 ml-1">(adds a blank box above the signatures)</span>
+                  @change="toggleReleasedHideGraphs(($event.target as HTMLInputElement).checked)" />
+                <label :for="`rs-hidegraphs-released-${selectedSample.name}`" class="cursor-pointer select-none">
+                  Don't show graphs on print
+                  <span class="text-xs text-surface-500 ml-1">(suppress trend charts)</span>
                 </label>
-                <span v-if="togglingImageSpace" class="text-xs text-surface-400 ml-auto">Saving…</span>
               </div>
             </div>
           </div>

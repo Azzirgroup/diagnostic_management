@@ -108,6 +108,7 @@ def create_shift_profile(
 	payments: str = "[]", applicable_for_users: str = "[]",
 	write_off_account: str = "", write_off_cost_center: str = "",
 	cost_center: str = "", income_account: str = "",
+	branch: str = "",
 ) -> dict:
 	if isinstance(payments, str): payments = json.loads(payments)
 	if isinstance(applicable_for_users, str): applicable_for_users = json.loads(applicable_for_users)
@@ -137,6 +138,12 @@ def create_shift_profile(
 	doc.write_off_cost_center = write_off_cost_center
 	if cost_center: doc.cost_center = cost_center
 	if income_account: doc.income_account = income_account
+	# Optional Branch tag — cashiers opening a shift on this profile
+	# get steered to this branch's data for the duration of the shift.
+	if branch:
+		if not frappe.db.exists("Branch", branch):
+			frappe.throw(_("Branch {0} does not exist.").format(branch))
+		doc.branch = branch
 	# A POS Profile must have at least one payment row, otherwise opening a
 	# shift can't render a balance form. Default to Cash if nothing supplied.
 	if not payments:
@@ -487,23 +494,32 @@ def get_companies() -> list[dict]:
 
 @frappe.whitelist()
 def get_warehouses(company: str = "") -> list[str]:
+	"""Picker lookup for the New Shift Profile dialog. Uses ignore_permissions
+	so non-admin users (Billing Officer, Receptionist) who can create POS
+	Profiles still see the warehouse list — by default they don't have
+	global Warehouse read permission."""
 	filters = {"company": company} if company else {}
-	return frappe.get_list("Warehouse", filters=filters, pluck="name", order_by="name", limit_page_length=0)
+	return frappe.db.get_all("Warehouse", filters=filters, pluck="name",
+		order_by="name", limit_page_length=0, ignore_permissions=True)
 
 
 @frappe.whitelist()
 def get_accounts(company: str = "", account_type: str = "") -> list[str]:
+	"""Picker lookup; bypasses perms — see get_warehouses."""
 	filters: dict = {"is_group": 0}
 	if company: filters["company"] = company
 	if account_type: filters["account_type"] = account_type
-	return frappe.get_list("Account", filters=filters, pluck="name", order_by="name", limit_page_length=0)
+	return frappe.db.get_all("Account", filters=filters, pluck="name",
+		order_by="name", limit_page_length=0, ignore_permissions=True)
 
 
 @frappe.whitelist()
 def get_cost_centers(company: str = "") -> list[str]:
+	"""Picker lookup; bypasses perms — see get_warehouses."""
 	filters: dict = {"is_group": 0}
 	if company: filters["company"] = company
-	return frappe.get_list("Cost Center", filters=filters, pluck="name", order_by="name", limit_page_length=0)
+	return frappe.db.get_all("Cost Center", filters=filters, pluck="name",
+		order_by="name", limit_page_length=0, ignore_permissions=True)
 
 
 @frappe.whitelist()

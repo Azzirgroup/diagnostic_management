@@ -3,9 +3,31 @@
 The frontend uses /api/resource/Patient for CRUD; this module supplies the
 typeahead/search payload and a richer detail view that pulls together orders
 and reports for the patient profile page.
+
+Branch scoping note:
+  These endpoints use `frappe.get_all`, which bypasses Frappe's
+  `permission_query_conditions` hook. The SPA's branch-scoping rule
+  (User → Branch → only sees same-branch Patients) is applied here
+  explicitly via `_branch_filter()` so the result respects the user's
+  branch even though we skip the standard list-perm machinery.
 """
 
 import frappe
+from diagnostic_management.api.branches import _user_branch
+
+
+def _branch_filter() -> dict:
+	"""Filter dict restricting Patient to the calling user's branch.
+
+	STRICT: only matches Patient.branch == user's branch. Branchless
+	(legacy) patients are HIDDEN from branch-scoped users — back-fill them
+	with a branch (see `branches.backfill_patient_branches`) so they show
+	up in the right place. Empty dict for admins / unscoped users (see all).
+	"""
+	b = _user_branch()
+	if not b:
+		return {}
+	return {"branch": b}
 
 
 _PATIENT_FIELDS = [
@@ -16,17 +38,16 @@ _PATIENT_FIELDS = [
 
 @frappe.whitelist()
 def search(query: str = "", limit: int = 25) -> list[dict]:
-	"""Lightweight typeahead. Matches name/MRN/mobile/email."""
+	"""Lightweight typeahead. Matches name/MRN/mobile/email.
+
+	Results are filtered to the calling user's branch (see _branch_filter)
+	so a Lab Tech in Branch A only sees Branch A's patients in the typeahead."""
 	q = (query or "").strip()
 	limit = max(1, min(int(limit or 25), 100))
-	filters = []
-	if q:
-		filters = [
-			["Patient", "patient_name", "like", f"%{q}%"],
-		]
 	rows = frappe.get_all(
 		"Patient",
-		fields=_PATIENT_FIELDS,
+		fields=_PATIENT_FIELDS + ["branch"],
+		filters=_branch_filter(),
 		or_filters=[
 			["Patient", "patient_name", "like", f"%{q}%"],
 			["Patient", "name", "like", f"%{q}%"],

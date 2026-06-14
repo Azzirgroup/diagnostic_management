@@ -8,12 +8,15 @@ from frappe.utils import flt, nowdate
 
 @frappe.whitelist()
 def queue(status: str | None = None, limit: int = 100) -> list[dict]:
-	"""Active billing queue. Defaults to all open (Draft / unpaid)."""
+	"""Active billing queue. Defaults to all open (Draft / unpaid).
+	Branch-scoped: only Sales Invoices for patients in the user's branch."""
+	from diagnostic_management.api.branches import patient_branch_filter
 	filters: dict = {}
 	if status:
 		filters["status"] = status
 	else:
 		filters["status"] = ["in", ["Draft", "Overdue", "Unpaid", "Partly Paid", "Submitted"]]
+	filters.update(patient_branch_filter("patient"))
 	return frappe.get_all(
 		"Sales Invoice",
 		fields=[
@@ -304,22 +307,36 @@ def _has_field(doctype: str, fieldname: str) -> bool:
 
 @frappe.whitelist()
 def summary() -> dict:
-	"""Quick KPIs for the billing dashboard card."""
+	"""Quick KPIs for the billing dashboard card. Branch-scoped: counts +
+	outstanding totals only for the user's branch."""
+	from diagnostic_management.api.branches import _user_branch
+	b = _user_branch()
+	branch_clause = ""
+	branch_params: dict = {}
+	if b:
+		patient_names = frappe.db.get_all(
+			"Patient", filters={"branch": b}, pluck="name", ignore_permissions=True,
+		)
+		if not patient_names:
+			# Branch has no patients → all aggregates are zero.
+			return {"draft": {"count":0,"total":0}, "unpaid":{"count":0,"total":0}, "paid":{"count":0,"total":0}}
+		branch_clause = " AND patient IN %(patients)s"
+		branch_params["patients"] = tuple(patient_names)
+
 	def _agg(filters: dict) -> dict:
 		try:
+			params = {"statuses": tuple(filters["statuses"]), **branch_params}
 			rows = frappe.db.sql(
-				"""
-				SELECT COUNT(*) AS cnt, COALESCE(SUM(outstanding_amount),0) AS total
+				f"""SELECT COUNT(*) AS cnt, COALESCE(SUM(outstanding_amount),0) AS total
 				FROM `tabSales Invoice`
-				WHERE status IN %(statuses)s
-				""",
-				{"statuses": tuple(filters["statuses"])},
-				as_dict=True,
+				WHERE status IN %(statuses)s {branch_clause}""",
+				params, as_dict=True,
 			)
 			r = rows[0] if rows else {}
 			return {"count": int(r.get("cnt") or 0), "total": float(r.get("total") or 0)}
 		except Exception:
 			return {"count": 0, "total": 0}
+
 	return {
 		"draft": _agg({"statuses": ["Draft"]}),
 		"unpaid": _agg({"statuses": ["Unpaid", "Partly Paid", "Overdue"]}),

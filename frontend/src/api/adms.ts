@@ -448,10 +448,11 @@ export const resultsApi = {
     call<LabTestResult>('diagnostic_management.api.results.get_lab_test', { name }),
   save: (payload: { name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>>; complete?: number; is_critical?: number; conclusion?: string }) =>
     call<{ ok: boolean; name: string; status?: string; docstatus?: number; report?: string }>('diagnostic_management.api.results.save_results', payload),
-  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string; has_image_space?: number }) =>
+  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string; has_image_space?: number; image_space_image?: string; hide_graphs?: number }) =>
     call<{ ok: boolean; report: string; status: string; lab_report?: string }>('diagnostic_management.api.results.approve_report', payload),
-  getSample: (sample: string) =>
-    call<SampleResults>('diagnostic_management.api.results.get_sample', { sample }),
+  getSample: (sample: string, session_id?: string, sales_invoice?: string) =>
+    call<SampleResults>('diagnostic_management.api.results.get_sample',
+      { sample, session_id: session_id || '', sales_invoice: sales_invoice || '' }),
   saveSample: (payload: { sample: string; tests: Array<{ name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>> }>; complete?: number; is_critical?: number; conclusion?: string }) =>
     call<{ ok: boolean; sample: string; report?: string }>('diagnostic_management.api.results.save_sample', payload),
   // Build (or fetch) the verbatim genetest Lab Report doc for a sample, for printing.
@@ -599,6 +600,8 @@ export interface LabReportDetail {
   lab_technician_signature?: string
   pathologist_signature?: string
   custom_has_image_space?: number
+  custom_image_space_image?: string | null
+  custom_hide_graphs?: number
   samples: Array<{ lab_sample?: string; sample_type?: string; collection_datetime?: string }>
   section_comments: Record<string, string>
   numeric_results: LabReportResultRow[]
@@ -614,9 +617,11 @@ export const labReportsApi = {
   summary: () => call<LabReportSummary>('diagnostic_management.api.lab.lab_report_summary'),
   detail: (name: string) =>
     call<LabReportDetail>('diagnostic_management.api.lab.lab_report_detail', { name }),
-  setImageSpace: (name: string, has_image_space: number) =>
-    call<{ ok: boolean; name: string; custom_has_image_space: number }>(
-      'diagnostic_management.api.lab.set_image_space', { name, has_image_space }),
+  setImageSpace: (name: string, has_image_space: number, image?: string | null, clear_image?: number, hide_graphs?: number | null) =>
+    call<{ ok: boolean; name: string; custom_has_image_space: number; custom_image_space_image: string | null; custom_hide_graphs: number }>(
+      'diagnostic_management.api.lab.set_image_space',
+      { name, has_image_space, image: image || '', clear_image: clear_image || 0,
+        hide_graphs: hide_graphs == null ? '' : hide_graphs }),
 }
 
 export const labApi = {
@@ -890,6 +895,33 @@ export interface CheckinToday {
   sessions: TodaySession[]
   total_minutes: number
   raw_logs: Array<{ name: string; time: string; log_type: string }>
+}
+
+export interface BranchRow { name: string; branch: string }
+export interface MyBranch {
+  user: string
+  branch: string | null
+  source?: 'override' | 'shift' | 'tag' | null
+  tagged_branch?: string | null
+  active_override?: string | null
+  shift_branch?: string | null
+  is_admin: boolean
+  can_switch_branch?: boolean
+  sees_all_branches: boolean
+}
+export interface UserBranchRow { name: string; full_name?: string; branch?: string | null }
+
+export const branchesApi = {
+  list:   () => call<BranchRow[]>('diagnostic_management.api.branches.list_branches'),
+  create: (branch: string) => call<{ ok: boolean; name: string; branch: string }>('diagnostic_management.api.branches.create_branch', { branch }),
+  myBranch: () => call<MyBranch>('diagnostic_management.api.branches.get_my_branch'),
+  setActiveBranch: (branch: string | null) =>
+    call<{ ok: boolean; active_branch: string | null; sees_all_branches: boolean }>(
+      'diagnostic_management.api.branches.set_active_branch', { branch: branch || '' }),
+  setUserBranch: (user: string, branch: string | null) =>
+    call<{ ok: boolean; user: string; branch: string }>(
+      'diagnostic_management.api.branches.set_user_branch', { user, branch: branch || '' }),
+  listUsers: () => call<UserBranchRow[]>('diagnostic_management.api.branches.list_users_with_branch'),
 }
 
 export const checkinApi = {

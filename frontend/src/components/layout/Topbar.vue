@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import GlobalSearch from '@/components/layout/GlobalSearch.vue'
@@ -12,6 +13,22 @@ async function onLogout() {
   await auth.logout()
   router.push('/login')
 }
+
+// Branch switcher — only rendered when the user is allowed to switch.
+// Picking an option calls auth.setActiveBranch which refreshes the
+// branch state; we then reload so every page re-fetches its data
+// against the new branch lens.
+const switching = ref(false)
+async function onBranchChange(ev: Event) {
+  const val = (ev.target as HTMLSelectElement).value
+  if (switching.value) return
+  switching.value = true
+  try {
+    await auth.setActiveBranch(val || null)
+    // Reload so every screen's data is re-fetched under the new lens.
+    window.location.reload()
+  } finally { switching.value = false }
+}
 </script>
 
 <template>
@@ -23,11 +40,33 @@ async function onLogout() {
     <div class="w-80 hidden md:block">
       <GlobalSearch />
     </div>
-    <button class="btn-ghost hidden md:flex">
+    <!-- Branch switcher: dropdown for users who can switch, static label otherwise. -->
+    <label v-if="auth.canSwitchBranch && auth.availableBranches.length"
+      class="btn-ghost hidden md:flex items-center gap-2 cursor-pointer !pr-1">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l4-4 4 4 4-4 2 4z"/>
+      </svg>
+      <select
+        :value="auth.isBranchScoped ? auth.activeBranch : ''"
+        class="bg-transparent border-0 text-sm font-medium outline-none cursor-pointer pr-1"
+        :disabled="switching"
+        @change="onBranchChange"
+        :title="switching ? 'Switching…' : 'Switch branch view'">
+        <option value="">All Branches</option>
+        <option v-for="b in auth.availableBranches" :key="b" :value="b">{{ b }}</option>
+      </select>
+    </label>
+    <button v-else
+      class="btn-ghost hidden md:flex items-center gap-1"
+      :title="auth.branchSource === 'shift' ? 'Branch switched because your open shift is on a different branch. Close the shift to revert to your tagged branch.' : 'Your branch (set by an administrator)'">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l4-4 4 4 4-4 2 4z"/>
       </svg>
       {{ auth.activeBranch || 'Main Branch' }}
+      <span v-if="auth.branchSource === 'shift'"
+        class="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium">
+        via shift
+      </span>
     </button>
     <button class="btn-ghost hidden md:flex">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

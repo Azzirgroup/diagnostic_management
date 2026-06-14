@@ -456,6 +456,9 @@ def worklist(status: str | None = None, priority: str | None = None, limit: int 
 		]]
 	if priority:
 		filters["priority"] = _resolve_code_value(_PRIORITY_ALIASES, priority, priority)
+	# Branch scoping — restrict to orders whose patient is in the user's branch.
+	from diagnostic_management.api.branches import patient_branch_filter
+	filters.update(patient_branch_filter("patient"))
 	return frappe.get_all(
 		"Service Request",
 		fields=[

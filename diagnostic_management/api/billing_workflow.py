@@ -304,14 +304,17 @@ def _has_field(doctype: str, fieldname: str) -> bool:
 @frappe.whitelist()
 def list_stock_alerts(status: str | None = None, limit: int = 50) -> list[dict]:
 	"""Return the most recent ADMS Stock Alerts for the Billing → Stock
-	Alerts panel. Defaults to Open + Acknowledged so resolved ones drop off."""
+	Alerts panel. Defaults to Open + Acknowledged so resolved ones drop off.
+	Branch-scoped: only alerts tied to patients in the user's branch."""
 	if not frappe.db.exists("DocType", "ADMS Stock Alert"):
 		return []
+	from diagnostic_management.api.branches import patient_branch_filter
 	filters: dict = {}
 	if status:
 		filters["status"] = status
 	else:
 		filters["status"] = ["in", ["Open", "Acknowledged"]]
+	filters.update(patient_branch_filter("patient"))
 	rows = frappe.get_all(
 		"ADMS Stock Alert",
 		fields=[
@@ -334,14 +337,16 @@ def list_stock_alerts(status: str | None = None, limit: int = 50) -> list[dict]:
 
 @frappe.whitelist()
 def stock_alert_summary() -> dict:
-	"""Counters for the Billing stock-alerts header."""
+	"""Counters for the Billing stock-alerts header. Branch-scoped."""
 	if not frappe.db.exists("DocType", "ADMS Stock Alert"):
 		return {"open": 0, "acknowledged": 0, "critical": 0, "today": 0}
+	from diagnostic_management.api.branches import patient_branch_filter
+	bf = patient_branch_filter("patient")
+	def _c(extra: dict) -> int:
+		f = dict(extra); f.update(bf); return frappe.db.count("ADMS Stock Alert", f)
 	return {
-		"open": frappe.db.count("ADMS Stock Alert", {"status": "Open"}),
-		"acknowledged": frappe.db.count("ADMS Stock Alert", {"status": "Acknowledged"}),
-		"critical": frappe.db.count("ADMS Stock Alert", {"status": "Open", "severity": "Critical"}),
-		"today": frappe.db.count("ADMS Stock Alert", {
-			"alert_date": [">=", frappe.utils.add_to_date(frappe.utils.today(), as_string=True)]
-		}),
+		"open": _c({"status": "Open"}),
+		"acknowledged": _c({"status": "Acknowledged"}),
+		"critical": _c({"status": "Open", "severity": "Critical"}),
+		"today": _c({"alert_date": [">=", frappe.utils.add_to_date(frappe.utils.today(), as_string=True)]}),
 	}

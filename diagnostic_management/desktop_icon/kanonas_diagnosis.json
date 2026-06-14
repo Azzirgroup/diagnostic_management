@@ -1,0 +1,23 @@
+{
+ "app": "diagnostic_management",
+ "bg_color": "gray",
+ "creation": "2026-06-14 19:46:13.513919",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "stethoscope",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Kanonas Diagnosis",
+ "link": "/diagnostic_management",
+ "link_to": "Kanonas Diagnosis",
+ "link_type": "Workspace Sidebar",
+ "logo_url": "/assets/diagnostic_management/images/kanonas.svg",
+ "modified": "2026-06-15 00:02:49.991112",
+ "modified_by": "Administrator",
+ "name": "Kanonas Diagnosis",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

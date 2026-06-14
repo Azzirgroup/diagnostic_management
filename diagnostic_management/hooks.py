@@ -69,6 +69,25 @@ doc_events = {
 	"Sales Invoice": {
 		"validate": "diagnostic_management.api.shifts.tag_sales_invoice_with_shift",
 	},
+	# Auto-tag Patient with the creating user's branch (if they have one).
+	"Patient": {
+		"validate": "diagnostic_management.api.branches.auto_set_patient_branch",
+	},
+	# When a Lab Test stamped with a Sales Invoice is inserted, push that
+	# stamp onto the parent Sample Collection too (if it doesn't have one
+	# yet). Lets every downstream list filter by SI in one step.
+	"Lab Test": {
+		"after_insert": "diagnostic_management.api.branches.stamp_sample_collection_si",
+	},
+}
+
+# Per-doctype list filter — a Lab Tech in Branch A sees only their branch's
+# patients in any list / search. Admins and unscoped users bypass.
+permission_query_conditions = {
+	"Patient": "diagnostic_management.api.branches.patient_query_conditions",
+}
+has_permission = {
+	"Patient": "diagnostic_management.api.branches.patient_has_permission",
 }
 
 override_doctype_class = {

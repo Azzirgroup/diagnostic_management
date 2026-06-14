@@ -59,6 +59,8 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     roles: ['Lab Manager','Radiology Manager','Diagnostic Director','Auditor'] },
   { to: '/audit', label: 'Audit & Compliance', icon: 'audit', key: 'audit',
     roles: ['Auditor','Diagnostic Director','Lab Manager'] },
+  { to: '/branches', label: 'Branches', icon: 'settings', key: 'branches',
+    roles: ['Diagnostic Director'] /* + Admin/System Manager bypass */ },
   { to: '/settings', label: 'Settings', icon: 'settings', key: 'settings' /* everyone — basic profile */ },
 ]
 
@@ -85,6 +87,7 @@ export const ROUTE_PREFIX_ROLES: Array<{ prefix: string; roles?: string[] }> = [
   { prefix: '/reports',       roles: ROUTE_ROLES['/reports'] },
   { prefix: '/analytics',     roles: ROUTE_ROLES['/analytics'] },
   { prefix: '/audit',         roles: ROUTE_ROLES['/audit'] },
+  { prefix: '/branches',      roles: ROUTE_ROLES['/branches'] },
 ]
 
 /** Required roles for a given route path; undefined = no restriction. */

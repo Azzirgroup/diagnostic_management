@@ -288,6 +288,15 @@
               </select>
             </div>
             <div class="flex flex-col gap-1">
+              <label class="text-sm text-gray-600 font-medium">Branch</label>
+              <select v-model="profileForm.branch"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">— No branch override —</option>
+                <option v-for="b in branches" :key="b.name" :value="b.name">{{ b.branch || b.name }}</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-0.5">A cashier opening a shift on this profile will see this branch's data until they close.</p>
+            </div>
+            <div class="flex flex-col gap-1">
               <label class="text-sm text-gray-600 font-medium">Write Off Account *</label>
               <select v-model="profileForm.write_off_account"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
@@ -387,12 +396,13 @@
               </select>
             </div>
             <div class="flex flex-col gap-1 md:col-span-2">
-              <label class="text-sm text-gray-600 font-medium">Cashier *</label>
+              <label class="text-sm text-gray-600 font-medium">Cashier (shift opens FOR this user) *</label>
               <select v-model="openingForm.user"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">Select cashier</option>
                 <option v-for="u in openingProfileUsers" :key="u.name" :value="u.name">{{ u.full_name || u.name }}</option>
               </select>
+              <p class="text-xs text-gray-500 mt-0.5">The shift is opened under this user — their branch view flips to this profile's branch.</p>
             </div>
           </div>
           <!-- Opening Balances -->
@@ -776,9 +786,14 @@ const detailError = ref('')
 
 // Forms
 const profileForm = ref({
-  profile_name: '', company: '', warehouse: '', write_off_account: '', write_off_cost_center: '',
+  profile_name: '', company: '', warehouse: '', branch: '',
+  write_off_account: '', write_off_cost_center: '',
   payments: [{ mode_of_payment: '', default: 0 }], users: [],
 })
+// Branches available for the per-profile branch picker (loaded once when
+// the dialog opens). When a cashier opens a shift on a profile tagged with
+// a branch, their active branch lens switches to that branch.
+const branches = ref([])
 const openingForm = ref({ pos_profile: '', company: '', user: '', balance_details: [{ mode_of_payment: '', opening_amount: 0 }] })
 const openingProfileUsers = ref([])
 const closingForm = ref({ pos_opening_entry: '', closing_details: [] })
@@ -926,13 +941,31 @@ async function onOpeningProfileChange() {
         mode_of_payment: pm.mode_of_payment, opening_amount: 0,
       }))
     }
-    // Load all system users for cashier selection
+    // Cashier list: when the POS Profile has `applicable_for_users`, that
+    // becomes the cashier dropdown (so an admin opening on behalf of someone
+    // picks from the right shortlist). Otherwise fall back to all system users.
     if (!users.value.length) await loadUsers()
-    openingProfileUsers.value = users.value
-    // Default to current logged-in user
-    if (loggedInUser.value) {
-      const match = openingProfileUsers.value.find(u => u.name === loggedInUser.value)
-      if (match) openingForm.value.user = match.name
+    const applicable = (profile.applicable_for_users || [])
+      .map(r => r.user).filter(Boolean)
+    if (applicable.length) {
+      openingProfileUsers.value = users.value.filter(u => applicable.includes(u.name))
+    } else {
+      openingProfileUsers.value = users.value
+    }
+    // Default cashier:
+    //   1. The applicable user flagged `default=1` on the profile, if any
+    //   2. Otherwise the single applicable user (if list is exactly 1)
+    //   3. Otherwise the currently logged-in user (if they're in the list)
+    //   4. Otherwise leave blank — admin must explicitly pick a cashier
+    const defaultRow = (profile.applicable_for_users || []).find(r => r.user && r.default)
+    if (defaultRow) {
+      openingForm.value.user = defaultRow.user
+    } else if (openingProfileUsers.value.length === 1) {
+      openingForm.value.user = openingProfileUsers.value[0].name
+    } else if (loggedInUser.value && openingProfileUsers.value.some(u => u.name === loggedInUser.value)) {
+      openingForm.value.user = loggedInUser.value
+    } else {
+      openingForm.value.user = ''
     }
   } catch (err) { console.error(err) }
 }
@@ -959,10 +992,17 @@ async function onClosingEntryChange() {
 
 // Open dialogs
 function openCreateProfile() {
-  profileForm.value = { profile_name: '', company: '', warehouse: '', write_off_account: '', write_off_cost_center: '',
+  profileForm.value = { profile_name: '', company: '', warehouse: '', branch: '',
+    write_off_account: '', write_off_cost_center: '',
     payments: [{ mode_of_payment: '', default: 0 }], users: [] }
   formError.value = ''; showCreateProfileDialog.value = true
-  loadCompanies(); loadUsers()
+  loadCompanies(); loadUsers(); loadBranches()
+}
+async function loadBranches() {
+  try {
+    const { branchesApi } = await import('@/api/adms')
+    branches.value = await branchesApi.list()
+  } catch { branches.value = [] }
 }
 async function openCreateOpening() {
   openingForm.value = { pos_profile: '', company: '', user: '', balance_details: [{ mode_of_payment: '', opening_amount: 0 }] }
@@ -991,6 +1031,7 @@ async function createProfile() {
       name: profileForm.value.profile_name,
       company: profileForm.value.company,
       warehouse: profileForm.value.warehouse,
+      branch: profileForm.value.branch,
       write_off_account: profileForm.value.write_off_account,
       write_off_cost_center: profileForm.value.write_off_cost_center,
       payments: JSON.stringify(profileForm.value.payments.filter(p => p.mode_of_payment)),

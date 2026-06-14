@@ -1,0 +1,21 @@
+{
+ "app": "diagnostic_management",
+ "bg_color": "gray",
+ "creation": "2026-06-14 19:46:13.478964",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Diagnostic Management",
+ "link": "/diagnostic_management",
+ "link_type": "External",
+ "logo_url": "/assets/diagnostic_management/images/logo.svg",
+ "modified": "2026-06-15 00:02:49.982437",
+ "modified_by": "Administrator",
+ "name": "Diagnostic Management",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

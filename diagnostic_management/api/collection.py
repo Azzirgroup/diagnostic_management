@@ -56,6 +56,9 @@ def worklist(status: str | None = None, limit: int = 100) -> list[dict]:
 		filters["status"] = status
 	else:
 		filters["collected_time"] = ["is", "not set"]
+	# Branch scoping — restrict to samples whose patient is in the user's branch.
+	from diagnostic_management.api.branches import patient_branch_filter
+	filters.update(patient_branch_filter("patient"))
 	return frappe.get_all(
 		"Sample Collection",
 		fields=_LIST_FIELDS,
