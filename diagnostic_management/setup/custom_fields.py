@@ -260,12 +260,25 @@ def _field_map() -> dict[str, list[dict]]:
 			},
 		],
 		"Diagnostic Report": [
+			# When results are saved with `complete=1` (i.e. the technologist
+			# clicks Save & Complete), we stamp this datetime. It marks the
+			# moment results were ENTERED — NOT when the technologist
+			# navigated to the Results step. Use this for SLAs/TAT reports
+			# instead of `creation`.
+			{
+				"fieldname": "custom_reporting_completed_at",
+				"label": "Reporting Completed At",
+				"fieldtype": "Datetime",
+				"insert_after": "status",
+				"read_only": 1,
+				"description": "Stamped when results are saved & completed (not when the Results step is opened).",
+			},
 			{
 				"fieldname": "is_critical",
 				"label": "Critical Result",
 				"fieldtype": "Check",
 				"default": "0",
-				"insert_after": "status",
+				"insert_after": "custom_reporting_completed_at",
 			},
 			{
 				"fieldname": "critical_acknowledged",

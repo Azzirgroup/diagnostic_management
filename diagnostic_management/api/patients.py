@@ -118,10 +118,16 @@ def create_basic(
 	blood_group: str | None = None,
 	uid: str | None = None,
 	permanent_address: str | None = None,
+	branch: str | None = None,
 ) -> dict:
 	"""Convenience create. Skips fields the frontend doesn't expose so users
-	can register a patient with just the required minimum."""
-	doc = frappe.get_doc({
+	can register a patient with just the required minimum.
+
+	`branch`: if supplied, written onto Patient.branch. If omitted, the
+	`auto_set_patient_branch` validate hook falls back to the creating
+	user's branch tag — so reception staff at Westlands get Westlands
+	patients by default."""
+	payload = {
 		"doctype": "Patient",
 		"first_name": first_name,
 		"last_name": last_name or "",
@@ -133,7 +139,10 @@ def create_basic(
 		"uid": uid,
 		"permanent_address": permanent_address,
 		"status": "Active",
-	}).insert(ignore_permissions=False)
+	}
+	if branch:
+		payload["branch"] = branch
+	doc = frappe.get_doc(payload).insert(ignore_permissions=False)
 	return {"ok": True, "name": doc.name, "patient_name": doc.patient_name}
 
 

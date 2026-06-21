@@ -123,11 +123,37 @@ def set_active_branch(branch: str = "") -> dict:
 
 @frappe.whitelist()
 def list_branches() -> list[dict]:
-	"""All branches on the site (admin view)."""
+	"""All branches on the site, with their patient counts for the admin view.
+
+	`patient_count` is the number of Patient records whose `branch` matches
+	this branch — useful for tracking distribution across locations.
+	"""
 	rows = frappe.db.get_all(
 		"Branch", fields=["name", "branch"], order_by="branch", ignore_permissions=True,
 	)
+	# Single SQL aggregation so we don't do N+1 counts.
+	counts: dict[str, int] = {}
+	for r in frappe.db.sql(
+		"""SELECT COALESCE(branch, '') AS branch, COUNT(*) AS c
+		FROM `tabPatient` GROUP BY branch""", as_dict=True,
+	):
+		counts[r["branch"]] = int(r["c"])
+	# Branchless count exposed under empty-string key for callers that want it.
+	for b in rows:
+		b["patient_count"] = counts.get(b["name"], 0)
 	return rows
+
+
+@frappe.whitelist()
+def patients_per_branch() -> dict:
+	"""Patient distribution: {branch_name: count, '': branchless_count}."""
+	out: dict[str, int] = {}
+	for r in frappe.db.sql(
+		"""SELECT COALESCE(branch, '') AS branch, COUNT(*) AS c
+		FROM `tabPatient` GROUP BY branch""", as_dict=True,
+	):
+		out[r["branch"] or "(unassigned)"] = int(r["c"])
+	return out
 
 
 @frappe.whitelist()

@@ -69,11 +69,13 @@ async function assignBranch(user: string, branch: string) {
     <table v-if="branches.length" class="w-full text-sm">
       <thead><tr class="text-left text-surface-500 border-b border-surface-200">
         <th class="py-2">Name</th>
+        <th class="py-2 text-right">Patients</th>
         <th class="py-2 text-right">Users assigned</th>
       </tr></thead>
       <tbody>
         <tr v-for="b in branches" :key="b.name" class="border-b border-surface-100">
           <td class="py-2 font-medium">{{ b.branch || b.name }}</td>
+          <td class="py-2 text-right font-semibold text-brand-navy-700">{{ b.patient_count ?? 0 }}</td>
           <td class="py-2 text-right text-surface-500">{{ users.filter(u => u.branch === b.name).length }}</td>
         </tr>
       </tbody>

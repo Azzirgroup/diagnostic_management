@@ -239,6 +239,7 @@ export const patientsApi = {
     blood_group?: string
     uid?: string
     permanent_address?: string
+    branch?: string
   }) => call<{ ok: boolean; name: string; patient_name: string }>('diagnostic_management.api.patients.create_basic', payload),
   updateBasic: (payload: {
     name: string
@@ -897,7 +898,7 @@ export interface CheckinToday {
   raw_logs: Array<{ name: string; time: string; log_type: string }>
 }
 
-export interface BranchRow { name: string; branch: string }
+export interface BranchRow { name: string; branch: string; patient_count?: number }
 export interface MyBranch {
   user: string
   branch: string | null

@@ -396,13 +396,14 @@
     {% endfor %}
     {% endif %}
 
-    <!-- ===== CLINICAL NOTES ===== -->
-    {% if doc.pathologist_remarks or doc.clinical_notes or doc.diagnosis %}
+    <!-- ===== CLINICAL NOTES (accreditation + pathologist_remarks
+         intentionally suppressed; the doc columns still exist but are no
+         longer rendered on the print). ===== -->
+    {% if doc.clinical_notes or doc.diagnosis %}
     <div class="clinical-notes">
-        <h4>Clinical Notes & Remarks</h4>
+        <h4>Clinical Notes</h4>
         {% if doc.diagnosis %}<p><b>Diagnosis:</b> {{ doc.diagnosis }}</p>{% endif %}
         {% if doc.clinical_notes %}<p><b>Clinical Notes:</b> {{ doc.clinical_notes }}</p>{% endif %}
-        {% if doc.pathologist_remarks %}<p><b>Pathologist Remarks:</b> {{ doc.pathologist_remarks }}</p>{% endif %}
     </div>
     {% endif %}
 
@@ -435,21 +436,11 @@
         </div>
     </div>
 
-    <!-- ===== ACCREDITATION ===== -->
-    {% if doc.accreditation_type or doc.nabl_number %}
-    <div class="accreditation">
-        <div class="accred-logo-cell">
-            {% if doc.accreditation_logos %}
-            <img src="{{ doc.accreditation_logos }}" class="accred-logo" alt="{{ doc.accreditation_type }}"/>
-            {% endif %}
-        </div>
-        <div class="accred-text-cell">
-            <div class="accred-title">{{ doc.accreditation_type or 'KENAS' }} Accredited Laboratory</div>
-            <div class="accred-number">Certificate No: {{ doc.nabl_number or 'Pending' }}</div>
-            <div class="accred-note">This laboratory is accredited in accordance with the recognized International Standard ISO 15189:2012</div>
-        </div>
-    </div>
-    {% endif %}
+    <!-- ===== ACCREDITATION (suppressed per requirements) =====
+         Block intentionally removed from print. doc.accreditation_type
+         column kept so existing data isn't lost; re-enable by restoring
+         this block if accreditation should appear again. -->
+
 
     <!-- ===== FOOTER ===== -->
     <div class="report-footer">

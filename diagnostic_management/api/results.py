@@ -290,11 +290,19 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 				updates["urgent_reviewed_by"] = None
 			if "urgent_reviewed_at" in fields:
 				updates["urgent_reviewed_at"] = None
+		# Stamp the "reporting completed" timestamp every time results are
+		# saved & completed. This is the moment to use for TAT reporting —
+		# `creation` is when the DR was first opened, not when results
+		# actually came in.
+		if "custom_reporting_completed_at" in fields:
+			updates["custom_reporting_completed_at"] = frappe.utils.now_datetime()
 		if updates:
 			frappe.db.set_value("Diagnostic Report", existing, updates)
 		return existing
 	try:
 		payload = {"doctype": "Diagnostic Report", "patient": sc.get("patient"), "status": "Pending Review"}
+		if "custom_reporting_completed_at" in fields:
+			payload["custom_reporting_completed_at"] = frappe.utils.now_datetime()
 		if "sample_collection" in fields:
 			payload["sample_collection"] = sample
 		if "ref_doctype" in fields:

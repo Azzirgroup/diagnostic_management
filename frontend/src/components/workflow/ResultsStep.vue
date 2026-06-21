@@ -27,8 +27,6 @@ const signature = ref('')          // technologist
 const pathologistSignature = ref('')
 const diagnosis = ref('')
 const clinicalNotes = ref('')
-const pathologistRemarks = ref('')
-const accreditation = ref('')
 const pathologistName = ref('')
 // "Reserve image space on print" — when ticked the Lab Report HTML reserves
 // a 6cm blank box above the signatures so a stamp/manual signature/scanned
@@ -166,8 +164,6 @@ async function verify() {
       pathologist_signature: pathologistSignature.value || undefined,
       diagnosis: diagnosis.value || undefined,
       clinical_notes: clinicalNotes.value || undefined,
-      pathologist_remarks: pathologistRemarks.value || undefined,
-      accreditation_type: accreditation.value || undefined,
       pathologist_name: pathologistName.value || undefined,
       has_image_space: hasImageSpace.value ? 1 : 0,
       image_space_image: imageSpaceImage.value || undefined,
@@ -445,21 +441,13 @@ async function printReport() {
               </div>
               <h4 class="font-semibold mb-3">Clinical Notes &amp; Sign-off</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <div>
+                <div class="sm:col-span-2">
                   <label class="block text-xs text-surface-500 mb-1">Provisional Diagnosis</label>
                   <input v-model="diagnosis" class="input" placeholder="—" />
-                </div>
-                <div>
-                  <label class="block text-xs text-surface-500 mb-1">Accreditation</label>
-                  <input v-model="accreditation" class="input" placeholder="e.g. ISO 15189" />
                 </div>
                 <div class="sm:col-span-2">
                   <label class="block text-xs text-surface-500 mb-1">Clinical Notes</label>
                   <textarea v-model="clinicalNotes" rows="2" class="input"></textarea>
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="block text-xs text-surface-500 mb-1">Pathologist Remarks</label>
-                  <textarea v-model="pathologistRemarks" rows="2" class="input"></textarea>
                 </div>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">

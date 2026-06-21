@@ -377,8 +377,9 @@ function flagClass(r: LabReportResultRow): string {
       </div>
     </div>
 
-    <!-- Clinical sign-off -->
-    <div v-if="detail.diagnosis || detail.clinical_notes || detail.pathologist_remarks || detail.pathologist_name" class="card p-5">
+    <!-- Clinical sign-off (accreditation + pathologist remarks intentionally
+         hidden per requirements; columns kept in case existing data has values). -->
+    <div v-if="detail.diagnosis || detail.clinical_notes || detail.pathologist_name" class="card p-5">
       <h3 class="font-semibold mb-3">Clinical Sign-off</h3>
       <dl class="text-sm space-y-2">
         <div v-if="detail.diagnosis">
@@ -389,19 +390,11 @@ function flagClass(r: LabReportResultRow): string {
           <dt class="text-xs text-surface-500">Clinical Notes</dt>
           <dd class="text-surface-800 whitespace-pre-wrap">{{ detail.clinical_notes }}</dd>
         </div>
-        <div v-if="detail.pathologist_remarks">
-          <dt class="text-xs text-surface-500">Pathologist Remarks</dt>
-          <dd class="text-surface-800 whitespace-pre-wrap">{{ detail.pathologist_remarks }}</dd>
-        </div>
         <div v-if="detail.pathologist_name">
           <dt class="text-xs text-surface-500">Reported By</dt>
           <dd class="text-surface-800">{{ detail.pathologist_name }}
             <span v-if="detail.pathologist_qualification" class="text-surface-500">· {{ detail.pathologist_qualification }}</span>
           </dd>
-        </div>
-        <div v-if="detail.accreditation_type">
-          <dt class="text-xs text-surface-500">Accreditation</dt>
-          <dd class="text-surface-800">{{ detail.accreditation_type }}</dd>
         </div>
       </dl>
     </div>

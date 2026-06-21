@@ -307,7 +307,7 @@
 
           <!-- Referring Doctor -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Referring Doctor</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Referring Doctor <span class="text-red-600">*</span></label>
             <div class="relative flex gap-1" ref="doctorDropdownRef">
               <input
                 v-model="doctorSearch"
@@ -1105,6 +1105,19 @@ const formatCurrency = (amount) => {
 // Create the invoice (shared logic for both buttons)
 const _createInvoice = async () => {
   if (createdInvoice.value) return createdInvoice.value
+
+  // Mandatory: a Referring Doctor must be picked or typed before the order
+  // can be billed. The selection writes into `formData.custom_doctor`.
+  if (!formData.value.custom_doctor) {
+    // Surface inline; matches how other validation errors are reported.
+    if (typeof error !== 'undefined' && error && 'value' in error) {
+      // eslint-disable-next-line vue/no-mutating-props
+      error.value = 'Referring Doctor is required.'
+    } else {
+      alert('Referring Doctor is required.')
+    }
+    throw new Error('referring_doctor_required')
+  }
 
   const billingPayload = {
     customer: billingInfo.value.customer,

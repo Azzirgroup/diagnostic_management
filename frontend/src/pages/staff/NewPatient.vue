@@ -26,9 +26,11 @@ const form = ref({
   blood_group: '',
   uid: '',
   permanent_address: '',
+  branch: '',
 })
 
 const genders = ref<string[]>([])
+const branches = ref<{ name: string; branch?: string }[]>([])
 const submitting = ref(false)
 const error = ref('')
 
@@ -57,6 +59,7 @@ async function loadForEdit() {
       blood_group: p.blood_group || '',
       uid: p.uid || '',
       permanent_address: p.permanent_address || '',
+      branch: p.branch || '',
     }
   } catch (e: any) {
     error.value = frappeError(e, 'Failed to load patient')
@@ -76,6 +79,17 @@ onMounted(async () => {
   } catch {
     genders.value = ['Male', 'Female', 'Other']
   }
+  // Load branches + pre-fill from the user's branch when creating new.
+  try {
+    const { branchesApi } = await import('@/api/adms')
+    branches.value = await branchesApi.list()
+    if (!editingName.value) {
+      const auth = (await import('@/stores/auth')).useAuthStore()
+      if (auth.isBranchScoped && auth.activeBranch && auth.activeBranch !== 'All Branches') {
+        form.value.branch = auth.activeBranch
+      }
+    }
+  } catch { branches.value = [] }
   if (route.name === 'patient-edit') await loadForEdit()
 })
 
@@ -97,6 +111,7 @@ async function submit() {
       blood_group: form.value.blood_group || '',
       uid: form.value.uid.trim(),
       permanent_address: form.value.permanent_address.trim(),
+      branch: form.value.branch || '',
     }
     if (isEditMode.value && editingName.value) {
       await patientsApi.updateBasic({ name: editingName.value, ...payload })
@@ -104,7 +119,7 @@ async function submit() {
     } else {
       // Create: omit empty optional fields so we don't carry "" into doc inserts.
       const create: Record<string, string | undefined> = { first_name: payload.first_name, sex: payload.sex }
-      for (const k of ['last_name','dob','mobile','email','blood_group','uid','permanent_address'] as const) {
+      for (const k of ['last_name','dob','mobile','email','blood_group','uid','permanent_address','branch'] as const) {
         const v = (payload as any)[k]
         if (v) create[k] = v
       }
@@ -166,6 +181,15 @@ async function submit() {
       <div>
         <label class="block text-sm font-medium text-surface-700 mb-1">Patient ID / UID</label>
         <input v-model="form.uid" class="input" type="text" placeholder="National ID, MRN, etc." />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-surface-700 mb-1">Branch</label>
+        <select v-model="form.branch" class="input">
+          <option value="">— No branch (visible to all branches) —</option>
+          <option v-for="b in branches" :key="b.name" :value="b.name">{{ b.branch || b.name }}</option>
+        </select>
+        <p class="text-xs text-surface-500 mt-1">Defaults to your branch when scoped. Leave empty to register globally.</p>
       </div>
 
       <div class="md:col-span-2">
