@@ -119,7 +119,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Normal\nHigh\nLow",
+   "options": "Normal\nHigh\nLow\nAbnormal\nCritical\nOptimal\nIntermediate\nDeficiency\nInsufficiency\nSufficiency\nPotential Toxicity\nPre-diabetic\nDiabetic",
    "default": "Normal"
   },
   {
