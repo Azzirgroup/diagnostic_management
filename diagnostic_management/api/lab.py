@@ -16,6 +16,21 @@ from frappe.utils import now_datetime
 # Diagnostic Report's "verifiable / pending" set — anything not yet Approved.
 DR_PENDING = ["Open", "Pending Review", "Partially Approved"]
 
+# Roles permitted to roll a verified Lab Report back to Draft (and re-open
+# the underlying Lab Test docs for value editing). System Manager covers
+# "Administration" — see Peer Review Amendment flow.
+AMEND_ROLES: frozenset[str] = frozenset({"System Manager", "Lab Manager"})
+
+
+def _require_role(allowed: frozenset[str]) -> None:
+	"""Reject the call when the session user holds none of `allowed`."""
+	have = set(frappe.get_roles(frappe.session.user))
+	if not (have & allowed):
+		frappe.throw(
+			f"This action is restricted to: {', '.join(sorted(allowed))}.",
+			frappe.PermissionError,
+		)
+
 
 @frappe.whitelist()
 def hub_summary() -> dict:
@@ -120,6 +135,109 @@ def submit_peer_review(
 	doc.completed_at = now_datetime()
 	doc.save(ignore_permissions=False)
 	return {"ok": True, "name": name, "status": "Closed", "outcome": outcome}
+
+
+@frappe.whitelist()
+def submit_peer_review_amend(
+	name: str,
+	review_notes: str,
+	discrepancy_severity: str | None = None,
+) -> dict:
+	"""Close a Peer Review Case with `outcome=Amend` AND pull the underlying
+	Lab Tests back to Draft so the technologist can edit the actual analyte
+	values, then re-submit through the normal verify/release flow.
+
+	Restricted to Lab Manager + System Manager (see `AMEND_ROLES`) — these
+	are the only roles allowed to call submitted results back to draft.
+
+	Steps:
+	  1. Close the Peer Review Case with outcome=Amend and the review notes.
+	  2. Flip the Diagnostic Report back to "Pending Review" and stamp a
+	     comment trail explaining why.
+	  3. For each Lab Test the report covers (via DR.custom_lab_tests_csv —
+	     the authoritative list of which Lab Tests THIS report bundles):
+	        - cancel the submitted doc (docstatus 1 → 2)
+	        - copy_doc into a new draft amended_from the cancelled one
+	        - re-insert as docstatus=0 so its rows become editable again
+	  4. Update DR.custom_lab_tests_csv to point at the new (amended) Lab
+	     Test names so the workflow's Results step shows the right batch.
+	  5. Re-link the Sample Collection's workflow_status to "In Processing"
+	     so the wizard's derived-step calc lands the user back on Results
+	     (the docstatus=0 lab tests are already editable; this just makes
+	     the wizard's "furthest reached step" calc match reality).
+	"""
+	_require_role(AMEND_ROLES)
+
+	case = frappe.get_doc("Peer Review Case", name)
+	if case.status == "Closed" and case.outcome == "Amendment Required":
+		frappe.throw("This case has already been amended.")
+
+	# 1. Close the peer review case.
+	case.outcome = "Amendment Required"
+	case.review_notes = review_notes
+	if discrepancy_severity:
+		case.discrepancy_severity = discrepancy_severity
+	case.status = "Closed"
+	case.completed_at = now_datetime()
+	case.save(ignore_permissions=False)
+
+	# 2. Roll the Diagnostic Report back to Pending Review.
+	dr = frappe.get_doc("Diagnostic Report", case.subject_report)
+	dr.db_set("status", "Pending Review")
+	dr.add_comment(
+		"Comment",
+		text=(
+			f"<b>Amendment requested via peer review {frappe.utils.escape_html(name)}</b>"
+			f"<br>By: {frappe.utils.escape_html(frappe.session.user)}"
+			f"<br>{frappe.utils.escape_html(review_notes or '')}"
+		),
+	)
+
+	# 3. Cancel + amend each submitted Lab Test so values become editable.
+	csv = (dr.get("custom_lab_tests_csv") or "").strip()
+	if not csv:
+		# Fallback: walk the sample's lab tests when csv was never stamped.
+		csv = ",".join(
+			frappe.get_all(
+				"Lab Test",
+				filters={"sample": dr.sample_collection, "docstatus": 1},
+				pluck="name",
+			)
+		)
+	old_names = [n.strip() for n in csv.split(",") if n.strip()]
+	new_names: list[str] = []
+	for lt_name in old_names:
+		if not frappe.db.exists("Lab Test", lt_name):
+			continue
+		lt = frappe.get_doc("Lab Test", lt_name)
+		if lt.docstatus == 1:
+			lt.cancel()
+			amended = frappe.copy_doc(lt)
+			amended.amended_from = lt_name
+			amended.docstatus = 0
+			amended.insert(ignore_permissions=False)
+			new_names.append(amended.name)
+		elif lt.docstatus == 0:
+			# Already a draft (rare) — keep it.
+			new_names.append(lt.name)
+
+	# 4. Update DR's csv to point at the new draft names.
+	if new_names:
+		dr.db_set("custom_lab_tests_csv", ",".join(new_names))
+
+	# 5. Re-open the Results step in the workflow wizard.
+	if dr.sample_collection and frappe.db.exists("Sample Collection", dr.sample_collection):
+		sc = frappe.get_doc("Sample Collection", dr.sample_collection)
+		if "workflow_status" in {df.fieldname for df in sc.meta.fields}:
+			sc.db_set("workflow_status", "In Processing")
+
+	return {
+		"ok": True,
+		"case": name,
+		"report": dr.name,
+		"report_status": "Pending Review",
+		"amended_lab_tests": new_names,
+	}
 
 
 # -- Lab Reports browser ---------------------------------------------------

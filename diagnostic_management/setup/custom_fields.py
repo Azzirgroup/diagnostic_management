@@ -523,6 +523,22 @@ def _field_map() -> dict[str, list[dict]]:
 		# Sample Collection reaches "Tested" points back at the originating SI
 		# and Sample. Lets Reports tie consumption to revenue and lets the
 		# billing screen list the alerts for a given invoice.
+		# Per-analyte status flag on the result row. Marley's Normal Test Result
+		# only carries a free-form `lab_test_comment`; ADMS adds an explicit
+		# Select so the Results step shows an editable badge (Normal / High /
+		# Pre-diabetic / Diabetic / …) alongside the value. Same ladder as
+		# Lab Report Numeric Result.status so badges render consistently on
+		# the screen and on the printed Lab Report.
+		"Normal Test Result": [
+			{
+				"fieldname": "status",
+				"label": "Status",
+				"fieldtype": "Select",
+				"options": "Normal\nHigh\nLow\nAbnormal\nCritical\nOptimal\nIntermediate\nDeficiency\nInsufficiency\nSufficiency\nPotential Toxicity\nPre-diabetic\nDiabetic",
+				"default": "Normal",
+				"insert_after": "lab_test_comment",
+			},
+		],
 		"Stock Entry": [
 			{
 				"fieldname": "custom_sales_invoice",

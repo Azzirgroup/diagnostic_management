@@ -9,6 +9,14 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 
+// Same ladder as Lab Report Numeric Result.status — kept in sync so badges
+// on the print format match what the technologist picked here.
+const STATUS_OPTIONS = [
+  'Normal','High','Low','Abnormal','Critical','Optimal','Intermediate',
+  'Deficiency','Insufficiency','Sufficiency','Potential Toxicity',
+  'Pre-diabetic','Diabetic',
+] as const
+
 // Sample-centric results (matches genetest: ONE report per Lab Sample,
 // aggregating every test on that sample). Master-detail: pick a sample,
 // enter results for all its tests, complete & release as one report.
@@ -140,7 +148,7 @@ async function save(complete: boolean) {
       sample: selectedSample.value.name,
       tests: detail.value.lab_tests.map((t) => ({
         name: t.name,
-        normal: t.normal_test_items.map((r) => ({ name: r.name, result_value: r.result_value ?? '', lab_test_comment: r.lab_test_comment ?? '' })),
+        normal: t.normal_test_items.map((r) => ({ name: r.name, result_value: r.result_value ?? '', status: r.status ?? 'Normal' })),
         descriptive: t.descriptive_test_items.map((r) => ({ name: r.name, result_value: r.result_value ?? '' })),
       })),
       complete: complete ? 1 : 0,
@@ -354,7 +362,7 @@ async function printReport() {
 
           <table v-if="t.normal_test_items.length" class="w-full text-sm mb-2">
             <thead><tr class="text-left text-surface-500 border-b border-surface-200">
-              <th class="py-1.5 pr-3">Analyte</th><th class="pr-3 w-36">Result</th><th class="pr-3">Unit</th><th class="pr-3">Reference</th><th>Comment</th>
+              <th class="py-1.5 pr-3">Analyte</th><th class="pr-3 w-36">Result</th><th class="pr-3">Unit</th><th class="pr-3">Reference</th><th class="w-44">Status</th>
             </tr></thead>
             <tbody>
               <tr v-for="r in t.normal_test_items" :key="r.name" class="border-b border-surface-100">
@@ -384,7 +392,11 @@ async function printReport() {
                 </td>
                 <td class="pr-3 text-surface-500">{{ r.lab_test_uom || '—' }}</td>
                 <td class="pr-3 text-surface-500 whitespace-pre-line">{{ r.normal_range || '—' }}</td>
-                <td><input v-model="r.lab_test_comment" :disabled="t.docstatus === 1" class="input !py-1.5" placeholder="—" /></td>
+                <td>
+                  <select v-model="r.status" :disabled="t.docstatus === 1" class="input !py-1.5">
+                    <option v-for="opt in STATUS_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+                  </select>
+                </td>
               </tr>
             </tbody>
           </table>

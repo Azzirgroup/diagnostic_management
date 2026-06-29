@@ -694,7 +694,8 @@
       </template>
       <template #actions>
         <div class="flex justify-end gap-2">
-          <button v-if="detailRecord && Number(detailRecord.docstatus) === 0"
+          <button v-if="detailRecord && Number(detailRecord.docstatus) === 0
+                        && (detailDoctype === 'POS Opening Entry' || detailDoctype === 'POS Closing Entry')"
             @click="submitDetail" :disabled="saving"
             class="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 bg-green-600 hover:bg-green-700">
             {{ saving ? 'Submitting...' : 'Submit' }}
@@ -709,6 +710,7 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
 import { call } from 'frappe-ui'
+import { frappeError } from '@/api/client'
 import { Button, Input, FeatherIcon, Dialog } from 'frappe-ui'
 import Pagination from '@/components/common/Pagination.vue'
 import StatCard from '@/components/common/StatCard.vue'
@@ -1110,9 +1112,10 @@ function getShiftStatusClass(status) {
   return map[status] || 'bg-gray-100 text-gray-700'
 }
 
+// Delegate to the shared frappeError() — reads `_server_messages` from the
+// 417/4xx response body, which axios doesn't surface via `err.message`.
 function extractError(err) {
-  if (err.messages && err.messages.length) return err.messages.map(m => typeof m === 'object' ? m.message : m).join('. ')
-  return err.message || 'An error occurred'
+  return frappeError(err, 'An error occurred')
 }
 
 watch(activeTab, () => { search.value = ''; statusFilter.value = ''; currentPage.value = 1; loadData() })

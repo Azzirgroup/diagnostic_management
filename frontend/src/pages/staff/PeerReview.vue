@@ -6,11 +6,21 @@ import DataTable from '@/components/ui/DataTable.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import DetailPane from '@/components/ui/DetailPane.vue'
 import { labApi, type PeerReviewRow } from '@/api/adms'
+import { frappeError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+// Only System Manager (Administration) and Lab Manager can pull a
+// verified report back to draft for editing — server enforces the same.
+const canAmend = computed(() =>
+  auth.roles.includes('System Manager') || auth.roles.includes('Lab Manager'),
+)
 
 const rows = ref<PeerReviewRow[]>([])
 const selected = ref<PeerReviewRow | null>(null)
 const reviewNotes = ref('')
 const busy = ref(false)
+const amendError = ref('')
 
 async function load() {
   try { rows.value = await labApi.peerReviewList() } catch { rows.value = [] }
@@ -28,12 +38,33 @@ const kpis = computed(() => {
 
 async function submit(outcome: string) {
   if (!selected.value) return
-  busy.value = true
+  busy.value = true; amendError.value = ''
   try {
     await labApi.submitPeerReview({ name: selected.value.name, outcome, review_notes: reviewNotes.value })
     reviewNotes.value = ''
     selected.value = null
     await load()
+  } finally { busy.value = false }
+}
+
+// Close the case with outcome=Amend AND re-open the underlying Lab Tests so
+// the technologist can edit the actual analyte values. Restricted server-side
+// to System Manager + Lab Manager; the button is also hidden for other roles.
+async function submitAmend() {
+  if (!selected.value) return
+  busy.value = true; amendError.value = ''
+  try {
+    const r = await labApi.submitPeerReviewAmend({
+      name: selected.value.name,
+      review_notes: reviewNotes.value,
+      discrepancy_severity: 'Major',
+    })
+    reviewNotes.value = ''
+    selected.value = null
+    await load()
+    alert(`Report ${r.report} sent back for amendment. ${r.amended_lab_tests.length} lab test(s) re-opened for editing.`)
+  } catch (e: any) {
+    amendError.value = frappeError(e, 'Failed to request amendment')
   } finally { busy.value = false }
 }
 </script>
@@ -83,6 +114,16 @@ async function submit(outcome: string) {
       <button class="btn-primary w-full mt-4" :disabled="busy || !reviewNotes.trim()" @click="submit('Agree')">Submit · Agree</button>
       <button class="btn-secondary w-full mt-2" :disabled="busy || !reviewNotes.trim()" @click="submit('Minor Disagreement')">Submit · Minor Disagree</button>
       <button class="btn-danger-ghost w-full mt-2" :disabled="busy || !reviewNotes.trim()" @click="submit('Major Disagreement')">Submit · Major Disagree</button>
+      <button
+        v-if="canAmend"
+        class="btn-danger w-full mt-2"
+        :disabled="busy || !reviewNotes.trim()"
+        :title="'Closes the case with outcome=Amend AND re-opens the underlying Lab Tests for editing. Restricted to Lab Manager / Administration.'"
+        @click="submitAmend"
+      >
+        Submit &amp; Amend (re-open results for editing)
+      </button>
+      <p v-if="amendError" class="text-status-danger text-xs mt-2">{{ amendError }}</p>
     </DetailPane>
     <div v-else class="card p-6 text-center text-surface-400">Select a case to review</div>
   </div>

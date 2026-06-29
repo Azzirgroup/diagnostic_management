@@ -566,9 +566,9 @@
     <!-- Navigation Buttons -->
     <div class="flex justify-end items-center">
       <div class="flex items-center gap-3">
-        <div v-if="validationErrors.length > 0" class="text-red-600 text-sm flex items-center gap-2">
+        <div v-if="serverError || validationErrors.length > 0" class="text-red-600 text-sm flex items-center gap-2">
           <FeatherIcon name="alert-circle" class="w-4 h-4" />
-          {{ validationErrors[0] }}
+          {{ serverError || validationErrors[0] }}
         </div>
         <button
           @click="handleContinueToCollection"
@@ -636,7 +636,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { call } from '@/api/client'
+import { call, frappeError } from '@/api/client'
 import FeatherIcon from '@/components/ui/FeatherIcon.vue'
 import FInput from '@/components/ui/FInput.vue'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
@@ -721,6 +721,11 @@ const showCorporateDropdown = ref(false)
 // POS state
 const posProfiles = ref([])
 const posProfileShiftStatus = ref(null)
+
+// Server-side error (distinct from `validationErrors`, which is a computed
+// derived from form state — assigning to a computed is silently dropped, so
+// API errors were never displayed before this ref existed).
+const serverError = ref('')
 
 // Referring doctor search state
 const doctorSearch = ref('')
@@ -978,6 +983,13 @@ const loadPosProfiles = async () => {
   try {
     const profiles = await call('diagnostic_management.api.billing_workflow.get_user_pos_profiles')
     posProfiles.value = profiles || []
+    // Drop a stale selection (e.g. a rehydrated value from props.billingData
+    // pointing at a profile that was deleted/renamed) before the form would
+    // submit it and trip a LinkValidationError on the server.
+    const validNames = new Set(posProfiles.value.map(p => p.name))
+    if (formData.value.pos_profile && !validNames.has(formData.value.pos_profile)) {
+      formData.value.pos_profile = ''
+    }
     // Auto-select if user has exactly one profile, or select first available
     if (!formData.value.pos_profile && posProfiles.value.length > 0) {
       formData.value.pos_profile = posProfiles.value[0].name
@@ -1153,7 +1165,8 @@ const _createInvoice = async () => {
 
 // Continue to Collection: create invoice → go to next step
 const handleContinueToCollection = async () => {
-  if (!isValid.value) return
+  serverError.value = ''
+  if (!isValid.value) { serverError.value = validationErrors.value[0]; return }
   if (createdInvoice.value) { emit('continue', _buildBillingData()); return }
 
   try {
@@ -1162,11 +1175,7 @@ const handleContinueToCollection = async () => {
     emit('continue', _buildBillingData(result))
   } catch (error) {
     console.error('Failed to create invoice:', error)
-    let msg = 'Failed to create Sales Invoice'
-    if (error.messages && error.messages.length) {
-      msg = error.messages.map(m => typeof m === 'object' ? m.message : m).join('. ')
-    } else if (error.message) { msg = error.message }
-    validationErrors.value = [msg]
+    serverError.value = frappeError(error, 'Failed to create Sales Invoice')
   } finally {
     loading.value = false
   }
@@ -1174,7 +1183,8 @@ const handleContinueToCollection = async () => {
 
 // Continue to Payment: create invoice → check outstanding → show payment form
 const handleContinueToPayment = async () => {
-  if (!isValid.value) return
+  serverError.value = ''
+  if (!isValid.value) { serverError.value = validationErrors.value[0]; return }
 
   try {
     loading.value = true
@@ -1200,11 +1210,7 @@ const handleContinueToPayment = async () => {
     showPaymentForm.value = true
   } catch (error) {
     console.error('Failed to create invoice:', error)
-    let msg = 'Failed to create Sales Invoice'
-    if (error.messages && error.messages.length) {
-      msg = error.messages.map(m => typeof m === 'object' ? m.message : m).join('. ')
-    } else if (error.message) { msg = error.message }
-    validationErrors.value = [msg]
+    serverError.value = frappeError(error, 'Failed to create Sales Invoice')
   } finally {
     loading.value = false
   }

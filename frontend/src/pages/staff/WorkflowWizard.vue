@@ -74,10 +74,12 @@ async function loadPatients(q: string): Promise<PatientLite[]> {
 // session; we just advance to Collection when it emits `continue`.
 async function onBillingContinue() {
   if (!session.value) return
-  busy.value = true
+  busy.value = true; error.value = ''
   try {
     session.value = await workflowApi.save({ name: session.value.name, current_step: 3 })
     step.value = 3
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to advance to Collection')
   } finally { busy.value = false }
 }
 
@@ -158,8 +160,13 @@ async function createPatient() {
 
 async function toResults() {
   if (!session.value) return
-  session.value = await workflowApi.save({ name: session.value.name, current_step: 4 })
-  step.value = 4
+  busy.value = true; error.value = ''
+  try {
+    session.value = await workflowApi.save({ name: session.value.name, current_step: 4 })
+    step.value = 4
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to advance to Results')
+  } finally { busy.value = false }
 }
 
 // Step 4

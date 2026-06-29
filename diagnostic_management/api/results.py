@@ -60,6 +60,7 @@ def _lab_test_rows(doc) -> dict:
 			"normal_range": (picked["range_text"] if picked else None) or r.normal_range,
 			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
 			"lab_test_comment": r.lab_test_comment,
+			"status": r.get("status") or "Normal",
 			"result_type": (picked["result_type"] if picked else None) or "Numeric",
 			"result_options": (picked["result_options"] if picked else None) or "",
 		})
@@ -227,6 +228,8 @@ def save_sample(
 				row.result_value = nmap[row.name].get("result_value")
 				if "lab_test_comment" in nmap[row.name]:
 					row.lab_test_comment = nmap[row.name].get("lab_test_comment")
+				if "status" in nmap[row.name]:
+					row.status = nmap[row.name].get("status")
 		for row in doc.descriptive_test_items:
 			if row.name in dmap:
 				row.result_value = dmap[row.name].get("result_value")
@@ -345,6 +348,7 @@ def get_lab_test(name: str) -> dict:
 			"normal_range": (picked["range_text"] if picked else None) or r.normal_range,
 			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
 			"lab_test_comment": r.lab_test_comment,
+			"status": r.get("status") or "Normal",
 			"allow_blank": r.allow_blank,
 			"require_result_value": r.require_result_value,
 			"result_type": (picked["result_type"] if picked else None) or "Numeric",

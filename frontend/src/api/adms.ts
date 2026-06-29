@@ -427,7 +427,7 @@ export interface SampleResults {
     template?: string
     status?: string
     docstatus?: number
-    normal_test_items: Array<{ name: string; lab_test_name?: string; result_value?: string; normal_range?: string; lab_test_uom?: string; lab_test_comment?: string; result_type?: string; result_options?: string }>
+    normal_test_items: Array<{ name: string; lab_test_name?: string; result_value?: string; normal_range?: string; lab_test_uom?: string; lab_test_comment?: string; status?: string; result_type?: string; result_options?: string }>
     descriptive_test_items: Array<{ name: string; lab_test_particulars?: string; result_value?: string }>
   }>
 }
@@ -642,6 +642,20 @@ export const labApi = {
     discrepancy_severity?: string
     concurrence?: number
   }) => call<{ ok: boolean; name: string; status: string; outcome: string }>('diagnostic_management.api.lab.submit_peer_review', payload),
+  // Close a peer review case with outcome=Amend AND roll the underlying
+  // Lab Tests back to Draft so analyte values become editable again.
+  // Server enforces: only System Manager + Lab Manager may call this.
+  submitPeerReviewAmend: (payload: {
+    name: string
+    review_notes: string
+    discrepancy_severity?: string
+  }) => call<{
+    ok: boolean
+    case: string
+    report: string
+    report_status: string
+    amended_lab_tests: string[]
+  }>('diagnostic_management.api.lab.submit_peer_review_amend', payload),
 }
 
 // -------------------------------------------------------------------------
