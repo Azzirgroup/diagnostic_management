@@ -100,17 +100,38 @@ export async function call<T = unknown>(method: string, args: Record<string, unk
 // Extract a human-readable message from a Frappe/axios error. Frappe puts
 // validation text (e.g. mandatory-result errors → HTTP 417) in
 // `_server_messages` (a JSON array of JSON strings), not always `message`.
+//
+// IMPORTANT: when the request rolled back because of an exception, Frappe
+// still includes msgprint INFO lines emitted before the throw (e.g.
+// "Sample Collection HLC-SC-2026-00003 has been created") in
+// `_server_messages` — so plainly returning the first message hides the
+// actual failure reason. Prefer the exception ladder, then fall back to
+// `_server_messages` only when no exception is reported.
 export function frappeError(e: any, fallback = 'Something went wrong'): string {
   const d = e?.response?.data
+  const httpFailed = d?.exception || d?.exc_type ||
+    (typeof e?.response?.status === 'number' && e.response.status >= 400)
+
+  // Parse _server_messages once; we may use it standalone OR combine with
+  // an exception's last line.
+  let serverMsg = ''
   try {
     if (d?._server_messages) {
       const msgs = JSON.parse(d._server_messages)
       const parsed = msgs.map((m: string) => { try { return JSON.parse(m).message } catch { return m } })
-      const text = parsed.filter(Boolean).join('. ').replace(/<[^>]+>/g, '')
-      if (text) return text
+      serverMsg = parsed.filter(Boolean).join('. ').replace(/<[^>]+>/g, '')
     }
   } catch { /* ignore */ }
-  return d?.message || d?.exception || e?.message || fallback
+
+  if (httpFailed) {
+    // Take the most-specific text we have for the actual failure.
+    const excText = (d?.exception || '').toString().split('\n').pop()?.trim()
+    const failure = excText || d?.exc_type || d?.message || ''
+    if (failure && serverMsg) return `${failure} — ${serverMsg}`
+    if (failure) return failure
+  }
+
+  return serverMsg || d?.message || d?.exception || e?.message || fallback
 }
 
 export async function getCount(doctype: string, filters?: FrappeListParams['filters']): Promise<number> {
