@@ -165,6 +165,7 @@ def after_install():
 	_ensure_workspace_sidebars_populated()
 	_ensure_shift_role_perms()
 	install_director_and_lab_manager_workspaces()
+	_pin_patient_field_uniqueness()
 
 
 def after_migrate():
@@ -180,6 +181,7 @@ def after_migrate():
 	_ensure_workspace_sidebars_populated()
 	_ensure_shift_role_perms()
 	install_director_and_lab_manager_workspaces()
+	_pin_patient_field_uniqueness()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -231,3 +233,28 @@ def _ensure_shift_role_perms():
 			cd.flags.ignore_permissions = True
 			cd.insert()
 	frappe.clear_cache()
+
+
+def _pin_patient_field_uniqueness():
+	"""Defensively pin Property Setters that relax Healthcare's Patient
+	uniqueness constraints. Clinics commonly need to:
+
+	  - Use the same `mobile` for related patients (parent + child, etc.).
+	    Healthcare's Patient.mobile is already unique=0, but we pin it to
+	    survive any upstream change.
+	  - Use the same `uid` (National ID / MRN) for related records when the
+	    workflow uses that field as a household identifier.
+
+	Idempotent — `make_property_setter` with `for_doctype=False` upserts
+	the row keyed by (doc_type, field_name, property)."""
+	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+	for field in ("mobile", "uid"):
+		try:
+			make_property_setter(
+				"Patient", field, "unique", "0", "Int",
+				for_doctype=False, validate_fields_for_doctype=False,
+			)
+		except Exception:
+			# Skip silently when the Patient doctype isn't installed on this
+			# site or the field doesn't exist (e.g. customised Healthcare).
+			frappe.log_error(title=f"_pin_patient_field_uniqueness({field}) failed")

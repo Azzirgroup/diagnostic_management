@@ -224,56 +224,9 @@ async function finish() {
           :model-label="selectedPatient?.patient_name"
           @select="pickPatient"
         />
-        <div class="mt-3">
-          <button class="text-sm text-brand-teal-600 hover:underline" @click="showNewPatient = !showNewPatient">
-            {{ showNewPatient ? 'Cancel' : '+ Register new patient' }}
-          </button>
-        </div>
-        <div v-if="showNewPatient" class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">First Name <span class="text-status-danger">*</span></label>
-            <input v-model="np.first_name" class="input" placeholder="First name" />
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Last Name</label>
-            <input v-model="np.last_name" class="input" placeholder="Last name" />
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Gender <span class="text-status-danger">*</span></label>
-            <select v-model="np.sex" class="input">
-              <option value="" disabled>Select…</option>
-              <option>Female</option><option>Male</option><option>Other</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Date of Birth</label>
-            <input v-model="np.dob" class="input" type="date" />
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Mobile</label>
-            <input v-model="np.mobile" class="input" type="tel" placeholder="+92…" />
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Email</label>
-            <input v-model="np.email" class="input" type="email" placeholder="patient@example.com" />
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Blood Group</label>
-            <select v-model="np.blood_group" class="input">
-              <option value="">—</option>
-              <option v-for="bg in BLOOD_GROUPS" :key="bg" :value="bg">{{ bg }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-surface-500 mb-1">Patient ID / UID</label>
-            <input v-model="np.uid" class="input" placeholder="National ID, MRN, etc." />
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-xs text-surface-500 mb-1">Address</label>
-            <textarea v-model="np.permanent_address" class="input" rows="2"></textarea>
-          </div>
-          <button class="btn-primary md:col-span-2" :disabled="busy" @click="createPatient">{{ busy ? 'Saving…' : 'Register &amp; Continue' }}</button>
-        </div>
+        <!-- Inline "Register new patient" intentionally removed — patient
+             registration now lives at the dedicated /patients/new page so the
+             workflow stays focused on picking an existing patient. -->
       </div>
 
       <!-- Step 2: Billing. If this session already submitted the order, show a

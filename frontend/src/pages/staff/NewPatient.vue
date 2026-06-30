@@ -20,7 +20,14 @@ const form = ref({
   first_name: '',
   last_name: '',
   sex: '',
+  // `dob` (ISO date) is what Healthcare's Patient doctype actually stores —
+  // we still ship it to the backend. The form, however, asks for age + unit
+  // and computes a representative dob (today − age in the chosen unit).
+  // On edit, an existing dob is reverse-converted back to age + unit for
+  // display via deriveAge().
   dob: '',
+  age: '' as number | '',
+  age_unit: 'Years' as 'Years' | 'Months' | 'Days',
   mobile: '',
   email: '',
   blood_group: '',
@@ -49,11 +56,15 @@ async function loadForEdit() {
   loading.value = true
   try {
     const p = await patientsApi.detail(name) as Record<string, any>
+    const dob = p.dob || ''
+    const derived = deriveAgeFromDob(dob)
     form.value = {
       first_name: p.first_name || '',
       last_name: p.last_name || '',
       sex: p.sex || '',
-      dob: p.dob || '',
+      dob,
+      age: derived.age,
+      age_unit: derived.unit,
       mobile: p.mobile || '',
       email: p.email || '',
       blood_group: p.blood_group || '',
@@ -93,11 +104,45 @@ onMounted(async () => {
   if (route.name === 'patient-edit') await loadForEdit()
 })
 
+// Convert (age, unit) → an ISO `YYYY-MM-DD` representative DOB. We
+// approximate Months as 30 days and Years as 365 days — adequate for a
+// clinical "age" entry (no patient distinguishes a few days on infant labs;
+// adult labs only care about age in years). The result is stored on Healthcare's
+// `Patient.dob` so existing reports/queries keep working.
+function ageToDob(age: number, unit: 'Years' | 'Months' | 'Days'): string {
+  if (!age || age < 0) return ''
+  const days = unit === 'Years' ? Math.round(age * 365.25)
+             : unit === 'Months' ? Math.round(age * 30)
+             : Math.round(age)
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().slice(0, 10)
+}
+// Reverse direction for the edit page: take an existing dob and pick the
+// "nicest" of Years/Months/Days for display (Days under 60, Months under 24,
+// otherwise Years).
+function deriveAgeFromDob(dob: string): { age: number | ''; unit: 'Years'|'Months'|'Days' } {
+  if (!dob) return { age: '', unit: 'Years' }
+  const ms = Date.now() - new Date(dob).getTime()
+  if (Number.isNaN(ms) || ms < 0) return { age: '', unit: 'Years' }
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
+  if (days < 60) return { age: days, unit: 'Days' }
+  const months = Math.floor(days / 30)
+  if (months < 24) return { age: months, unit: 'Months' }
+  return { age: Math.floor(days / 365.25), unit: 'Years' }
+}
+
 async function submit() {
   if (!form.value.first_name.trim()) { error.value = 'First name is required.'; return }
   if (!form.value.sex) { error.value = 'Gender is required.'; return }
   submitting.value = true
   error.value = ''
+  // Recompute dob from age + unit (only if user actually entered an age),
+  // so the backend always gets a valid ISO date in `dob`.
+  const ageNum = typeof form.value.age === 'number' ? form.value.age : parseInt(String(form.value.age || ''), 10)
+  if (!Number.isNaN(ageNum) && ageNum > 0) {
+    form.value.dob = ageToDob(ageNum, form.value.age_unit)
+  }
   try {
     // Send empty strings for explicit clears (the backend treats null=skip,
     // ""=clear so the user can blank out an optional field on edit).
@@ -158,8 +203,16 @@ async function submit() {
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-surface-700 mb-1">Date of Birth</label>
-        <input v-model="form.dob" class="input" type="date" />
+        <label class="block text-sm font-medium text-surface-700 mb-1">Age</label>
+        <div class="flex gap-2">
+          <input v-model.number="form.age" class="input flex-1" type="number" min="0" placeholder="e.g. 32" />
+          <select v-model="form.age_unit" class="input w-32">
+            <option value="Years">Years</option>
+            <option value="Months">Months</option>
+            <option value="Days">Days</option>
+          </select>
+        </div>
+        <p class="text-[11px] text-surface-400 mt-1">DOB is computed from age (today − age in the unit chosen).</p>
       </div>
 
       <div>
