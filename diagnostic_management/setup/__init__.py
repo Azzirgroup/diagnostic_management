@@ -9,10 +9,12 @@ Everything ADMS adds to other apps (Marley, ERPNext) is installed here:
 None of these change Marley source files — they are pure additive overlays.
 """
 
+from .accounting_dimension import ensure_branch_accounting_dimension  # noqa: F401
 from .custom_fields import install_custom_fields  # noqa: F401
 from .print_formats import install_print_formats  # noqa: F401
 from .roles import install_roles  # noqa: F401
 from .seed_data import install_seed_data  # noqa: F401
+from .workspaces import install_director_and_lab_manager_workspaces  # noqa: F401
 
 
 def _ensure_desk_icon():
@@ -154,6 +156,7 @@ def _normalize_hook_entry(raw):
 def after_install():
 	install_roles()
 	install_custom_fields()
+	ensure_branch_accounting_dimension()
 	install_print_formats()
 	install_seed_data()
 	_ensure_healthcare_settings()
@@ -161,12 +164,14 @@ def after_install():
 	_ensure_apps_screen_tiles()
 	_ensure_workspace_sidebars_populated()
 	_ensure_shift_role_perms()
+	install_director_and_lab_manager_workspaces()
 
 
 def after_migrate():
 	# Custom fields & print formats are idempotent — safe to re-run on every
 	# migrate, so updates to either land without manual import steps.
 	install_custom_fields()
+	ensure_branch_accounting_dimension()
 	install_print_formats()
 	install_seed_data()
 	_ensure_healthcare_settings()
@@ -174,6 +179,13 @@ def after_migrate():
 	_ensure_apps_screen_tiles()
 	_ensure_workspace_sidebars_populated()
 	_ensure_shift_role_perms()
+	install_director_and_lab_manager_workspaces()
+	# Fill `branch` on historical financial docs (Sales Invoice / Payment
+	# Entry / Purchase Invoice / Journal Entry) that posted before the
+	# Branch dimension was registered. Idempotent — only touches rows with
+	# branch IS NULL.
+	from diagnostic_management.finance.stamp import backfill_branch_on_existing_docs
+	backfill_branch_on_existing_docs()
 
 
 def _ensure_shift_role_perms():

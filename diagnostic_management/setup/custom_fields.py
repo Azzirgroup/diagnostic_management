@@ -518,6 +518,14 @@ def _field_map() -> dict[str, list[dict]]:
 				"insert_after": "pos_profile",
 				"read_only": 1,
 			},
+			# NOTE: `branch` on financial doctypes (Sales Invoice / Payment
+			# Entry / Purchase Invoice / Journal Entry / GL Entry / …) is NOT
+			# managed here. Instead we register `Branch` as an ERPNext
+			# Accounting Dimension in setup/accounting_dimension.py — ERPNext
+			# then auto-creates the `branch` Custom Field on EVERY financial
+			# doctype it knows about (including GL Entry), so OOTB Profit &
+			# Loss, Balance Sheet, General Ledger and Trial Balance reports
+			# all gain a Branch filter for free.
 		],
 		# Stock Entry traceability — each Material Issue auto-created when a
 		# Sample Collection reaches "Tested" points back at the originating SI

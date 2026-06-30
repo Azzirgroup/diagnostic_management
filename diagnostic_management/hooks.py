@@ -68,6 +68,18 @@ after_migrate = "diagnostic_management.setup.after_migrate"
 doc_events = {
 	"Sales Invoice": {
 		"validate": "diagnostic_management.api.shifts.tag_sales_invoice_with_shift",
+		# Branch Accounting Dimension auto-stamp — precedence in
+		# `diagnostic_management.finance.stamp._sales_invoice_branch`.
+		"before_insert": "diagnostic_management.finance.stamp.stamp_sales_invoice",
+	},
+	"Payment Entry": {
+		"before_insert": "diagnostic_management.finance.stamp.stamp_payment_entry",
+	},
+	"Purchase Invoice": {
+		"before_insert": "diagnostic_management.finance.stamp.stamp_purchase_invoice",
+	},
+	"Journal Entry": {
+		"before_insert": "diagnostic_management.finance.stamp.stamp_journal_entry",
 	},
 	# Auto-tag Patient with the creating user's branch (if they have one).
 	"Patient": {

@@ -43,6 +43,8 @@ def execute():
 	_clean_stale_is_pos_defaults()
 	_install_missing_healthcare_custom_fields()
 	_fix_broken_homepage()
+	_resync_naming_series_counters()
+	_remove_dead_genetest_client_scripts()
 	frappe.db.commit()
 	frappe.clear_cache()
 
@@ -158,3 +160,124 @@ def _fix_broken_homepage() -> None:
 		return
 	frappe.db.set_value("Website Settings", "Website Settings", "home_page", "login")
 	print(f"  [v15-residue] reset Website Settings.home_page from {ws!r} → 'login' (Web Page missing)")
+
+
+# ---------------------------------------------------------------------------
+# 5. Naming series counter resync
+# ---------------------------------------------------------------------------
+
+def _resync_naming_series_counters() -> None:
+	"""Bump every `tabSeries` counter past the highest existing name on the
+	corresponding doctype. Restored sites carry the data but not the counters,
+	so the next autoname tries a number that's already taken and the insert
+	409s with DuplicateEntryError.
+
+	Two flavours of autoname need different handling:
+
+	a) `format:LW-{YYYY}-{#####}` style — Frappe parses each `{...}` token
+	   independently, so when it hits `{#####}` the series key passed to
+	   `getseries()` is the **empty string** (no prefix accumulator). ALL
+	   format-string autonames with `{#####}` share the single empty-string
+	   row in tabSeries. Bumping just that one row covers Lab Workflow
+	   Session, Diagnostic Report, and any other format-style doctype.
+
+	b) `naming_series:` style (the field-driven kind) — the key in tabSeries
+	   IS the concrete prefix (e.g. `ACC-SINV-2026-`). For each distinct
+	   prefix actually used, bump if its counter is behind.
+	"""
+	import re
+	from collections import defaultdict
+
+	# (a) Bump the empty-string global counter past the highest tail-number
+	# on any doctype that uses a `format:...{#####}` autoname.
+	max_global_tail = 0
+	for dt_row in frappe.db.sql(
+		"""SELECT name, autoname FROM `tabDocType`
+		   WHERE autoname LIKE 'format:%' AND ifnull(istable,0)=0""",
+		as_dict=True,
+	):
+		try:
+			rows = frappe.db.sql(
+				f"""SELECT name FROM `tab{dt_row['name']}`
+				   WHERE name REGEXP %s""",
+				r'-[0-9]+$',
+			)
+			for (n,) in rows:
+				m = re.search(r"(\d+)$", n)
+				if m:
+					max_global_tail = max(max_global_tail, int(m.group(1)))
+		except Exception:
+			continue
+	if max_global_tail:
+		# Pad by 1 so the next autoname is max+1, not equal.
+		target = max_global_tail
+		row = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name=%s", ("",))
+		cur = row[0][0] if row else 0
+		if cur < target:
+			if row:
+				frappe.db.sql("UPDATE `tabSeries` SET current=%s WHERE name=%s", (target, ""))
+			else:
+				frappe.db.sql("INSERT INTO `tabSeries` (name, current) VALUES (%s, %s)", ("", target))
+			print(f"  [v15-residue] bumped format-string series counter {cur} → {target}")
+
+	# (b) `naming_series:` style — bump each concrete prefix past its max.
+	for dt_row in frappe.db.sql(
+		"""SELECT name FROM `tabDocType`
+		   WHERE autoname = 'naming_series:' AND ifnull(istable,0)=0""",
+		as_dict=True,
+	):
+		dt = dt_row["name"]
+		try:
+			rows = frappe.db.sql(
+				f"""SELECT DISTINCT naming_series FROM `tab{dt}`
+				   WHERE naming_series IS NOT NULL AND naming_series != ''""",
+			)
+		except Exception:
+			continue
+		for (prefix_template,) in rows:
+			head = (prefix_template or "").split("#")[0].rstrip(".")
+			rx = re.escape(head).replace(r"\.YYYY\.", r"\d{4}") \
+				.replace(r"\.MM\.", r"\d{2}").replace(r"\.DD\.", r"\d{2}") \
+				.replace(r"\.YY\.", r"\d{2}")
+			try:
+				rows2 = frappe.db.sql(
+					f"""SELECT name FROM `tab{dt}` WHERE name REGEXP %s""",
+					"^" + rx + r"-?\d+$",
+				)
+			except Exception:
+				continue
+			by_prefix: dict[str, list[int]] = defaultdict(list)
+			for (n,) in rows2:
+				m = re.match(r"^(.+?)-?(\d+)$", n)
+				if m:
+					by_prefix[m.group(1)].append(int(m.group(2)))
+			for cp, nums in by_prefix.items():
+				mx = max(nums)
+				row = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name=%s", (cp,))
+				cur = row[0][0] if row else 0
+				if cur < mx:
+					if row:
+						frappe.db.sql("UPDATE `tabSeries` SET current=%s WHERE name=%s", (mx, cp))
+					else:
+						frappe.db.sql("INSERT INTO `tabSeries` (name, current) VALUES (%s, %s)", (cp, mx))
+					print(f"  [v15-residue] bumped {cp} counter {cur} → {mx}")
+
+
+# ---------------------------------------------------------------------------
+# 6. Dead Client Scripts that reference the removed `genetest` app
+# ---------------------------------------------------------------------------
+
+def _remove_dead_genetest_client_scripts() -> None:
+	"""Delete Client Scripts whose JS calls into `genetest.api.*` Python
+	methods. The genetest app was uninstalled (ADMS replaces it), so those
+	calls now 500 the moment a user opens the corresponding form. Reads
+	`tabClient Script.script` directly so we only target rows that actually
+	depend on the dead app, not anything that just mentions the name.
+	"""
+	rows = frappe.db.sql(
+		"""SELECT name FROM `tabClient Script` WHERE script LIKE '%genetest.api%'""",
+		as_dict=True,
+	)
+	for r in rows:
+		frappe.delete_doc("Client Script", r["name"], force=1, ignore_permissions=True)
+		print(f"  [v15-residue] deleted dead Client Script {r['name']!r} (called removed genetest.api.*)")
