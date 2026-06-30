@@ -39,6 +39,88 @@ def install_director_and_lab_manager_workspaces() -> None:
 	_ensure_dashboard_charts()
 	_ensure_director_workspace()
 	_ensure_lab_manager_workspace()
+	_add_dashboards_card_to_kanonas()
+
+
+# ---------------------------------------------------------------------------
+# Kanonas Diagnosis hub — add the two new workspaces as URL Shortcuts on
+# the Kanonas Diagnosis page itself, so they appear as buttons in the top
+# row right next to "Open Staff App / Open Doctor Portal / Lab Hub". This
+# is how the existing big buttons are wired (type=URL), and matches what
+# David would expect: a one-click entry to each dashboard from the hub.
+# ---------------------------------------------------------------------------
+
+_DASHBOARD_SHORTCUTS = [
+	("Director Workspace", "/app/director-workspace"),
+	("Lab Manager Workspace", "/app/lab-manager-workspace"),
+]
+
+
+def _add_dashboards_card_to_kanonas() -> None:
+	if not frappe.db.exists("Workspace", "Kanonas Diagnosis"):
+		return
+	kd = frappe.get_doc("Workspace", "Kanonas Diagnosis")
+
+	# Idempotency: bail if both shortcuts already exist with their URLs.
+	by_label = {s.label: s for s in kd.shortcuts}
+	target_urls = {label: url for label, url in _DASHBOARD_SHORTCUTS}
+	if all(
+		label in by_label
+		and by_label[label].type == "URL"
+		and by_label[label].url == url
+		for label, url in target_urls.items()
+	):
+		return
+
+	# Drop any prior versions of our shortcuts so we re-add cleanly. Leave
+	# every other shortcut (Open Staff App, Lab Hub, Patients, …) alone.
+	keep = [s for s in kd.shortcuts if s.label not in target_urls]
+	kd.shortcuts = []
+	for s in keep:
+		row = {
+			"label": s.label, "link_to": s.link_to, "type": s.type,
+			"color": s.color, "doc_view": s.doc_view, "stats_filter": s.stats_filter,
+			"format": s.format, "report_ref_doctype": s.report_ref_doctype,
+		}
+		if hasattr(s, "url"):
+			row["url"] = s.url
+		kd.append("shortcuts", row)
+
+	# Append the two dashboard shortcuts.
+	for label, url in _DASHBOARD_SHORTCUTS:
+		kd.append("shortcuts", {
+			"label": label,
+			"type": "URL",
+			"url": url,
+			"color": "Blue",
+		})
+
+	# Also slot a shortcut block into the content JSON so they render in
+	# the top button row alongside the existing hero buttons.
+	try:
+		content = json.loads(kd.content or "[]")
+	except Exception:
+		content = []
+	# Remove any prior shortcut blocks for our labels.
+	content = [b for b in content if not (
+		b.get("type") == "shortcut"
+		and b.get("data", {}).get("shortcut_name") in target_urls
+	)]
+	# Insert them right after the FIRST existing shortcut block (so they
+	# sit in the hero button row, not at the bottom of the page).
+	insert_at = next(
+		(i for i, b in enumerate(content) if b.get("type") == "shortcut"),
+		len(content),
+	)
+	for label, _ in reversed(_DASHBOARD_SHORTCUTS):
+		content.insert(insert_at, {
+			"id": _bid(), "type": "shortcut",
+			"data": {"shortcut_name": label, "col": 3},
+		})
+	kd.content = json.dumps(content)
+
+	kd.save(ignore_permissions=True)
+	print("  [workspaces] added Director + Lab Manager shortcuts to Kanonas Diagnosis hub")
 
 
 def _bid() -> str:
@@ -255,19 +337,26 @@ def _ensure_director_workspace() -> None:
 		# Wipe every child table — the v15-restored copy carries stale rows.
 		ws.charts = []; ws.number_cards = []; ws.shortcuts = []
 		ws.links = []; ws.quick_lists = []; ws.custom_blocks = []
-		ws.parent_page = PARENT; ws.sequence_id = 15.0; ws.public = 1
 	else:
 		ws = frappe.new_doc("Workspace")
 		ws.name = name
-		ws.title = "Director Workspace"
-		ws.label = "Director Workspace"
-		ws.module = "Diagnostic Management"
-		ws.app = "diagnostic_management"
-		ws.public = 1
-		ws.parent_page = PARENT
-		ws.sequence_id = 15.0
-		ws.type = "Workspace"
-		ws.icon = "graph-up-arrow"
+
+	# Force-set every metadata field on BOTH paths — the v15-restored
+	# Director Workspace came in with app=None, module=None, etc., and the
+	# Desk sidebar refuses to render a label for workspaces missing those.
+	ws.title = "Director Workspace"
+	ws.label = "Director Workspace"
+	ws.module = "Diagnostic Management"
+	ws.app = "diagnostic_management"
+	ws.public = 1
+	ws.parent_page = PARENT
+	ws.sequence_id = 15.0
+	ws.type = "Workspace"
+	ws.icon = "graph-up-arrow"
+	ws.indicator_color = "green"
+	ws.restrict_to_domain = ""
+	ws.for_user = ""
+	ws.is_hidden = 0
 
 	# Hero chart
 	chart_name = _REVENUE_TREND["chart_name"]
@@ -318,19 +407,25 @@ def _ensure_lab_manager_workspace() -> None:
 		ws = frappe.get_doc("Workspace", name)
 		ws.charts = []; ws.number_cards = []; ws.shortcuts = []
 		ws.links = []; ws.quick_lists = []; ws.custom_blocks = []
-		ws.parent_page = PARENT; ws.sequence_id = 16.0; ws.public = 1
 	else:
 		ws = frappe.new_doc("Workspace")
 		ws.name = name
-		ws.title = "Lab Manager Workspace"
-		ws.label = "Lab Manager Workspace"
-		ws.module = "Diagnostic Management"
-		ws.app = "diagnostic_management"
-		ws.public = 1
-		ws.parent_page = PARENT
-		ws.sequence_id = 16.0
-		ws.type = "Workspace"
-		ws.icon = "tool"
+
+	# Same lesson as Director Workspace — set every metadata field on
+	# both paths so the sidebar can render the label.
+	ws.title = "Lab Manager Workspace"
+	ws.label = "Lab Manager Workspace"
+	ws.module = "Diagnostic Management"
+	ws.app = "diagnostic_management"
+	ws.public = 1
+	ws.parent_page = PARENT
+	ws.sequence_id = 16.0
+	ws.type = "Workspace"
+	ws.icon = "tool"
+	ws.indicator_color = "blue"
+	ws.restrict_to_domain = ""
+	ws.for_user = ""
+	ws.is_hidden = 0
 
 	rendered_sections = _populate_section_links(ws, _LAB_MGR_SECTIONS)
 

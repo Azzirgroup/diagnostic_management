@@ -458,7 +458,19 @@
                 <span v-else class="text-gray-400">&mdash;</span>
               </div>
               <div class="col-span-1 text-right">
-                <span class="font-semibold text-gray-900">{{ formatCurrency(test.lab_test_rate) }}</span>
+                <!-- Rate is editable per-row once the test is selected. Blank
+                     input falls back to the template rate. -->
+                <input
+                  v-if="selectedTests.includes(test.name)"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  :value="effectiveRate(test)"
+                  @input="setRate(test, $event.target.value)"
+                  :title="`Default: ${formatCurrency(test.lab_test_rate || 0)}`"
+                  class="w-24 text-right border border-gray-300 rounded px-2 py-1 text-sm font-semibold text-gray-900 focus:ring-1 focus:ring-green-500"
+                />
+                <span v-else class="font-semibold text-gray-900">{{ formatCurrency(test.lab_test_rate) }}</span>
               </div>
               <div class="col-span-1 text-center">
                 <input
@@ -749,36 +761,52 @@ const createdPayment = ref(null)
 const paymentLoading = ref(false)
 const paymentErrors = ref([])
 
-// Per-test overrides — { [testName]: { qty, discount_percentage } }. Discount
-// percentage is the SOURCE OF TRUTH (that's what the backend invoice uses);
-// the discount-amount column is just a two-way derived view. Decimal % is
-// supported (step=0.01) — entering 7.5% yields a 7.5 figure here.
+// Per-test overrides — { [testName]: { qty, discount_percentage, rate } }.
+// Discount percentage is the SOURCE OF TRUTH (that's what the backend
+// invoice uses); the discount-amount column is just a two-way derived view.
+// `rate` is optional — when set, it overrides the Lab Test Template's
+// `lab_test_rate` for this invoice line. Decimal values supported.
 const testOverrides = ref({})
+
+// The effective rate for a test row — override if the user typed one,
+// otherwise fall back to the Lab Test Template's configured rate. Used by
+// every downstream calc (line total, discount cap, grand total).
+function effectiveRate(test) {
+  const ov = testOverrides.value[test.name]
+  if (ov && typeof ov.rate === 'number' && !Number.isNaN(ov.rate)) {
+    return ov.rate
+  }
+  return test.lab_test_rate || 0
+}
 
 function setQty(test, raw) {
   const qty = Math.max(1, parseInt(raw, 10) || 1)
   testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || {}), qty }
+}
+function setRate(test, raw) {
+  const rate = Math.max(0, parseFloat(raw) || 0)
+  testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || { qty: 1 }), rate }
 }
 function setDiscountPct(test, raw) {
   const pct = Math.max(0, Math.min(100, parseFloat(raw) || 0))
   testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || { qty: 1 }), discount_percentage: pct }
 }
 // Discount Amount → recompute discount_percentage so the source of truth and
-// the invoice line stay consistent. Capped at the line subtotal (rate × qty).
+// the invoice line stay consistent. Capped at the line subtotal (rate × qty),
+// using the effective (override-aware) rate.
 function setDiscountAmount(test, raw) {
   const ov = testOverrides.value[test.name] || { qty: 1 }
   const qty = ov.qty || 1
-  const rate = test.lab_test_rate || 0
+  const rate = effectiveRate(test)
   const base = qty * rate
   const amount = Math.max(0, Math.min(base, parseFloat(raw) || 0))
   const pct = base > 0 ? (amount / base) * 100 : 0
   testOverrides.value[test.name] = { ...ov, discount_percentage: pct }
 }
-// Live discount amount derived from qty × rate × pct. Two decimals so the
-// number input renders cleanly (e.g. 157.50, not 157.4999999).
+// Live discount amount derived from qty × effective_rate × pct.
 function discountAmountFor(test) {
   const ov = testOverrides.value[test.name] || { qty: 1, discount_percentage: 0 }
-  const base = (ov.qty || 1) * (test.lab_test_rate || 0)
+  const base = (ov.qty || 1) * effectiveRate(test)
   return +(base * ((ov.discount_percentage || 0) / 100)).toFixed(2)
 }
 
@@ -912,8 +940,12 @@ const isValid = computed(() => validationErrors.value.length === 0)
 const totalAmount = computed(() =>
   selectedTests.value.reduce((total, testName) => {
     const test = availableTests.value.find(t => t.name === testName)
-    const rate = test?.lab_test_rate || 0
+    if (!test) return total
     const ov = testOverrides.value[testName] || {}
+    // Mirror effectiveRate() — override wins over the template's rate.
+    const rate = (typeof ov.rate === 'number' && !Number.isNaN(ov.rate))
+      ? ov.rate
+      : (test.lab_test_rate || 0)
     return total + ((ov.qty || 1) * rate * (1 - (ov.discount_percentage || 0) / 100))
   }, 0)
 )
@@ -1139,8 +1171,11 @@ const _createInvoice = async () => {
     payment_reference: formData.value.include_payment ? formData.value.payment_reference : '',
     selected_tests: selectedTests.value.map(testName => {
       const ov = testOverrides.value[testName]
-      if (ov && (ov.qty !== 1 || ov.discount_percentage)) {
-        return { lab_test_template: testName, qty: ov.qty || 1, discount_percentage: ov.discount_percentage || 0 }
+      const hasRateOverride = ov && typeof ov.rate === 'number' && !Number.isNaN(ov.rate)
+      if (ov && (ov.qty !== 1 || ov.discount_percentage || hasRateOverride)) {
+        const row = { lab_test_template: testName, qty: ov.qty || 1, discount_percentage: ov.discount_percentage || 0 }
+        if (hasRateOverride) row.rate = ov.rate
+        return row
       }
       return testName
     }),

@@ -101,8 +101,11 @@ onMounted(async () => {
       const persistedStep = session.value.current_step || 1
       const od: any = session.value.order_detail
       let derivedStep = persistedStep
+      // Partial-release: land on Results as soon as ANY sample reaches a
+      // terminal status. The "every sample done" gate is enforced at
+      // Finish Workflow on the Results step itself, not here.
       if (od?.reports?.length) derivedStep = 4
-      else if (od?.samples?.length && od.samples.every((s: any) => ['Tested','Stored'].includes(s.workflow_status))) derivedStep = 4
+      else if (od?.samples?.some((s: any) => ['Tested','Stored'].includes(s.workflow_status))) derivedStep = 4
       else if (od?.samples?.some((s: any) => s.collected_time)) derivedStep = 3
       else if (od?.orders?.length) derivedStep = Math.max(2, persistedStep)
       const effectiveStep = Math.min(Math.max(persistedStep, derivedStep), 4)

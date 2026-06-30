@@ -60,6 +60,17 @@ def get_patient_billing_info(patient_id: str) -> dict:
 		"Patient", patient_id, ["name", "patient_name", "customer", "sex"], as_dict=True
 	) or {}
 	customer = p.get("customer")
+
+	# Auto-create + link a Customer doc when the Patient has none. Without
+	# this, the workflow billing UI shows the patient name in the Customer
+	# box (a display fallback) but `customer` stays empty — so validation
+	# says "No customer selected" and Customer Group can't auto-populate.
+	# ERPNext Healthcare normally creates this on Patient.insert; restored /
+	# legacy patients miss it. Idempotent: only creates when Patient.customer
+	# is empty, and reuses any Customer whose name already matches.
+	if not customer and (p.get("name") or patient_id):
+		customer = _ensure_patient_customer(p.get("name") or patient_id, p.get("patient_name"))
+
 	cust_name = frappe.db.get_value("Customer", customer, "customer_name") if customer else None
 	cust_group = frappe.db.get_value("Customer", customer, "customer_group") if customer else None
 	return {
@@ -70,6 +81,60 @@ def get_patient_billing_info(patient_id: str) -> dict:
 		"customer_group": cust_group or "",
 		"patient_gender": p.get("sex") or "",
 	}
+
+
+def _ensure_patient_customer(patient_name: str, display_name: str | None) -> str | None:
+	"""Create a Customer for the patient and stamp it onto Patient.customer.
+	Returns the Customer.name (or None on failure). Defensive: never raises
+	to the caller — a failure just leaves customer unlinked, the UI then
+	prompts the user to search/pick one manually."""
+	try:
+		# Customer Group MUST be a leaf (is_group=0) — ERPNext rejects root
+		# groups like "All Customer Groups". Try Selling Settings default,
+		# then a global default, then prefer "Individual" if it exists, else
+		# any leaf group we can find.
+		default_group = (
+			frappe.db.get_single_value("Selling Settings", "customer_group")
+			or frappe.db.get_default("customer_group")
+			or ""
+		)
+		if default_group:
+			is_group = frappe.db.get_value("Customer Group", default_group, "is_group")
+			if is_group is None or is_group:  # missing OR is a parent
+				default_group = ""
+		if not default_group:
+			# Prefer "Individual" (the default ERPNext seed for individuals).
+			if frappe.db.exists("Customer Group", {"customer_group_name": "Individual", "is_group": 0}):
+				default_group = "Individual"
+			else:
+				# Fall back to any leaf customer group on this site.
+				leaf = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+				if not leaf:
+					return None  # site has no usable Customer Group at all
+				default_group = leaf
+
+		default_territory = frappe.db.get_default("territory") or "All Territories"
+		if not frappe.db.exists("Territory", default_territory):
+			default_territory = "All Territories"
+		label = (display_name or patient_name).strip() or patient_name
+
+		# Reuse a same-named Customer if one exists.
+		existing = frappe.db.get_value("Customer", {"customer_name": label}, "name")
+		cust_name = existing
+		if not cust_name:
+			doc = frappe.new_doc("Customer")
+			doc.customer_name = label
+			doc.customer_type = "Individual"
+			doc.customer_group = default_group
+			doc.territory = default_territory
+			doc.insert(ignore_permissions=True)
+			cust_name = doc.name
+
+		frappe.db.set_value("Patient", patient_name, "customer", cust_name, update_modified=False)
+		return cust_name
+	except Exception:
+		frappe.log_error(title=f"_ensure_patient_customer failed for {patient_name}")
+		return None
 
 
 @frappe.whitelist()

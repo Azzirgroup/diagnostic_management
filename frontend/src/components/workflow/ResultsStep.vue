@@ -25,7 +25,19 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ (e: 'reload'): void; (e: 'finish'): void }>()
 
+// `samples` = every sample on the workflow (used by Finish-gating computeds
+// below — those must still see the pending samples, otherwise Finish would
+// fire as soon as the partial subset is done).
 const samples = computed(() => props.session?.order_detail?.samples ?? [])
+// `readySamples` = only samples that have actually reached a terminal
+// Collection state. THESE are what render as tabs the tech can click into
+// to enter results. A "To Be Collected" sample no longer shows up here —
+// the tech is directed back to Collection (via the amber banner) instead
+// of being able to enter results for an un-collected sample.
+const _COLLECTION_TERMINAL = ['Tested', 'Stored', 'Disposed']
+const readySamples = computed(() =>
+  samples.value.filter((s: any) => _COLLECTION_TERMINAL.includes(s.workflow_status)),
+)
 const reports = computed(() => props.session?.order_detail?.reports ?? [])
 const selectedIdx = ref(0)
 const detail = ref<SampleResults | null>(null)
@@ -66,12 +78,20 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 
-const selectedSample = computed(() => samples.value[selectedIdx.value])
+// selectedSample comes from readySamples — the un-collected sample is no
+// longer a clickable tab, so it can never become the active selection.
+const selectedSample = computed(() => readySamples.value[selectedIdx.value])
 const reportFor = (sample?: string) => reports.value.find((r) => r.sample_collection === sample || r.docname === sample)
 const sampleDone = (sample?: string) => !!reportFor(sample)          // report exists ⇒ results completed
 const released = (sample?: string) => reportFor(sample)?.status === 'Approved'
+// Finish-Workflow gates check ALL samples (not just ready ones) so the
+// workflow can't be finished while a sample is still un-collected.
 const allDone = computed(() => samples.value.length > 0 && samples.value.every((s) => sampleDone(s.name)))
 const doneCount = computed(() => samples.value.filter((s) => sampleDone(s.name)).length)
+// Surfaced in the amber banner at the top of the page.
+const pendingCollectionSamples = computed(() =>
+  samples.value.filter((s: any) => !_COLLECTION_TERMINAL.includes(s.workflow_status)),
+)
 const allTestsCompleted = computed(() => !!detail.value && detail.value.lab_tests.length > 0 && detail.value.lab_tests.every((t) => t.docstatus === 1))
 
 // Urgent-review gate: an urgent sample's report must be authorized by an
@@ -107,7 +127,13 @@ async function loadDetail() {
   finally { loading.value = false }
 }
 watch(selectedIdx, loadDetail)
-watch(samples, () => { if (selectedIdx.value >= samples.value.length) selectedIdx.value = 0; loadDetail() }, { immediate: true })
+// Re-clamp the selected index against readySamples (the actual tab set) so
+// when the user goes back and finishes another sample, the new tab appears
+// and selection stays valid.
+watch(readySamples, () => {
+  if (selectedIdx.value >= readySamples.value.length) selectedIdx.value = 0
+  loadDetail()
+}, { immediate: true })
 
 function bounds(r?: string): { low?: number; high?: number } {
   if (!r) return {}
@@ -306,6 +332,26 @@ async function printReport() {
 
 <template>
   <div class="space-y-4">
+    <!-- Pending-collection callout — shown when the tech is in Results but
+         some samples are still in earlier states (To Be Collected /
+         Collected / Processing). Finish Workflow stays blocked until
+         every sample is processed AND has a report. -->
+    <div v-if="pendingCollectionSamples.length"
+         class="card p-3 bg-amber-50 border-amber-200 text-sm flex items-start gap-2">
+      <FeatherIcon name="alert-triangle" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+      <div>
+        <div class="font-medium text-amber-900">
+          {{ pendingCollectionSamples.length }} of {{ samples.length }} sample(s) still pending in Collection
+        </div>
+        <div class="text-amber-800 text-xs mt-0.5">
+          You can enter results for the ready sample(s) now, but the Lab Report
+          can't be finished until every sample is marked Complete or Stored.
+          Go back to the <strong>Collection</strong> step to finish:
+          <span class="font-mono">{{ pendingCollectionSamples.map((s: any) => s.name).join(', ') }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Summary + finish -->
     <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
       <div>
@@ -323,10 +369,14 @@ async function printReport() {
     </div>
 
     <div v-if="!samples.length" class="card p-8 text-center text-surface-400">No samples on this workflow.</div>
+    <div v-else-if="!readySamples.length" class="card p-8 text-center text-surface-400">
+      No samples are ready for results yet. Mark at least one sample Complete or Stored
+      in the <strong>Collection</strong> step before entering results.
+    </div>
 
-    <!-- Sample selector -->
-    <div v-if="samples.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-      <button v-for="(s, i) in samples" :key="s.name" @click="selectedIdx = i"
+    <!-- Sample selector — only ready samples (Tested/Stored/Disposed) -->
+    <div v-if="readySamples.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      <button v-for="(s, i) in readySamples" :key="s.name" @click="selectedIdx = i"
         :class="['text-left p-3 rounded-lg border transition-colors',
           i === selectedIdx ? 'border-brand-navy-700 ring-1 ring-brand-navy-700 bg-brand-navy-700/5' : 'border-surface-200 hover:border-surface-300']">
         <div class="text-sm font-medium text-surface-800 truncate">{{ s.name }}</div>

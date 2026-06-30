@@ -45,15 +45,20 @@
               class="px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-navy-700 text-white hover:opacity-90 disabled:opacity-50">
               {{ collecting ? 'Collecting…' : `Collect ${toCollectCount} Pending` }}
             </button>
-            <!-- Only shown once EVERY sample is Complete/Stored -->
-            <button v-if="allTested" @click="emit('continue', { skipped: true })"
-              class="px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 bg-green-600 text-white hover:bg-green-700">
+            <!-- Continue allowed as soon as AT LEAST ONE sample is ready.
+                 The "every sample complete" rule kicks in at Finish Workflow
+                 on the Results step — letting tests with shorter TATs flow
+                 into reporting without waiting for the slowest sample. -->
+            <button v-if="anyTested" @click="emit('continue', { skipped: true })"
+              class="px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
+              :title="allTested ? 'All samples ready — continue to Results' :
+                      'At least one sample is ready. You can start entering results; the report Finish step will wait for the remaining samples.'">
               Continue to Results
               <FeatherIcon name="arrow-right" class="w-4 h-4" />
             </button>
             <span v-else class="text-xs text-amber-600 flex items-center gap-1.5">
               <FeatherIcon name="alert-circle" class="w-3.5 h-3.5" />
-              Mark every sample Complete or Stored to continue
+              Mark at least one sample Complete or Stored to continue
             </span>
           </div>
         </div>
@@ -480,6 +485,12 @@ const testedCount = computed(() =>
 )
 const allTested = computed(() =>
   samples.value.length > 0 && samples.value.every(s => terminalStatuses.includes(s.status))
+)
+// Partial-release gate: as soon as ANY sample is at a terminal status the
+// tech can move to Results and start entering values. The "all samples
+// done" check is then enforced at the Lab Report Finish step, not here.
+const anyTested = computed(() =>
+  samples.value.length > 0 && samples.value.some(s => terminalStatuses.includes(s.status))
 )
 
 const formatDatetime = (dt) => {
