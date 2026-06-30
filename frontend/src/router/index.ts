@@ -71,6 +71,8 @@ if (base === '/doctor-login') {
         { path: 'patients/new', name: 'patient-new', component: () => import('@/pages/staff/NewPatient.vue') },
         { path: 'patients/:name/edit', name: 'patient-edit', component: () => import('@/pages/staff/NewPatient.vue') },
         { path: 'patients/:name', name: 'patient-detail', component: () => import('@/pages/staff/PatientProfile.vue') },
+        { path: 'customers', name: 'customers', component: () => import('@/pages/staff/Customers.vue') },
+        { path: 'customers/:name', name: 'customer-detail', component: () => import('@/pages/staff/CustomerDetail.vue') },
         { path: 'orders', name: 'orders', component: () => import('@/pages/staff/Orders.vue') },
         { path: 'orders/new', name: 'order-new', component: () => import('@/pages/staff/OrderIntake.vue') },
         { path: 'orders/:name/edit', name: 'order-edit', component: () => import('@/pages/staff/OrderIntake.vue') },

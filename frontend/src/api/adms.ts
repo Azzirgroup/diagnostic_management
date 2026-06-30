@@ -276,6 +276,52 @@ export interface FavoriteRef {
   template_dn: string
 }
 
+// -------------------------------------------------------------------------
+// Customers (ERPNext Customer doctype — what Sales Invoice posts to). Each
+// Patient gets an auto-created Customer via billing_workflow.get_patient_
+// billing_info; this surface lets staff list / view / edit them directly.
+// -------------------------------------------------------------------------
+export interface CustomerRow {
+  name: string
+  customer_name: string
+  customer_type?: string
+  customer_group?: string
+  territory?: string
+  mobile_no?: string
+  email_id?: string
+  tax_id?: string
+  default_currency?: string
+  disabled?: number
+  modified?: string
+  linked_patient?: string | null
+}
+
+export interface CustomerDetail extends CustomerRow {
+  default_price_list?: string
+  customer_primary_address?: string
+  customer_primary_contact?: string
+}
+
+export const customersApi = {
+  list: (query = '', limit = 50, start = 0, customer_group?: string) =>
+    call<{ rows: CustomerRow[]; total: number }>(
+      'diagnostic_management.api.customers.list_customers',
+      { query, limit, start, customer_group },
+    ),
+  get: (name: string) =>
+    call<CustomerDetail>('diagnostic_management.api.customers.get_customer', { name }),
+  update: (name: string, updates: Partial<CustomerDetail>) =>
+    call<{ ok: boolean; name: string; changed: string[] }>(
+      'diagnostic_management.api.customers.update_customer',
+      { name, updates },
+    ),
+  customerGroups: () =>
+    call<string[]>('diagnostic_management.api.customers.list_customer_groups'),
+  territories: () =>
+    call<string[]>('diagnostic_management.api.customers.list_territories'),
+}
+
+
 export const ordersApi = {
   create: (payload: {
     patient: string

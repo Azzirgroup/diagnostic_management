@@ -36,6 +36,11 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     roles: ['Phlebotomist','Sample Receiver','Lab Technician','Lab Quality Officer','Pathologist','Lab Manager','Diagnostic Director','Receptionist'] },
   { to: '/patients', label: 'Patients', icon: 'patients', key: 'patients',
     roles: ['Receptionist','Phlebotomist','Sample Receiver','Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Billing Officer'] },
+  // Customers list lives right under Patients — every Patient has an
+  // auto-linked Customer (the billing identity); this surface lets billing
+  // staff edit customer_group / territory / tax_id / etc. directly.
+  { to: '/customers', label: 'Customers', icon: 'patients', key: 'customers',
+    roles: ['Billing Officer','Accounts Manager','Lab Manager','Diagnostic Director'] },
   { to: '/orders', label: 'Test Orders', icon: 'orders', key: 'orders',
     roles: ['Receptionist','Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Billing Officer'] },
   { to: '/collection', label: 'Collection', icon: 'collection', key: 'collection',
