@@ -30,6 +30,10 @@ const invoice = ref<InvoiceDetail | null>(null)
 const loading = ref(false)
 const paymentAmount = ref<number | null>(null)
 const paymentMode = ref('Cash')
+// Dynamic Modes of Payment from ERPNext (Cash / Bank / M-Pesa / etc.) —
+// mirrors what the workflow's BillingStep uses so both entry points
+// stay in sync with the site's actual configured modes.
+const modesOfPayment = ref<string[]>([])
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
@@ -42,7 +46,25 @@ async function load() {
     error.value = e?.response?.data?.message || 'Failed to load invoice'
   } finally { loading.value = false }
 }
-onMounted(load)
+
+async function loadModesOfPayment() {
+  try {
+    const modes = await call<string[]>('diagnostic_management.api.billing_workflow.get_modes_of_payment')
+    modesOfPayment.value = Array.isArray(modes) && modes.length ? modes : ['Cash']
+    // Default to the first mode if the current selection isn't in the list
+    // (e.g. site has no Cash mode configured, only M-Pesa + Bank).
+    if (!modesOfPayment.value.includes(paymentMode.value)) {
+      paymentMode.value = modesOfPayment.value[0]
+    }
+  } catch {
+    modesOfPayment.value = ['Cash']  // safe fallback
+  }
+}
+
+onMounted(() => {
+  load()
+  loadModesOfPayment()
+})
 
 const isDraft = computed(() => invoice.value?.docstatus === 0)
 const isOutstanding = computed(() => invoice.value && invoice.value.docstatus === 1 && (invoice.value.outstanding_amount || 0) > 0)
@@ -173,7 +195,7 @@ function downloadPdf() {
           :placeholder="`Outstanding: ${invoice.outstanding_amount.toLocaleString()}`" />
         <label class="block text-xs text-surface-500 mb-1">Mode of Payment</label>
         <select v-model="paymentMode" class="w-full px-3 py-2 rounded border border-surface-200 text-sm mb-3">
-          <option>Cash</option><option>Bank</option><option>Wire Transfer</option><option>Credit Card</option><option>Mobile Money</option>
+          <option v-for="m in modesOfPayment" :key="m" :value="m">{{ m }}</option>
         </select>
         <p v-if="error" class="text-sm text-status-danger mb-2">{{ error }}</p>
         <p v-if="message" class="text-sm text-status-success mb-2">{{ message }}</p>
