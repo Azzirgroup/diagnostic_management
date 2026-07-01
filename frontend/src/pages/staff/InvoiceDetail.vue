@@ -87,12 +87,18 @@ async function recordPayment() {
   } finally { busy.value = false }
 }
 
+// Print / PDF using the branded "Genetest Sales Invoice" format that the
+// diag_mgmt app ships + pins as the doctype default (via Property Setter).
+// Kept as an explicit constant here so if branding changes we swap it in
+// one place.
+const INVOICE_PRINT_FORMAT = 'Genetest Sales Invoice'
+
 function printInvoice() {
   if (!invoice.value) return
   const params = new URLSearchParams({
     doctype: 'Sales Invoice',
     name: invoice.value.name,
-    format: 'Standard',
+    format: INVOICE_PRINT_FORMAT,
     no_letterhead: '0',
   })
   window.open(`/printview?${params.toString()}`, '_blank')
@@ -102,7 +108,7 @@ function downloadPdf() {
   const params = new URLSearchParams({
     doctype: 'Sales Invoice',
     name: invoice.value.name,
-    format: 'Standard',
+    format: INVOICE_PRINT_FORMAT,
     no_letterhead: '0',
   })
   window.open(`/api/method/frappe.utils.print_format.download_pdf?${params.toString()}`, '_blank')

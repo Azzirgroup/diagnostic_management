@@ -3,6 +3,29 @@
 @page { size: A4; margin: 8mm 10mm 15mm 10mm; }
 @media print { .page-break { page-break-before: always; } }
 
+/* "AWAITING PEER REVIEW" watermark — shown when an open (non-Closed)
+   Peer Review Case exists for this report's Diagnostic Report. Absolutely-
+   positioned, huge, semi-transparent, rotated across the page. Repeats on
+   every page via `position: fixed`. Print engines (wkhtmltopdf / Chrome
+   headless) honour fixed positioning for watermarks. */
+.awaiting-peer-review-watermark {
+  position: fixed;
+  top: 40%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  transform: rotate(-30deg);
+  transform-origin: center;
+  font-size: 90px;
+  font-weight: 900;
+  color: rgba(231, 76, 60, 0.18);
+  letter-spacing: 6px;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  font-family: Arial, sans-serif;
+}
+
 /* Base Styles */
 .lab-report { font-family: Arial, sans-serif; font-size: 10px; line-height: 1.35; color: #333; }
 
@@ -124,6 +147,17 @@
 .mb-10 { margin-bottom: 10px; }
 </style>
 {% if letter_head and not no_letterhead %}<div class="letter-head">{{ letter_head }}</div>{% else %}<div style="min-height: 100px;"></div>{% endif %}
+
+{#- Watermark: any OPEN Peer Review Case (status != Closed) on this
+    report's Diagnostic Report means the report is under review and
+    prints should be tagged so a reader knows the numbers aren't final. -#}
+{%- set _awaiting_peer = frappe.db.exists("Peer Review Case", {
+        "subject_report": doc.name if doc.doctype == "Diagnostic Report" else (doc.get("diagnostic_report") or ""),
+        "status": ["!=", "Closed"],
+    }) -%}
+{% if _awaiting_peer %}
+<div class="awaiting-peer-review-watermark">AWAITING PEER REVIEW</div>
+{% endif %}
 
 
 <div class="lab-report">

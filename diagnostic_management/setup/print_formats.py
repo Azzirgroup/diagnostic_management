@@ -29,6 +29,12 @@ def install_print_formats() -> None:
 		_upsert(spec)
 
 
+_VALID_PAGE_NUMBER = {
+	"Hide", "Top Left", "Top Center", "Top Right",
+	"Bottom Left", "Bottom Center", "Bottom Right",
+}
+
+
 def _upsert(spec: dict) -> None:
 	name = spec["name"]
 	if frappe.db.exists("Print Format", name):
@@ -38,6 +44,12 @@ def _upsert(spec: dict) -> None:
 		doc.name = name
 	for k, v in spec.items():
 		setattr(doc, k, v)
+	# Normalise: Frappe's Print Format `page_number` accepts a strict enum
+	# now, but v15-restored records may carry legacy values like
+	# "Bottom of Page" which no longer validate. Force a valid one so the
+	# re-save doesn't throw on unrelated existing rows.
+	if getattr(doc, "page_number", None) not in _VALID_PAGE_NUMBER:
+		doc.page_number = "Hide"
 	doc.flags.ignore_permissions = True
 	doc.save()
 
@@ -153,6 +165,24 @@ def _formats() -> list[dict]:
 			"margin_right": 10.0,
 			"line_breaks": 0,
 			"html": _read("sales_invoice_print.html"),
+		},
+		# "Genetest Sales Invoice" — the branded format the user provided.
+		# Wired as the default print_format for Sales Invoice via the
+		# Property Setter in setup/__init__._pin_default_print_formats().
+		{
+			"name": "Genetest Sales Invoice",
+			"doc_type": "Sales Invoice",
+			"module": "Diagnostic Management",
+			"standard": "No",
+			"custom_format": 1,
+			"print_format_type": "Jinja",
+			"font_size": 14,
+			"margin_top": 15.0,
+			"margin_bottom": 15.0,
+			"margin_left": 15.0,
+			"margin_right": 15.0,
+			"line_breaks": 0,
+			"html": _read("genetest_sales_invoice_print.html"),
 		},
 		{
 			"name": "Diagnostic Lab Test",

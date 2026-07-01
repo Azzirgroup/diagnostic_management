@@ -9,6 +9,8 @@ Everything ADMS adds to other apps (Marley, ERPNext) is installed here:
 None of these change Marley source files — they are pure additive overlays.
 """
 
+import frappe
+
 from .accounting_dimension import ensure_branch_accounting_dimension  # noqa: F401
 from .custom_fields import install_custom_fields  # noqa: F401
 from .print_formats import install_print_formats  # noqa: F401
@@ -166,6 +168,7 @@ def after_install():
 	_ensure_shift_role_perms()
 	install_director_and_lab_manager_workspaces()
 	_pin_patient_field_uniqueness()
+	_pin_default_print_formats()
 
 
 def after_migrate():
@@ -182,6 +185,7 @@ def after_migrate():
 	_ensure_shift_role_perms()
 	install_director_and_lab_manager_workspaces()
 	_pin_patient_field_uniqueness()
+	_pin_default_print_formats()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -233,6 +237,23 @@ def _ensure_shift_role_perms():
 			cd.flags.ignore_permissions = True
 			cd.insert()
 	frappe.clear_cache()
+
+
+def _pin_default_print_formats():
+	"""Set Sales Invoice default_print_format to 'Genetest Sales Invoice'
+	so any 'Print' action (Desk + SPA) uses it without the user picking.
+	Idempotent — make_property_setter upserts by (doc_type, field_name,
+	property)."""
+	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+	if frappe.db.exists("Print Format", "Genetest Sales Invoice"):
+		try:
+			make_property_setter(
+				"Sales Invoice", None, "default_print_format",
+				"Genetest Sales Invoice", "Data",
+				for_doctype=True, validate_fields_for_doctype=False,
+			)
+		except Exception:
+			frappe.log_error(title="_pin_default_print_formats(SalesInvoice) failed")
 
 
 def _pin_patient_field_uniqueness():
