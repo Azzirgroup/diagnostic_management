@@ -558,6 +558,27 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	)
 	setf("custom_sales_invoice", si_link)
 
+	# Referring Doctor — picked at Billing (stored on Sales Invoice.custom_doctor)
+	# needs to propagate onto the Lab Report so the print format's
+	# `doc.referring_doctor_name` cell isn't blank. Prefer the SI's
+	# custom_doctor; fall back to the Service Request's practitioner
+	# when there's no SI yet (rare — direct clinical orders).
+	referring_practitioner = None
+	if si_link:
+		referring_practitioner = frappe.db.get_value("Sales Invoice", si_link, "custom_doctor")
+	if not referring_practitioner:
+		# Fall back to the Service Request behind any Lab Test on this sample
+		sr_name = frappe.db.get_value(
+			"Lab Test", {"sample": sample, "service_request": ["!=", ""]}, "service_request",
+		)
+		if sr_name:
+			referring_practitioner = frappe.db.get_value("Service Request", sr_name, "practitioner")
+	if referring_practitioner and frappe.db.exists("Healthcare Practitioner", referring_practitioner):
+		setf("referring_doctor", referring_practitioner)
+		setf("referring_doctor_name",
+		     frappe.db.get_value("Healthcare Practitioner", referring_practitioner, "practitioner_name")
+		     or referring_practitioner)
+
 	for tbl in ["lab_report_tests", "numeric_results", "descriptive_results", "grouped_results", "qualitative_results", "samples"]:
 		if tbl in fns:
 			lr.set(tbl, [])
