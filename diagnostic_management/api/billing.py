@@ -185,7 +185,15 @@ def create_invoice_for_tests(
 	if _has_field("Sales Invoice", "patient"):
 		inv.patient = patient
 	for i, it in enumerate(items):
-		base = _template_rate(it.get("template_dt"), it.get("template_dn"))
+		# Per-line rate override: the SPA's Billing step lets the user edit
+		# the Rate column per row. When set, `it["rate"]` is the SOURCE OF
+		# TRUTH and beats the template's `lab_test_rate`. When absent
+		# (untouched row), fall back to the template's configured rate.
+		override = it.get("rate")
+		if override is not None and override != "" and flt(override) > 0:
+			base = flt(override)
+		else:
+			base = _template_rate(it.get("template_dt"), it.get("template_dn"))
 		disc = flt(it.get("discount_percentage") or 0)
 		row = {
 			"item_code": _ensure_item_for_template(it.get("template_dt"), it.get("template_dn")),

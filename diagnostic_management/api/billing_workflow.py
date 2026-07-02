@@ -217,15 +217,29 @@ def search_corporate_accounts(search_term: str = "") -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def _normalise_selected(selected_tests) -> list[dict]:
-	"""Genetest sends each test as a str OR {lab_test_template, qty, discount_percentage}."""
+	"""SPA sends each test as either a plain template_dn string OR a dict
+	{lab_test_template, qty, discount_percentage, rate?}.
+
+	`rate` is optional — it's an editable per-line override the user typed
+	in the Billing step's Rate column. When present it overrides the
+	template's `lab_test_rate` on the invoice line. We carry it through
+	untouched here; billing.create_invoice_for_tests decides whether to
+	use it (see the `override` check there).
+	"""
 	out = []
 	for t in selected_tests or []:
 		if isinstance(t, dict):
-			out.append({
+			row = {
 				"template_dn": t.get("lab_test_template") or t.get("template_dn"),
 				"qty": flt(t.get("qty") or 1),
 				"discount_percentage": flt(t.get("discount_percentage") or 0),
-			})
+			}
+			# Preserve rate override when present (>0). Any falsy/missing
+			# value means "no override, use the template rate".
+			r = t.get("rate")
+			if r is not None and r != "" and flt(r) > 0:
+				row["rate"] = flt(r)
+			out.append(row)
 		else:
 			out.append({"template_dn": t, "qty": 1, "discount_percentage": 0})
 	return [x for x in out if x["template_dn"]]
@@ -294,15 +308,26 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 
 	# 2) One Sales Invoice for the whole set, with qty + discount + optional payment.
 	include_payment = bool(bd.get("include_payment"))
-	inv = billing_api.create_invoice_for_tests(
-		patient=patient,
-		items=[{
+	def _line(t: dict) -> dict:
+		line = {
 			"template_dt": "Lab Test Template",
 			"template_dn": t["template_dn"],
 			"qty": t["qty"],
 			"discount_percentage": t["discount_percentage"],
 			"label": t["template_dn"],
-		} for t in tests],
+		}
+		# Carry the user's per-line rate override through to billing.py so
+		# the invoice line actually posts at the edited price. Without this
+		# the SPA's Rate column would look editable but the invoice would
+		# always post at the Lab Test Template's `lab_test_rate` (the bug
+		# the field is reporting).
+		if "rate" in t:
+			line["rate"] = t["rate"]
+		return line
+
+	inv = billing_api.create_invoice_for_tests(
+		patient=patient,
+		items=[_line(t) for t in tests],
 		service_requests=created_orders,
 		mode_of_payment=bd.get("mode_of_payment") if include_payment else None,
 		paid_amount=None,  # full payment handled via the dedicated payment form
