@@ -73,13 +73,105 @@ def verification_queue(limit: int = 100) -> list[dict]:
 
 @frappe.whitelist()
 def verify_report(name: str, conclusion: str | None = None) -> dict:
-	"""Verify and release a Diagnostic Report — moves it to Approved."""
+	"""Release a Diagnostic Report to the patient — flips it to `Approved`.
+
+	Gated by two flags on the report:
+	  - `custom_peer_reviewed = 1` — a peer review case must be closed
+	    with outcome Agree / Minor Disagreement. The case is auto-created
+	    by `_ensure_sample_report` when the tech clicks Save & Complete
+	    (see api/results.py). Same gating shape as the urgent-review
+	    flow — the tech can't Verify & Release until the reviewer signs
+	    off.
+	  - Urgent gate stays as-is (`urgent_review_status = Authorized` for
+	    urgent cases), handled by existing code paths.
+	"""
 	doc = frappe.get_doc("Diagnostic Report", name)
+	if not doc.get("custom_peer_reviewed"):
+		frappe.throw(
+			"This report can't be released yet — it's awaiting Peer Review. "
+			"A reviewer must close the peer review case with Agree or Minor "
+			"Disagreement before Verify & Release is available.",
+			title="Peer Review Pending",
+		)
 	doc.db_set("status", "Approved")
 	if conclusion is not None and "conclusion" in {df.fieldname for df in doc.meta.fields}:
 		doc.db_set("conclusion", conclusion)
-	doc.add_comment("Comment", text=f"<b>Verified & Released</b><br>By: {frappe.utils.escape_html(frappe.session.user)}")
+	doc.add_comment(
+		"Comment",
+		text=f"<b>Verified &amp; Released</b><br>By: {frappe.utils.escape_html(frappe.session.user)}",
+	)
 	return {"ok": True, "name": name, "status": "Approved"}
+
+
+def _ensure_open_peer_review_case(dr) -> str | None:
+	"""Idempotent — if any non-Closed case already exists for this report,
+	reuse it; otherwise insert a new Open case.
+
+	`section` is derived from the report's linked sample type / template,
+	`original_reporter` from the current session user, `priority` from the
+	report's `is_urgent` flag. `assigned_reviewer` is intentionally LEFT
+	BLANK so any authorised reviewer (Lab Manager / Pathologist /
+	Radiologist / Radiology Manager / System Manager) can pick the case
+	from the queue.
+	"""
+	existing = frappe.db.get_value(
+		"Peer Review Case",
+		{"subject_report": dr.name, "status": ["!=", "Closed"]},
+		"name",
+	)
+	if existing:
+		# Invariant: an open case means the flag MUST be 0. If a previous
+		# closed case had set it to 1, and the tech re-Saved & Completed
+		# (which spawned this open case), the stale 1 would let the front-
+		# end button appear. Force it back to 0.
+		if dr.get("custom_peer_reviewed"):
+			frappe.db.set_value("Diagnostic Report", dr.name, "custom_peer_reviewed", 0)
+		return existing
+
+	section = _derive_review_section(dr)
+	priority = "Urgent" if dr.get("is_urgent") else "Routine"
+
+	case = frappe.new_doc("Peer Review Case")
+	case.subject_report = dr.name
+	case.patient = dr.get("patient")
+	case.patient_name = dr.get("patient_name")
+	case.section = section
+	case.priority = priority
+	case.status = "Open"
+	case.original_reporter = frappe.session.user
+	case.submitted_at = now_datetime()
+	# `due_date`: Urgent → same day, Routine → next business day. Keeps
+	# TAT dashboards honest without over-engineering scheduling.
+	from frappe.utils import add_days, today
+	case.due_date = today() if priority == "Urgent" else add_days(today(), 1)
+	case.insert(ignore_permissions=True)
+
+	# Same invariant on FRESH case creation: if a previously-closed case had
+	# flipped the flag to 1 and this new case supersedes it (because new
+	# results were entered), the flag must reset. The new case has to be
+	# closed before the button re-appears.
+	if dr.get("custom_peer_reviewed"):
+		frappe.db.set_value("Diagnostic Report", dr.name, "custom_peer_reviewed", 0)
+	return case.name
+
+
+def _derive_review_section(dr) -> str:
+	"""Best-effort mapping DR → Peer Review Case section enum
+	(`Lab`, `Radiology`, `Histopathology`, `Cytology`, `Other`)."""
+	sample = frappe.db.get_value("Sample Collection", dr.get("sample_collection"), "sample") or ""
+	sample_lower = sample.lower()
+	if "tissue" in sample_lower or "biopsy" in sample_lower:
+		return "Histopathology"
+	if "cytology" in sample_lower or "smear" in sample_lower:
+		return "Cytology"
+	# If it's a Radiology Pre-Auth flow or imaging modality is set on the SR,
+	# fall through to Radiology; otherwise default to Lab.
+	sr = frappe.db.get_value(
+		"Lab Test", {"sample": dr.get("sample_collection")}, "service_request",
+	)
+	if sr and frappe.db.get_value("Service Request", sr, "imaging_modality"):
+		return "Radiology"
+	return "Lab"
 
 
 @frappe.whitelist()
@@ -115,6 +207,23 @@ def peer_review_list(status: str | None = None, mine: int = 0, limit: int = 100)
 	)
 
 
+def _reject_self_review(case) -> None:
+	"""No-self-review rule: whoever entered the results (recorded as the
+	case's `original_reporter`) cannot close their own peer review case.
+	Any OTHER logged-in user can — no role check, deliberately open so
+	small labs can peer-review each other without a dedicated reviewer role.
+	Administrator bypasses (needed for scripted fixes / bulk operations)."""
+	if frappe.session.user == "Administrator":
+		return
+	if case.get("original_reporter") and case.original_reporter == frappe.session.user:
+		frappe.throw(
+			"You entered these results — someone else must peer-review this "
+			"case. The reviewer must be a different user than the original "
+			"reporter.",
+			title="Self-Review Blocked",
+		)
+
+
 @frappe.whitelist()
 def submit_peer_review(
 	name: str,
@@ -123,7 +232,21 @@ def submit_peer_review(
 	discrepancy_severity: str | None = None,
 	concurrence: float | None = None,
 ) -> dict:
+	"""Close a peer review case with the reviewer's verdict, and cascade the
+	subject Diagnostic Report's status:
+
+	  - `Agree` or `Minor Disagreement`  → DR flips to **Approved** (released
+	    to patient / portal).
+	  - `Major Disagreement`             → DR stays **Pending Review** (blocked).
+	    The reviewer typically follows up with a discussion or, if the numbers
+	    are actually wrong, uses the `Submit & Amend` path (see
+	    `submit_peer_review_amend`) to roll Lab Tests back to Draft.
+
+	This is the release gate for the mandatory-peer-review model — a DR
+	can only leave Pending Review through a closed peer review case.
+	"""
 	doc = frappe.get_doc("Peer Review Case", name)
+	_reject_self_review(doc)
 	doc.outcome = outcome
 	if review_notes:
 		doc.review_notes = review_notes
@@ -133,7 +256,45 @@ def submit_peer_review(
 		doc.concurrence = float(concurrence)
 	doc.status = "Closed"
 	doc.completed_at = now_datetime()
-	doc.save(ignore_permissions=False)
+	# The business rule (session != original_reporter) is enforced above via
+	# `_reject_self_review`; the doctype-level DocPerm gate would additionally
+	# require a specific reviewer role which we deliberately opened up. Save
+	# with ignore_permissions so a bare user (e.g. Lab Technician) can close
+	# a peer of their colleague's case.
+	doc.save(ignore_permissions=True)
+
+	# Cascade the outcome onto the subject Diagnostic Report. In this model
+	# peer review is a GATE that unlocks Verify & Release — it doesn't
+	# release the report itself. Agree/Minor Disagree → flip
+	# `custom_peer_reviewed = 1` so the tech's Verify & Release button
+	# becomes available. Major Disagreement → keep it at 0 (still blocked).
+	dr_name = doc.subject_report
+	if dr_name and frappe.db.exists("Diagnostic Report", dr_name):
+		if outcome in ("Agree", "Minor Disagreement"):
+			frappe.db.set_value("Diagnostic Report", dr_name, "custom_peer_reviewed", 1)
+			frappe.get_doc("Diagnostic Report", dr_name).add_comment(
+				"Comment",
+				text=(
+					f"<b>Peer Review passed ({outcome})</b><br>"
+					f"Case: {frappe.utils.escape_html(name)}<br>"
+					f"Reviewer: {frappe.utils.escape_html(frappe.session.user)}<br>"
+					f"Verify &amp; Release is now available."
+				),
+			)
+		elif outcome == "Major Disagreement":
+			# Explicitly keep flag at 0 (in case a case was re-reviewed) and
+			# log why so the tech knows why Verify & Release stays blocked.
+			frappe.db.set_value("Diagnostic Report", dr_name, "custom_peer_reviewed", 0)
+			frappe.get_doc("Diagnostic Report", dr_name).add_comment(
+				"Comment",
+				text=(
+					f"<b>Peer Review — Major Disagreement (blocked)</b><br>"
+					f"Case: {frappe.utils.escape_html(name)}<br>"
+					f"Reviewer: {frappe.utils.escape_html(frappe.session.user)}<br>"
+					f"Notes: {frappe.utils.escape_html(review_notes or '')}"
+				),
+			)
+
 	return {"ok": True, "name": name, "status": "Closed", "outcome": outcome}
 
 
@@ -147,8 +308,11 @@ def submit_peer_review_amend(
 	Lab Tests back to Draft so the technologist can edit the actual analyte
 	values, then re-submit through the normal verify/release flow.
 
-	Restricted to Lab Manager + System Manager (see `AMEND_ROLES`) — these
-	are the only roles allowed to call submitted results back to draft.
+	Access rule: any logged-in user can amend EXCEPT the case's
+	`original_reporter` (see `_reject_self_review`). Same "no self-review"
+	guardrail as the normal peer-review outcomes — a small lab may not
+	have dedicated Lab Managers, so we open the amend flow to peers as
+	long as they didn't enter the results themselves.
 
 	Steps:
 	  1. Close the Peer Review Case with outcome=Amend and the review notes.
@@ -166,9 +330,8 @@ def submit_peer_review_amend(
 	     (the docstatus=0 lab tests are already editable; this just makes
 	     the wizard's "furthest reached step" calc match reality).
 	"""
-	_require_role(AMEND_ROLES)
-
 	case = frappe.get_doc("Peer Review Case", name)
+	_reject_self_review(case)
 	if case.status == "Closed" and case.outcome == "Amendment Required":
 		frappe.throw("This case has already been amended.")
 
@@ -179,7 +342,10 @@ def submit_peer_review_amend(
 		case.discrepancy_severity = discrepancy_severity
 	case.status = "Closed"
 	case.completed_at = now_datetime()
-	case.save(ignore_permissions=False)
+	# Same rationale as `submit_peer_review`: the self-review guard is the real
+	# business rule; the DocPerm role gate is deliberately opened up so a bare
+	# Lab Technician can amend a colleague's report.
+	case.save(ignore_permissions=True)
 
 	# 2. Roll the Diagnostic Report back to Pending Review.
 	dr = frappe.get_doc("Diagnostic Report", case.subject_report)

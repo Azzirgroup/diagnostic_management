@@ -345,7 +345,8 @@ def detail(name: str) -> dict:
 		try:
 			report_fields = ["name", "status", "is_critical", "critical_acknowledged", "docname", "modified"]
 			_dr_fields = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
-			for _f in ("sample_collection", "is_urgent", "urgent_review_status"):
+			# custom_peer_reviewed drives the ResultsStep gate — must be in payload.
+			for _f in ("sample_collection", "is_urgent", "urgent_review_status", "custom_peer_reviewed"):
 				if _f in _dr_fields:
 					report_fields.append(_f)
 			reports = frappe.get_all(

@@ -84,6 +84,17 @@ const selectedSample = computed(() => readySamples.value[selectedIdx.value])
 const reportFor = (sample?: string) => reports.value.find((r) => r.sample_collection === sample || r.docname === sample)
 const sampleDone = (sample?: string) => !!reportFor(sample)          // report exists ⇒ results completed
 const released = (sample?: string) => reportFor(sample)?.status === 'Approved'
+// Mandatory peer review is now a GATE BEFORE Verify & Release (mirrors
+// the urgent-review flow). On Save & Complete a Peer Review Case is auto-
+// created. Until a reviewer closes it with Agree / Minor Disagreement
+// (which flips `custom_peer_reviewed` to 1 on the Diagnostic Report),
+// the tech's Verify & Release button stays disabled.
+const peerReviewed = (sample?: string) => !!(reportFor(sample) as any)?.custom_peer_reviewed
+const awaitingPeerReview = (sample?: string) =>
+  !!reportFor(sample) && !peerReviewed(sample) && reportFor(sample)?.status !== 'Approved'
+const pendingPeerReviewCount = computed(() =>
+  samples.value.filter((s: any) => awaitingPeerReview(s.name)).length,
+)
 // Finish-Workflow gates check ALL samples (not just ready ones) so the
 // workflow can't be finished while a sample is still un-collected.
 const allDone = computed(() => samples.value.length > 0 && samples.value.every((s) => sampleDone(s.name)))
@@ -99,8 +110,16 @@ const allTestsCompleted = computed(() => !!detail.value && detail.value.lab_test
 const isUrgent = computed(() => !!(detail.value?.is_urgent || selectedSample.value?.is_urgent))
 const urgentAuthorized = computed(() => !!detail.value?.urgent_authorized)
 const canAuthorizeUrgent = computed(() => !!detail.value?.can_authorize_urgent || auth.roles.includes('Urgent Review Officer'))
-// Non-urgent → always allowed. Urgent → only once authorized.
-const verifyAllowed = computed(() => !isUrgent.value || urgentAuthorized.value)
+// Verify & Release is gated by two independent checks:
+//   - Peer review must have passed (custom_peer_reviewed=1 on DR)
+//   - If the case is urgent, urgent review must also be authorized
+// Both must hold before the tech can release.
+const peerReviewPassedForSelected = computed(() =>
+  !!selectedSample.value && peerReviewed(selectedSample.value.name),
+)
+const verifyAllowed = computed(() =>
+  peerReviewPassedForSelected.value && (!isUrgent.value || urgentAuthorized.value),
+)
 // Across the WHOLE workflow: is there any sample whose report is urgent and
 // hasn't been authorized yet? Used to give the user a specific reason when
 // Finish is locked on an urgent case.
@@ -360,6 +379,10 @@ async function printReport() {
       </div>
       <div v-if="allDone" class="flex items-center gap-3">
         <span v-if="pendingUrgentAuth" class="text-xs text-amber-600">Urgent case awaits authorization — Finish locked</span>
+        <span v-else-if="pendingPeerReviewCount > 0" class="text-xs text-amber-600">
+          {{ pendingPeerReviewCount }} sample{{ pendingPeerReviewCount === 1 ? '' : 's' }}
+          awaiting Peer Review — a reviewer must close each case before Finish
+        </span>
         <span v-else-if="!allReleased" class="text-xs text-amber-600">Verify &amp; Release every sample before finishing</span>
         <button class="btn-primary" :disabled="!allReleased"
           :title="!allReleased ? (pendingUrgentAuth ? 'An Urgent Review Officer must authorize the urgent case first' : 'Verify & Release each sample before finishing the workflow') : ''"
@@ -382,7 +405,10 @@ async function printReport() {
         <div class="text-sm font-medium text-surface-800 truncate">{{ s.name }}</div>
         <div class="text-xs text-surface-500 truncate">{{ s.sample || 'Sample' }}</div>
         <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
-          <StatusPill :status="released(s.name) ? 'Released' : sampleDone(s.name) ? 'Completed' : 'Pending'" />
+          <StatusPill :status="released(s.name) ? 'Released'
+                              : awaitingPeerReview(s.name) ? 'Awaiting Peer Review'
+                              : sampleDone(s.name) ? 'Completed'
+                              : 'Pending'" />
           <span v-if="s.is_urgent" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">URGENT</span>
         </div>
       </button>
@@ -395,7 +421,10 @@ async function printReport() {
           {{ selectedSample.name }} · {{ detail?.sample_type || selectedSample.sample }}
           <span v-if="isUrgent" class="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">URGENT</span>
         </h3>
-        <StatusPill :status="released(selectedSample.name) ? 'Released' : sampleDone(selectedSample.name) ? 'Completed' : 'Pending'" />
+        <StatusPill :status="released(selectedSample.name) ? 'Released'
+                            : awaitingPeerReview(selectedSample.name) ? 'Awaiting Peer Review'
+                            : sampleDone(selectedSample.name) ? 'Completed'
+                            : 'Pending'" />
       </div>
       <p v-if="error" class="text-sm text-status-danger mb-3">{{ error }}</p>
       <div v-if="loading" class="text-sm text-surface-400 py-4">Loading…</div>
@@ -496,10 +525,18 @@ async function printReport() {
                 </div>
               </div>
               <div v-else-if="isUrgent && urgentAuthorized" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center justify-between gap-3">
-                <span class="text-xs font-medium text-emerald-700">✓ Urgent review authorized — you may now verify &amp; release.</span>
-                <button class="btn-primary" :disabled="saving" @click="verify">
+                <span class="text-xs font-medium text-emerald-700">
+                  ✓ Urgent review authorized{{ peerReviewPassedForSelected ? ' — you may now verify & release.' : ' — still awaiting Peer Review.' }}
+                </span>
+                <!-- Only show the quick-verify button when peer review has also
+                     passed. Otherwise the click would just hit the server gate
+                     and dump a raw error at the user. -->
+                <button v-if="peerReviewPassedForSelected" class="btn-primary" :disabled="saving" @click="verify">
                   {{ saving ? 'Releasing…' : 'Verify &amp; Release' }}
                 </button>
+                <span v-else class="text-xs text-amber-700 font-medium">
+                  Awaiting Peer Review — a reviewer must close the peer review case first.
+                </span>
               </div>
               <h4 class="font-semibold mb-3">Clinical Notes &amp; Sign-off</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -555,6 +592,9 @@ async function printReport() {
               </div>
               <div class="flex items-center justify-end">
                 <button v-if="verifyAllowed" class="btn-primary" :disabled="saving" @click="verify">{{ saving ? 'Releasing…' : 'Verify & Release' }}</button>
+                <span v-else-if="!peerReviewPassedForSelected" class="text-xs text-amber-600">
+                  Awaiting Peer Review — a reviewer must close the peer review case before Verify &amp; Release unlocks.
+                </span>
                 <span v-else class="text-xs text-surface-400">Verify &amp; Release unlocks once urgent review is authorized.</span>
               </div>
             </div>

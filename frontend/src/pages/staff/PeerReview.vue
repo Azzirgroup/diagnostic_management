@@ -10,11 +10,15 @@ import { frappeError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-// Only System Manager (Administration) and Lab Manager can pull a
-// verified report back to draft for editing — server enforces the same.
-const canAmend = computed(() =>
-  auth.roles.includes('System Manager') || auth.roles.includes('Lab Manager'),
+// Peer review access rule: anyone can review EXCEPT the original reporter
+// (the user who entered the results). No role gate — small labs may not
+// have dedicated Lab Managers, so peers review each other. Server
+// enforces the same rule via `_reject_self_review`.
+const isOriginalReporter = computed(() =>
+  !!selected.value?.original_reporter && selected.value.original_reporter === auth.user?.name,
 )
+// Amend follows the same rule now (was System Manager + Lab Manager only).
+const canAmend = computed(() => !isOriginalReporter.value)
 
 const rows = ref<PeerReviewRow[]>([])
 const selected = ref<PeerReviewRow | null>(null)
@@ -111,18 +115,36 @@ async function submitAmend() {
       </dl>
       <label class="block text-xs text-surface-500 mt-4 mb-1">Review Notes (Required)</label>
       <textarea v-model="reviewNotes" class="input w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="4" placeholder="Enter your comparison, comments, or additional findings..."></textarea>
-      <button class="btn-primary w-full mt-4" :disabled="busy || !reviewNotes.trim()" @click="submit('Agree')">Submit · Agree</button>
-      <button class="btn-secondary w-full mt-2" :disabled="busy || !reviewNotes.trim()" @click="submit('Minor Disagreement')">Submit · Minor Disagree</button>
-      <button class="btn-danger-ghost w-full mt-2" :disabled="busy || !reviewNotes.trim()" @click="submit('Major Disagreement')">Submit · Major Disagree</button>
-      <button
-        v-if="canAmend"
-        class="btn-danger w-full mt-2"
-        :disabled="busy || !reviewNotes.trim()"
-        :title="'Closes the case with outcome=Amend AND re-opens the underlying Lab Tests for editing. Restricted to Lab Manager / Administration.'"
-        @click="submitAmend"
-      >
-        Submit &amp; Amend (re-open results for editing)
-      </button>
+      <!-- Self-review guard: the user who entered the results can't close
+           their own case. Hide the submit buttons entirely with a clear
+           reason so the next reviewer knows to log in. -->
+      <div v-if="isOriginalReporter" class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+        You entered these results — someone else must peer-review this case.
+        Ask a colleague to log in and close it.
+      </div>
+      <template v-else>
+        <p v-if="!reviewNotes.trim()" class="text-xs text-amber-600 mt-2">
+          Enter Review Notes above to enable the submit buttons.
+        </p>
+        <button class="btn-primary w-full mt-4" :disabled="busy || !reviewNotes.trim()"
+                :title="!reviewNotes.trim() ? 'Enter Review Notes first' : ''"
+                @click="submit('Agree')">Submit · Agree</button>
+        <button class="btn-secondary w-full mt-2" :disabled="busy || !reviewNotes.trim()"
+                :title="!reviewNotes.trim() ? 'Enter Review Notes first' : ''"
+                @click="submit('Minor Disagreement')">Submit · Minor Disagree</button>
+        <button class="btn-danger-ghost w-full mt-2" :disabled="busy || !reviewNotes.trim()"
+                :title="!reviewNotes.trim() ? 'Enter Review Notes first' : ''"
+                @click="submit('Major Disagreement')">Submit · Major Disagree</button>
+        <button
+          v-if="canAmend"
+          class="btn-danger w-full mt-2"
+          :disabled="busy || !reviewNotes.trim()"
+          :title="'Closes the case with outcome=Amendment Required AND re-opens the underlying Lab Tests for editing.'"
+          @click="submitAmend"
+        >
+          Submit &amp; Amend (re-open results for editing)
+        </button>
+      </template>
       <p v-if="amendError" class="text-status-danger text-xs mt-2">{{ amendError }}</p>
     </DetailPane>
     <div v-else class="card p-6 text-center text-surface-400">Select a case to review</div>

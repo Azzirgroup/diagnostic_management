@@ -273,6 +273,22 @@ def _field_map() -> dict[str, list[dict]]:
 				"read_only": 1,
 				"description": "Stamped when results are saved & completed (not when the Results step is opened).",
 			},
+			# Peer-review gate on Verify & Release. Same shape as the urgent-
+			# review flow: Save & Complete auto-creates a Peer Review Case,
+			# and until a reviewer closes it with Agree/Minor Disagreement
+			# (which flips this flag to 1), the tech's Verify & Release
+			# button stays disabled. Major Disagreement leaves the flag at
+			# 0; Amendment Required rolls the Lab Tests back to Draft
+			# (existing amend path).
+			{
+				"fieldname": "custom_peer_reviewed",
+				"label": "Peer Reviewed",
+				"fieldtype": "Check",
+				"insert_after": "custom_reporting_completed_at",
+				"read_only": 1,
+				"default": "0",
+				"description": "Set to 1 by submit_peer_review when a reviewer closes the case with Agree or Minor Disagreement. Required for Verify & Release.",
+			},
 			{
 				"fieldname": "is_critical",
 				"label": "Critical Result",

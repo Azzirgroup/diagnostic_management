@@ -17,18 +17,16 @@ URGENT_REVIEW_ROLE = "Urgent Review Officer"
 
 
 def _sample_is_urgent(sample: str) -> bool:
-	"""A sample is urgent if the Sample Collection is flagged `is_urgent`, or any
-	of its lab tests' Service Requests has Urgent/STAT priority (a Code Value like
-	"Urgent-Priority"/"STAT-Priority")."""
-	if frappe.db.get_value("Sample Collection", sample, "is_urgent"):
-		return True
-	srs = [s for s in frappe.get_all("Lab Test", filters={"sample": sample}, pluck="service_request") if s]
-	if srs:
-		for p in frappe.get_all("Service Request", filters={"name": ["in", srs]}, pluck="priority"):
-			low = (p or "").lower()
-			if "urgent" in low or "stat" in low:
-				return True
-	return False
+	"""A sample is urgent ONLY when the Sample Collection is explicitly
+	flagged `is_urgent=1` (the "Mark as Urgent" toggle in Billing).
+
+	We used to also scan every Service Request behind this sample for an
+	Urgent/STAT priority, but that made the sample stay urgent forever if
+	ANY historical order in its lifetime was ever marked urgent — even
+	after re-billing without the flag. The Sample Collection's own
+	`is_urgent` is the authoritative signal for the current run.
+	"""
+	return bool(frappe.db.get_value("Sample Collection", sample, "is_urgent"))
 
 
 def _allow_blanks(doc) -> None:
@@ -293,6 +291,19 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 				updates["urgent_reviewed_by"] = None
 			if "urgent_reviewed_at" in fields:
 				updates["urgent_reviewed_at"] = None
+		elif "is_urgent" in fields and not urgent:
+			# Sample is NOT urgent — sync the DR back to non-urgent and clear any
+			# stale urgent-review fields. Without this, a DR that was once flagged
+			# urgent (e.g. by earlier historical-Service-Request scanning before
+			# `_sample_is_urgent` was tightened) keeps triggering the URGENT gate
+			# in `approve_report` even though the sample itself is routine.
+			updates["is_urgent"] = 0
+			if "urgent_review_status" in fields:
+				updates["urgent_review_status"] = None
+			if "urgent_reviewed_by" in fields:
+				updates["urgent_reviewed_by"] = None
+			if "urgent_reviewed_at" in fields:
+				updates["urgent_reviewed_at"] = None
 		# Stamp the "reporting completed" timestamp every time results are
 		# saved & completed. This is the moment to use for TAT reporting —
 		# `creation` is when the DR was first opened, not when results
@@ -301,6 +312,10 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 			updates["custom_reporting_completed_at"] = frappe.utils.now_datetime()
 		if updates:
 			frappe.db.set_value("Diagnostic Report", existing, updates)
+		# Peer review case: ensure one exists as an Open case for this DR.
+		# Called on every Save & Complete because we may have created the DR
+		# on an earlier partial save; the reviewer needs a case to close.
+		_ensure_open_peer_review_case_for_dr(existing)
 		return existing
 	try:
 		payload = {"doctype": "Diagnostic Report", "patient": sc.get("patient"), "status": "Pending Review"}
@@ -324,9 +339,24 @@ def _ensure_sample_report(sample: str, is_critical: int = 0, conclusion: str | N
 				payload["urgent_review_status"] = "Pending"
 		dr = frappe.get_doc(payload)
 		dr.insert(ignore_permissions=True)
+		# Peer review case attached to the freshly-created DR.
+		_ensure_open_peer_review_case_for_dr(dr.name)
 		return dr.name
 	except Exception:
 		frappe.log_error(title="results._ensure_sample_report failed")
+
+
+def _ensure_open_peer_review_case_for_dr(dr_name: str) -> str | None:
+	"""Shim that calls into api.lab's _ensure_open_peer_review_case. Kept
+	here so results.py doesn't have to fetch the DR just to hand it back."""
+	if not dr_name or not frappe.db.exists("Diagnostic Report", dr_name):
+		return None
+	try:
+		from diagnostic_management.api.lab import _ensure_open_peer_review_case
+		return _ensure_open_peer_review_case(frappe.get_doc("Diagnostic Report", dr_name))
+	except Exception:
+		frappe.log_error(title="results._ensure_open_peer_review_case_for_dr failed")
+		return None
 		return None
 
 
@@ -439,6 +469,21 @@ def approve_report(
 	technologist and pathologist signatures (data-URL PNGs)."""
 	doc = frappe.get_doc("Diagnostic Report", report)
 	fns = {df.fieldname for df in doc.meta.fields}
+
+	# Peer review gate: EVERY report (urgent or not) must have a closed peer
+	# review case with an accepting outcome (Agree / Minor Disagreement) before
+	# it can be released. The `custom_peer_reviewed` flag is flipped to 1 by
+	# `api.lab.submit_peer_review`. The frontend hides the button, but this
+	# server-side gate is the source of truth — the frontend also calls this
+	# endpoint (`results.approve_report`), not `lab.verify_report`, so the
+	# check must live here too.
+	if "custom_peer_reviewed" in fns and not doc.get("custom_peer_reviewed"):
+		frappe.throw(
+			"This report can't be released yet — it's awaiting Peer Review. "
+			"A reviewer must close the peer review case (Agree or Minor Disagreement) "
+			"before Verify & Release becomes available.",
+			title="Peer Review Required",
+		)
 
 	# Urgent gate: an urgent report can't be released until an Urgent Review
 	# Officer has authorized it. Enforced server-side (not just hidden in the UI).

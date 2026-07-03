@@ -124,14 +124,44 @@ export function frappeError(e: any, fallback = 'Something went wrong'): string {
   } catch { /* ignore */ }
 
   if (httpFailed) {
-    // Take the most-specific text we have for the actual failure.
+    // Take the most-specific text we have for the actual failure. Strip
+    // Frappe's `frappe.exceptions.<X>Error:` prefix and any HTML entities
+    // so the message renders like a human wrote it, not like a traceback.
     const excText = (d?.exception || '').toString().split('\n').pop()?.trim()
-    const failure = excText || d?.exc_type || d?.message || ''
-    if (failure && serverMsg) return `${failure} — ${serverMsg}`
+    const failure = clean(excText || d?.exc_type || d?.message || '')
+    const cleanedServer = clean(serverMsg)
+    // Don't concatenate two variants of the same sentence — pick one.
+    if (failure && cleanedServer && !sentenceMatch(failure, cleanedServer)) {
+      return `${failure} — ${cleanedServer}`
+    }
     if (failure) return failure
+    if (cleanedServer) return cleanedServer
   }
 
-  return serverMsg || d?.message || d?.exception || e?.message || fallback
+  return clean(serverMsg) || clean(d?.message) || clean(d?.exception) || e?.message || fallback
+}
+
+// Strip Frappe's exception class prefix, decode common HTML entities, collapse whitespace.
+function clean(s?: string): string {
+  if (!s) return ''
+  return s
+    .replace(/^[a-zA-Z._]+(Error|Exception):\s*/, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// True when the two strings say the same thing (after clean()) — used to avoid
+// stitching "X — X" when the exception text and server message are duplicates.
+function sentenceMatch(a: string, b: string): boolean {
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+  const A = norm(a), B = norm(b)
+  return A === B || A.includes(B) || B.includes(A)
 }
 
 export async function getCount(doctype: string, filters?: FrappeListParams['filters']): Promise<number> {
