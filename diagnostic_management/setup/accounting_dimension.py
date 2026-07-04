@@ -26,7 +26,17 @@ import frappe
 
 
 def ensure_branch_accounting_dimension() -> None:
-	"""Idempotent — creates the Accounting Dimension once."""
+	"""Idempotent — creates the Accounting Dimension once, and always
+	re-runs ERPNext's column fan-out so the `branch` column is present on
+	every accounting table (Budget, GL Entry, Sales Invoice, …).
+
+	The fan-out re-run is necessary because Accounting Dimension.insert()
+	fires the fan-out via `after_insert`, but that only runs on the FIRST
+	insert. Sites where the record survives a DB rebuild (e.g. our earlier
+	restore workflow) end up with the record present but NO `branch`
+	columns on the tables, which then 417s on invoice submit inside
+	ERPNext's Budget controller.
+	"""
 	# Branch doctype is part of HRMS; if it isn't installed here, do nothing.
 	if not frappe.db.exists("DocType", "Branch"):
 		return
@@ -34,17 +44,18 @@ def ensure_branch_accounting_dimension() -> None:
 	if not frappe.db.exists("DocType", "Accounting Dimension"):
 		return
 
-	existing = frappe.db.get_value(
-		"Accounting Dimension",
-		{"document_type": "Branch"},
-		["name", "disabled"],
-		as_dict=True,
+	existing_name = frappe.db.get_value(
+		"Accounting Dimension", {"document_type": "Branch"}, "name",
 	)
-	if existing:
-		if existing.get("disabled"):
-			frappe.db.set_value("Accounting Dimension", existing["name"], "disabled", 0)
-			frappe.db.commit()
-			print("  [branch-dim] re-enabled existing Branch accounting dimension")
+	if existing_name:
+		# Re-enable if the record was previously disabled.
+		if frappe.db.get_value("Accounting Dimension", existing_name, "disabled"):
+			frappe.db.set_value("Accounting Dimension", existing_name, "disabled", 0)
+		# Re-run the column fan-out — cheap when columns already exist
+		# (ALTER IF NOT EXISTS semantics on the ERPNext side), essential
+		# when they don't.
+		_ensure_columns(existing_name)
+		frappe.db.commit()
 		return
 
 	doc = frappe.new_doc("Accounting Dimension")
@@ -60,3 +71,24 @@ def ensure_branch_accounting_dimension() -> None:
 	frappe.db.commit()
 	print("  [branch-dim] registered Branch as Accounting Dimension "
 	      "(custom field created on all financial doctypes incl. GL Entry)")
+
+
+def _ensure_columns(dim_name: str) -> None:
+	"""Re-run ERPNext's per-doctype fan-out for the given Accounting
+	Dimension. Safe to call repeatedly — the underlying `create_custom_field`
+	upserts and the column ALTERs are `IF NOT EXISTS`-guarded on the
+	ERPNext side."""
+	try:
+		from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
+			make_dimension_in_accounting_doctypes,
+		)
+	except Exception:
+		# ERPNext not on this bench — nothing we can do.
+		return
+	doc = frappe.get_doc("Accounting Dimension", dim_name)
+	try:
+		make_dimension_in_accounting_doctypes(doc)
+	except Exception:
+		# Never fail migrate on this — a partial fan-out is recoverable
+		# via bench console and doesn't break existing data.
+		frappe.log_error(title="branch-dim fan-out failed")
