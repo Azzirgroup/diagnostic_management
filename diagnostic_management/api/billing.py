@@ -194,17 +194,37 @@ def create_invoice_for_tests(
 			base = flt(override)
 		else:
 			base = _template_rate(it.get("template_dt"), it.get("template_dn"))
-		disc = flt(it.get("discount_percentage") or 0)
+		qty = flt(it.get("qty") or 1)
+		# Discount input mirrors ERPNext's Sales Invoice Item — the user may
+		# have typed a percentage OR an amount, so forward whichever came in
+		# and derive the rate ourselves so the invoice never posts with a
+		# stale/uncomputed price_list_rate.
+		disc_pct = flt(it.get("discount_percentage") or 0)
+		disc_amt_line = flt(it.get("discount_amount") or 0)
 		row = {
 			"item_code": _ensure_item_for_template(it.get("template_dt"), it.get("template_dn")),
-			"qty": flt(it.get("qty") or 1),
-			# Set price_list_rate + discount_percentage so ERPNext applies the
-			# discount; rate is the resulting net (kept consistent).
+			"qty": qty,
 			"price_list_rate": base,
-			"discount_percentage": disc,
-			"rate": base * (1 - disc / 100),
 			"description": it.get("label") or it.get("template_dn"),
 		}
+		if disc_pct > 0:
+			row["discount_percentage"] = disc_pct
+			row["rate"] = base * (1 - disc_pct / 100)
+		elif disc_amt_line > 0:
+			# ERPNext's Sales Invoice Item.discount_amount is PER UNIT; the
+			# SPA sends the LINE-total the user typed, so divide.
+			per_unit = disc_amt_line / qty if qty > 0 else disc_amt_line
+			per_unit = min(base, per_unit)  # can't discount below zero
+			# Set discount_percentage as well — ERPNext's set_item_details
+			# runs on save and can wipe a bare discount_amount if % is 0,
+			# reverting the item back to full price. Deriving % here keeps
+			# both entry paths (percentage OR amount) landing at the same
+			# final rate.
+			row["discount_percentage"] = (per_unit / base) * 100 if base > 0 else 0
+			row["discount_amount"] = per_unit
+			row["rate"] = base - per_unit
+		else:
+			row["rate"] = base
 		if srs and i < len(srs) and srs[i]:
 			row["reference_dt"] = "Service Request"
 			row["reference_dn"] = srs[i]

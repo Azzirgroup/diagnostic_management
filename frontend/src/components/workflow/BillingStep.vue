@@ -490,7 +490,7 @@
                   min="0"
                   max="100"
                   step="0.01"
-                  :value="(testOverrides[test.name]?.discount_percentage) || 0"
+                  :value="discountPctFor(test)"
                   @input="setDiscountPct(test, $event.target.value)"
                   class="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-green-500"
                 />
@@ -787,27 +787,44 @@ function setRate(test, raw) {
   const rate = Math.max(0, parseFloat(raw) || 0)
   testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || { qty: 1 }), rate }
 }
+// Discount % / Discount Amount — both go through to the backend as-is, the
+// way ERPNext's Sales Invoice natively supports (either field is a valid
+// input; ERPNext derives the other). We store whichever the user last
+// touched and clear its counterpart so the payload carries the user's
+// actual intent, not a round-tripped derivation that can silently zero out.
 function setDiscountPct(test, raw) {
   const pct = Math.max(0, Math.min(100, parseFloat(raw) || 0))
-  testOverrides.value[test.name] = { ...(testOverrides.value[test.name] || { qty: 1 }), discount_percentage: pct }
-}
-// Discount Amount → recompute discount_percentage so the source of truth and
-// the invoice line stay consistent. Capped at the line subtotal (rate × qty),
-// using the effective (override-aware) rate.
-function setDiscountAmount(test, raw) {
   const ov = testOverrides.value[test.name] || { qty: 1 }
-  const qty = ov.qty || 1
-  const rate = effectiveRate(test)
-  const base = qty * rate
-  const amount = Math.max(0, Math.min(base, parseFloat(raw) || 0))
-  const pct = base > 0 ? (amount / base) * 100 : 0
-  testOverrides.value[test.name] = { ...ov, discount_percentage: pct }
+  const next = { ...ov, discount_percentage: pct }
+  delete next.discount_amount
+  testOverrides.value[test.name] = next
 }
-// Live discount amount derived from qty × effective_rate × pct.
+function setDiscountAmount(test, raw) {
+  const amt = Math.max(0, parseFloat(raw) || 0)
+  const ov = testOverrides.value[test.name] || { qty: 1 }
+  const next = { ...ov, discount_amount: amt }
+  delete next.discount_percentage
+  testOverrides.value[test.name] = next
+}
+// Live discount amount for the Discount Amount input's :value. If the user
+// entered a percentage, derive amount from qty × rate × pct for display.
+// If they entered an amount directly, show that.
 function discountAmountFor(test) {
-  const ov = testOverrides.value[test.name] || { qty: 1, discount_percentage: 0 }
+  const ov = testOverrides.value[test.name]
+  if (!ov) return 0
+  if (typeof ov.discount_amount === 'number') return ov.discount_amount
   const base = (ov.qty || 1) * effectiveRate(test)
   return +(base * ((ov.discount_percentage || 0) / 100)).toFixed(2)
+}
+// Live discount percentage for the Discount % input's :value. Mirror of
+// discountAmountFor for the opposite field.
+function discountPctFor(test) {
+  const ov = testOverrides.value[test.name]
+  if (!ov) return 0
+  if (typeof ov.discount_percentage === 'number') return ov.discount_percentage
+  const base = (ov.qty || 1) * effectiveRate(test)
+  if (base <= 0) return 0
+  return +(((ov.discount_amount || 0) / base) * 100).toFixed(4)
 }
 
 // Payment type options
@@ -946,7 +963,13 @@ const totalAmount = computed(() =>
     const rate = (typeof ov.rate === 'number' && !Number.isNaN(ov.rate))
       ? ov.rate
       : (test.lab_test_rate || 0)
-    return total + ((ov.qty || 1) * rate * (1 - (ov.discount_percentage || 0) / 100))
+    const gross = (ov.qty || 1) * rate
+    // Discount can be entered as either % or amount (mirrors ERPNext). The
+    // two setters clear their counterpart, so at most one is set here.
+    let discount = 0
+    if (typeof ov.discount_amount === 'number') discount = Math.min(gross, ov.discount_amount)
+    else if (typeof ov.discount_percentage === 'number') discount = gross * (ov.discount_percentage / 100)
+    return total + Math.max(0, gross - discount)
   }, 0)
 )
 
@@ -1172,8 +1195,14 @@ const _createInvoice = async () => {
     selected_tests: selectedTests.value.map(testName => {
       const ov = testOverrides.value[testName]
       const hasRateOverride = ov && typeof ov.rate === 'number' && !Number.isNaN(ov.rate)
-      if (ov && (ov.qty !== 1 || ov.discount_percentage || hasRateOverride)) {
-        const row = { lab_test_template: testName, qty: ov.qty || 1, discount_percentage: ov.discount_percentage || 0 }
+      const hasPct = ov && typeof ov.discount_percentage === 'number' && ov.discount_percentage > 0
+      const hasAmt = ov && typeof ov.discount_amount === 'number' && ov.discount_amount > 0
+      if (ov && (ov.qty !== 1 || hasPct || hasAmt || hasRateOverride)) {
+        const row = { lab_test_template: testName, qty: ov.qty || 1 }
+        // Send whichever the user actually typed — ERPNext's Sales Invoice
+        // accepts either field on the item line and derives the other.
+        if (hasPct) row.discount_percentage = ov.discount_percentage
+        if (hasAmt) row.discount_amount = ov.discount_amount
         if (hasRateOverride) row.rate = ov.rate
         return row
       }

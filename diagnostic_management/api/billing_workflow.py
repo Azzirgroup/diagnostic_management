@@ -218,13 +218,13 @@ def search_corporate_accounts(search_term: str = "") -> list[dict]:
 
 def _normalise_selected(selected_tests) -> list[dict]:
 	"""SPA sends each test as either a plain template_dn string OR a dict
-	{lab_test_template, qty, discount_percentage, rate?}.
+	{lab_test_template, qty, discount_percentage?, discount_amount?, rate?}.
 
-	`rate` is optional — it's an editable per-line override the user typed
-	in the Billing step's Rate column. When present it overrides the
-	template's `lab_test_rate` on the invoice line. We carry it through
-	untouched here; billing.create_invoice_for_tests decides whether to
-	use it (see the `override` check there).
+	Both discount fields are optional and mirror ERPNext's Sales Invoice
+	Item behaviour — the user may enter percentage OR amount and we forward
+	whichever was typed. `rate` is optional too — an editable per-line
+	override for the Rate column. billing.create_invoice_for_tests decides
+	how to apply everything.
 	"""
 	out = []
 	for t in selected_tests or []:
@@ -232,16 +232,23 @@ def _normalise_selected(selected_tests) -> list[dict]:
 			row = {
 				"template_dn": t.get("lab_test_template") or t.get("template_dn"),
 				"qty": flt(t.get("qty") or 1),
-				"discount_percentage": flt(t.get("discount_percentage") or 0),
 			}
-			# Preserve rate override when present (>0). Any falsy/missing
-			# value means "no override, use the template rate".
+			# Only forward a discount when the user actually typed one (>0).
+			# Zero or missing = "no discount" — leave both fields off the row
+			# so downstream code doesn't wipe another value that was set.
+			pct = flt(t.get("discount_percentage") or 0)
+			amt = flt(t.get("discount_amount") or 0)
+			if pct > 0:
+				row["discount_percentage"] = pct
+			if amt > 0:
+				row["discount_amount"] = amt
+			# Preserve rate override when present (>0).
 			r = t.get("rate")
 			if r is not None and r != "" and flt(r) > 0:
 				row["rate"] = flt(r)
 			out.append(row)
 		else:
-			out.append({"template_dn": t, "qty": 1, "discount_percentage": 0})
+			out.append({"template_dn": t, "qty": 1})
 	return [x for x in out if x["template_dn"]]
 
 
@@ -313,14 +320,17 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 			"template_dt": "Lab Test Template",
 			"template_dn": t["template_dn"],
 			"qty": t["qty"],
-			"discount_percentage": t["discount_percentage"],
 			"label": t["template_dn"],
 		}
+		# Discount: forward whichever the user typed (percentage OR amount).
+		# ERPNext's Sales Invoice Item honours either — the missing one is
+		# derived by billing.create_invoice_for_tests / ERPNext at save time.
+		if "discount_percentage" in t:
+			line["discount_percentage"] = t["discount_percentage"]
+		if "discount_amount" in t:
+			line["discount_amount"] = t["discount_amount"]
 		# Carry the user's per-line rate override through to billing.py so
-		# the invoice line actually posts at the edited price. Without this
-		# the SPA's Rate column would look editable but the invoice would
-		# always post at the Lab Test Template's `lab_test_rate` (the bug
-		# the field is reporting).
+		# the invoice line actually posts at the edited price.
 		if "rate" in t:
 			line["rate"] = t["rate"]
 		return line
