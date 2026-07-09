@@ -347,6 +347,26 @@ async function printReport() {
   } catch (e: any) { error.value = frappeError(e, 'Failed to open lab report') }
   finally { saving.value = false }
 }
+
+// Preliminary PDF — same render, but adds `preliminary=1` to the printview
+// URL. The Jinja template stamps a "PRELIMINARY — AWAITING PEER REVIEW"
+// watermark across every page when that flag is set (see
+// setup/lab_report_print.html). Used before Verify & Release so the
+// clinician can review the numbers on paper while peer review is open.
+async function printPreliminary() {
+  if (!selectedSample.value) return
+  saving.value = true; error.value = ''
+  try {
+    const lr = await resultsApi.labReportForSample(selectedSample.value.name)
+    if (!lr) { error.value = 'No lab report available for this sample yet.'; return }
+    const params = new URLSearchParams({
+      doctype: 'Lab Report', name: lr, format: 'Lab Report',
+      no_letterhead: '0', preliminary: '1',
+    })
+    window.open(`/printview?${params.toString()}`, '_blank')
+  } catch (e: any) { error.value = frappeError(e, 'Failed to open preliminary report') }
+  finally { saving.value = false }
+}
 </script>
 
 <template>
@@ -590,7 +610,15 @@ async function printReport() {
                   <span class="text-xs text-surface-500 ml-1">(suppress trend charts)</span>
                 </label>
               </div>
-              <div class="flex items-center justify-end">
+              <div class="flex items-center justify-end gap-2">
+                <!-- Preliminary print: available the whole time the sample sits
+                     between Save & Complete and Verify & Release. Same PDF as
+                     the released version, but stamped with a "PRELIMINARY —
+                     AWAITING PEER REVIEW" watermark so no one confuses it. -->
+                <button class="btn-ghost" :disabled="saving" @click="printPreliminary"
+                        :title="'Print interim PDF with a PRELIMINARY watermark — for clinical review while peer review is pending.'">
+                  Print Preliminary
+                </button>
                 <button v-if="verifyAllowed" class="btn-primary" :disabled="saving" @click="verify">{{ saving ? 'Releasing…' : 'Verify & Release' }}</button>
                 <span v-else-if="!peerReviewPassedForSelected" class="text-xs text-amber-600">
                   Awaiting Peer Review — a reviewer must close the peer review case before Verify &amp; Release unlocks.

@@ -572,10 +572,13 @@ def authorize_urgent_review(sample: str) -> dict:
 
 @frappe.whitelist()
 def lab_report_for_sample(sample: str) -> str | None:
-	"""Existing Lab Report for the sample, building one if needed (for printing)."""
-	existing = frappe.db.get_value("Lab Report Sample", {"lab_sample": sample}, "parent")
-	if existing and frappe.db.exists("Lab Report", existing):
-		return existing
+	"""Existing Lab Report for the sample, (re)building it so the printable
+	form reflects the CURRENT normal_test_items values. Called by both
+	Verify & Release (post-approval) and Print Preliminary (pre-approval);
+	either way we always rebuild so a re-edit after Save & Complete flows
+	through to the next print without staleness."""
+	# _build_lab_report is idempotent — reuses an existing Lab Report doc
+	# when one exists and just refreshes its rows.
 	return _build_lab_report(sample, {"status": "Approved"})
 
 

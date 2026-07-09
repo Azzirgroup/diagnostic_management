@@ -10,16 +10,18 @@
    headless) honour fixed positioning for watermarks. */
 .awaiting-peer-review-watermark {
   position: fixed;
-  top: 40%;
+  top: 42%;
   left: 0;
   width: 100%;
   text-align: center;
   transform: rotate(-30deg);
   transform-origin: center;
-  font-size: 90px;
+  /* Text is long ("PRELIMINARY — AWAITING PEER REVIEW") — 42px keeps the
+     rotated string inside the page even at the diagonal max width. */
+  font-size: 42px;
   font-weight: 900;
   color: rgba(231, 76, 60, 0.18);
-  letter-spacing: 6px;
+  letter-spacing: 3px;
   pointer-events: none;
   z-index: 9999;
   white-space: nowrap;
@@ -148,15 +150,36 @@
 </style>
 {% if letter_head and not no_letterhead %}<div class="letter-head">{{ letter_head }}</div>{% else %}<div style="min-height: 100px;"></div>{% endif %}
 
-{#- Watermark: any OPEN Peer Review Case (status != Closed) on this
-    report's Diagnostic Report means the report is under review and
-    prints should be tagged so a reader knows the numbers aren't final. -#}
-{%- set _awaiting_peer = frappe.db.exists("Peer Review Case", {
-        "subject_report": doc.name if doc.doctype == "Diagnostic Report" else (doc.get("diagnostic_report") or ""),
-        "status": ["!=", "Closed"],
-    }) -%}
-{% if _awaiting_peer %}
-<div class="awaiting-peer-review-watermark">AWAITING PEER REVIEW</div>
+{#- Watermark: this Lab Report covers one Sample Collection (via the
+    `Lab Report Sample` child table). Walk to any Diagnostic Report for
+    that sample and see if a non-Closed Peer Review Case is open. If yes,
+    stamp the preliminary watermark on every page — so a nurse/patient
+    who prints the interim report knows the numbers aren't final.
+    Also triggered explicitly by ?preliminary=1 in the print URL, which
+    the SPA's "Print Preliminary" button uses to force the watermark on
+    even when the case just closed (peer_reviewed=1 but not yet released). -#}
+{#- Use namespace() so a `set` inside the for-loop actually mutates the outer
+    variable. Jinja's plain `{% set %}` inside `for` creates a loop-local
+    binding that vanishes when the loop exits — the classic Jinja scoping
+    gotcha. -#}
+{%- set _ns = namespace(awaiting_peer=(frappe.form_dict.get("preliminary") in ("1", 1, True, "true"))) -%}
+{%- if not _ns.awaiting_peer and doc.doctype == "Lab Report" -%}
+    {%- for _s in (doc.get("samples") or []) -%}
+        {%- set _sc = _s.get("lab_sample") -%}
+        {%- if _sc -%}
+            {%- set _dr = frappe.db.get_value("Diagnostic Report", {"sample_collection": _sc}, "name") -%}
+            {%- if _dr and frappe.db.exists("Peer Review Case", {"subject_report": _dr, "status": ["!=", "Closed"]}) -%}
+                {%- set _ns.awaiting_peer = True -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- endfor -%}
+{%- elif not _ns.awaiting_peer and doc.doctype == "Diagnostic Report" -%}
+    {%- if frappe.db.exists("Peer Review Case", {"subject_report": doc.name, "status": ["!=", "Closed"]}) -%}
+        {%- set _ns.awaiting_peer = True -%}
+    {%- endif -%}
+{%- endif -%}
+{% if _ns.awaiting_peer %}
+<div class="awaiting-peer-review-watermark">PRELIMINARY &mdash; AWAITING PEER REVIEW</div>
 {% endif %}
 
 
