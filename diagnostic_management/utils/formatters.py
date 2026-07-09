@@ -134,6 +134,15 @@ def result_flag(value, normal_range=None) -> str:
 
 	Parses ranges like "13 - 17", "< 200", "> 40". Returns "" for non-numeric
 	results or when no range is given.
+
+	Handles two common data-quality issues from imported ranges:
+	  * "37 -53" (no space after the dash) — normalised so the second number
+	    isn't parsed as negative.
+	  * Multi-line ranges like "Adult 40 - 150 U / L\\nPaed < 500 U / L" —
+	    only the FIRST non-empty line is considered. `pick_reference_range`
+	    already picks the age-appropriate row so multi-line text only
+	    survives on legacy / pre-fix Lab Reports; taking the first line is
+	    almost always the adult range, which matches genetest's convention.
 	"""
 	import re
 
@@ -144,11 +153,15 @@ def result_flag(value, normal_range=None) -> str:
 	if not normal_range:
 		return ""
 	rng = str(normal_range)
-	nums = [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", rng)]
+	first_line = next((ln for ln in rng.splitlines() if ln.strip()), rng)
+	# Normalise `40-53`, `37 -53`, `40 - 53` → `40 53` so the number regex
+	# doesn't grab the range separator as a negative sign.
+	normalised = re.sub(r"(?<=\d)\s*-\s*(?=\d)", " ", first_line)
+	nums = [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", normalised)]
 	low = high = None
-	if re.search(r"[<≤]", rng) and nums:
+	if re.search(r"[<≤]", first_line) and nums:
 		high = nums[0]
-	elif re.search(r"[>≥]", rng) and nums:
+	elif re.search(r"[>≥]", first_line) and nums:
 		low = nums[0]
 	elif len(nums) >= 2:
 		low, high = nums[0], nums[1]

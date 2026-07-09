@@ -22,21 +22,46 @@ from frappe.utils import getdate, today
 
 def patient_age(patient: str | None, ref_date=None) -> dict | None:
 	"""Patient's age expressed in Days / Months / Years (floats), or None when
-	we can't compute it (no DOB on file)."""
+	we can't compute it.
+
+	Preferred source is `Patient.dob`. Many restored genetest patients don't
+	have a DOB — they have `custom_age` + `custom_age_type` (Years / Months /
+	Days) instead, populated at registration. Fall back to those so the age-
+	scoped reference range picker actually resolves for these patients.
+	"""
 	if not patient:
 		return None
-	dob = frappe.db.get_value("Patient", patient, "dob")
-	if not dob:
-		return None
-	try:
-		birth = getdate(dob)
-		ref = getdate(ref_date) if ref_date else getdate(today())
-		days = (ref - birth).days
-		if days < 0:
+	row = frappe.db.get_value(
+		"Patient", patient, ["dob", "custom_age", "custom_age_type"], as_dict=True
+	) or {}
+	dob = row.get("dob")
+	if dob:
+		try:
+			birth = getdate(dob)
+			ref = getdate(ref_date) if ref_date else getdate(today())
+			days = (ref - birth).days
+			if days < 0:
+				return None
+			return {"Days": float(days), "Months": days / 30.4375, "Years": days / 365.25}
+		except Exception:
+			pass
+	# Fallback: `custom_age` in the type the user entered — normalise to all
+	# three so ADMS Age Group matching works regardless of `age_unit`.
+	c_age = row.get("custom_age")
+	if c_age not in (None, ""):
+		try:
+			amount = float(c_age)
+		except (TypeError, ValueError):
 			return None
-		return {"Days": float(days), "Months": days / 30.4375, "Years": days / 365.25}
-	except Exception:
-		return None
+		unit = (row.get("custom_age_type") or "Years").strip()
+		if unit == "Days":
+			days = amount
+		elif unit == "Months":
+			days = amount * 30.4375
+		else:  # default Years
+			days = amount * 365.25
+		return {"Days": days, "Months": days / 30.4375, "Years": days / 365.25}
+	return None
 
 
 def _row_score(row, sex: str | None, age: dict | None) -> int | None:

@@ -65,11 +65,15 @@ onMounted(load)
 const isAcked = computed(() => !!report.value?.critical_acknowledged)
 
 // Inline reference-range parser → abnormal flag (same logic as ResultsStep).
+// Handles "37 -53" (no space after dash) and multi-line ranges — see
+// ResultsStep.vue bounds() for the rationale.
 function bounds(r?: string): { low?: number; high?: number } {
   if (!r) return {}
-  const nums = (r.match(/-?\d+(\.\d+)?/g) || []).map(Number)
-  if (/[<≤]/.test(r) && nums.length) return { high: nums[0] }
-  if (/[>≥]/.test(r) && nums.length) return { low: nums[0] }
+  const firstLine = r.split(/\r?\n/).map(s => s.trim()).find(Boolean) || r
+  const normalised = firstLine.replace(/(?<=\d)\s*-\s*(?=\d)/g, ' ')
+  const nums = (normalised.match(/-?\d+(\.\d+)?/g) || []).map(Number)
+  if (/[<≤]/.test(firstLine) && nums.length) return { high: nums[0] }
+  if (/[>≥]/.test(firstLine) && nums.length) return { low: nums[0] }
   if (nums.length >= 2) return { low: nums[0], high: nums[1] }
   return {}
 }

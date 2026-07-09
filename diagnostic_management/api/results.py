@@ -607,6 +607,25 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	lr.status = desired if desired in status_opts else (status_opts[0] if status_opts else desired)
 	lr.patient = sc.patient
 	setf("patient_name", sc.get("patient_name"))
+	# Age + sex are separate fields on Lab Report — the print format reads
+	# `doc.patient_age` / `doc.patient_sex` directly and prints "-" when
+	# blank. Compute at rebuild time from Patient.dob so the workflow
+	# doesn't need age re-entered. Uses the local `format_patient_age`
+	# helper which already ships with the app.
+	from diagnostic_management.utils.formatters import format_patient_age
+	patient_row = frappe.db.get_value(
+		"Patient", sc.patient,
+		["dob", "sex", "custom_age", "custom_age_type"],
+		as_dict=True) or {}
+	# Prefer DOB (computes exact age); fall back to `custom_age` +
+	# `custom_age_type` for restored genetest patients that never had a DOB
+	# on file (e.g. Caroline Gitonga — custom_age=37 Years).
+	if patient_row.get("dob"):
+		setf("patient_age", format_patient_age(patient_row["dob"]))
+	elif patient_row.get("custom_age") not in (None, ""):
+		unit = (patient_row.get("custom_age_type") or "Years").strip()
+		setf("patient_age", f"{patient_row['custom_age']} {unit}")
+	setf("patient_sex", patient_row.get("sex"))
 	setf("collection_datetime", sc.get("collected_time"))
 	# Carry the Sales Invoice forward — either from the Sample Collection's
 	# stamp, or by taking it from the first Lab Test linked to this sample.

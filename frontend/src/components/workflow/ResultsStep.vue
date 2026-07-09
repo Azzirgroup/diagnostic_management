@@ -154,11 +154,21 @@ watch(readySamples, () => {
   loadDetail()
 }, { immediate: true })
 
+// Robust range parser — must match utils.formatters.result_flag on the
+// backend so the ⚠ icon and the Status column agree. Two data-quality
+// pitfalls this handles:
+//   * "37 -53" (no space after the dash) — normalised so -53 isn't
+//     parsed as a negative number.
+//   * "Adult 40 - 150 U/L\nPaed < 500 U/L" — only the FIRST non-empty
+//     line is considered, so a `<` on the Paed line doesn't hijack the
+//     Adult range check.
 function bounds(r?: string): { low?: number; high?: number } {
   if (!r) return {}
-  const nums = (r.match(/-?\d+(\.\d+)?/g) || []).map(Number)
-  if (/[<≤]/.test(r) && nums.length) return { high: nums[0] }
-  if (/[>≥]/.test(r) && nums.length) return { low: nums[0] }
+  const firstLine = r.split(/\r?\n/).map(s => s.trim()).find(Boolean) || r
+  const normalised = firstLine.replace(/(?<=\d)\s*-\s*(?=\d)/g, ' ')
+  const nums = (normalised.match(/-?\d+(\.\d+)?/g) || []).map(Number)
+  if (/[<≤]/.test(firstLine) && nums.length) return { high: nums[0] }
+  if (/[>≥]/.test(firstLine) && nums.length) return { low: nums[0] }
   if (nums.length >= 2) return { low: nums[0], high: nums[1] }
   return {}
 }
