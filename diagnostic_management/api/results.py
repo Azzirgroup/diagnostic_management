@@ -707,6 +707,11 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 			abnormal = 0
 			val = (r.result_value or "").strip()
 			ref = (rng or "").strip()
+			# Placeholder ranges — "-", "—", "N/A" — mean "no reference range
+			# configured" (Marley's templates use "-" as the sentinel). Don't
+			# flag a valid qualitative result just because it doesn't literally
+			# equal a placeholder character.
+			ref_effective = "" if ref.lower() in ("", "-", "—", "n/a", "na") else ref
 			if val:
 				if rtype == "Numeric":
 					flag = result_flag(val, rng)
@@ -715,9 +720,9 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 					# `status` is a strict Select on the child (Normal/High/Low/Critical),
 					# so we leave it blank for qualitative mismatches and rely on
 					# `is_abnormal` for row highlighting on the printed report.
-					if ref and val.lower() != ref.lower():
+					if ref_effective and val.lower() != ref_effective.lower():
 						abnormal = 1
-					elif ref:
+					elif ref_effective:
 						flag = "Normal"
 			row = {
 				"lab_test": lt.name,

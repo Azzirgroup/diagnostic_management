@@ -184,9 +184,15 @@ function optionsList(raw?: string): string[] {
 }
 // Abnormal for non-numeric result types: anything that isn't the configured
 // "normal" range (case-insensitive) gets flagged. Empty result = no flag yet.
+// A range of "-" / "—" / "N/A" is treated as "no range configured" (that's
+// the placeholder Marley's templates use when there's no meaningful ref),
+// so we never flag against it — otherwise typing "Negative" for a Nitrite
+// row whose range is "-" would light up red mid-keystroke.
 function abnormalQualitative(value?: string, range?: string): boolean {
   if (!value || !range) return false
-  return value.trim().toLowerCase() !== range.trim().toLowerCase()
+  const r = range.trim()
+  if (!r || ['-', '—', 'n/a', 'na'].includes(r.toLowerCase())) return false
+  return value.trim().toLowerCase() !== r.toLowerCase()
 }
 function isAbnormal(r: { result_value?: string; normal_range?: string; result_type?: string }): boolean {
   const t = (r.result_type || 'Numeric').toLowerCase()
