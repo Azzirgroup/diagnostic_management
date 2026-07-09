@@ -50,7 +50,15 @@ def _lab_test_rows(doc) -> dict:
 	normal = []
 	for r in doc.normal_test_items:
 		analyte = r.lab_test_name or r.lab_test_event
-		picked = pick_reference_range(doc.template, analyte, doc.patient)
+		# For Grouped Lab Tests, `doc.template` is the WRAPPER (e.g. "Liver
+		# Function Test, Male") and has no ranges — the ranges live on the
+		# CHILD template (e.g. "ALP (ALKALINE PHOSPHATASE)"). Frappe
+		# Healthcare's create_normals / create_compounds stamps the sub-
+		# template's name onto each `normal_test_items` row's `.template`
+		# field. Prefer that; fall back to the outer template so Single /
+		# Compound Lab Tests (where the two are the same) keep working.
+		range_template = r.get("template") or doc.template
+		picked = pick_reference_range(range_template, analyte, doc.patient)
 		normal.append({
 			"name": r.name, "idx": r.idx,
 			"lab_test_name": analyte,
@@ -370,7 +378,9 @@ def get_lab_test(name: str) -> dict:
 	normal = []
 	for r in doc.normal_test_items:
 		analyte = r.lab_test_name or r.lab_test_event
-		picked = pick_reference_range(doc.template, analyte, doc.patient)
+		# See _shape_test — Grouped Lab Tests need the child row's own template.
+		range_template = r.get("template") or doc.template
+		picked = pick_reference_range(range_template, analyte, doc.patient)
 		normal.append({
 			"name": r.name, "idx": r.idx,
 			"lab_test_name": analyte,
@@ -661,7 +671,9 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 		from diagnostic_management.utils.reference_ranges import pick_reference_range
 		for r in lt.normal_test_items:
 			analyte = r.lab_test_name or r.lab_test_event
-			picked = pick_reference_range(lt.template, analyte, lt.patient)
+			# See _shape_test — Grouped Lab Tests store the ranges on the child template.
+			range_template = r.get("template") or lt.template
+			picked = pick_reference_range(range_template, analyte, lt.patient)
 			rng = (picked["range_text"] if picked else None) or r.normal_range
 			uom = (picked["uom"] if picked else None) or r.lab_test_uom
 			# Flagging respects the analyte's result_type. Numeric (default) uses
