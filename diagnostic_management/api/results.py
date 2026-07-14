@@ -43,14 +43,13 @@ def _allow_blanks(doc) -> None:
 
 def _template_analyte_row(template: str | None, analyte: str | None) -> dict | None:
 	"""Source `custom_result_type` / `custom_result_options` for this analyte,
-	regardless of whether the template is Single or Compound.
+	regardless of whether the template is Single or Compound. Also synthesizes
+	a `synth_range` from custom_low_range / custom_upper_range when the
+	template stores its bounds as separate numeric fields rather than the
+	`lab_test_normal_range` text (Vitamin C-style templates do this).
 
 	Compound templates carry per-analyte config on `normal_test_templates`
-	child rows (`lab_test_event` matches the analyte name). Single templates
-	carry the config on the template DOC ITSELF (one analyte per template).
-	Try the child row first (Compound path), then fall back to the template's
-	own `custom_result_type` — that's the Single-template path Frappe
-	Healthcare's `create_normals` doesn't propagate into `normal_test_items`.
+	child rows. Single templates carry it on the template DOC ITSELF.
 	"""
 	if not template or not analyte:
 		return None
@@ -58,24 +57,64 @@ def _template_analyte_row(template: str | None, analyte: str | None) -> dict | N
 	rows = frappe.get_all(
 		"Normal Test Template",
 		filters={"parent": template, "parenttype": "Lab Test Template"},
-		fields=["lab_test_event", "custom_result_type", "custom_result_options"],
+		fields=["lab_test_event", "custom_result_type", "custom_result_options",
+		        "custom_low_range_adult", "custom_upper_range_adult",
+		        "custom_low_range_child", "custom_upper_range_child",
+		        "normal_range", "lab_test_uom"],
 	)
 	for row in rows:
 		if (row.get("lab_test_event") or "").strip() == clean:
+			row["synth_range"] = _synth_range_from_bounds(
+				row.get("custom_low_range_adult"),
+				row.get("custom_upper_range_adult"),
+			) or _synth_range_from_bounds(
+				row.get("custom_low_range_child"),
+				row.get("custom_upper_range_child"),
+			)
 			return row
 	# Single template — one analyte per template, config lives on the parent.
 	tmpl = frappe.db.get_value(
 		"Lab Test Template", template,
-		["lab_test_name", "custom_result_type", "custom_result_options"],
+		["lab_test_name", "custom_result_type", "custom_result_options",
+		 "custom_low_range", "custom_upper_range",
+		 "lab_test_normal_range", "lab_test_uom"],
 		as_dict=True,
 	)
-	if tmpl and (tmpl.get("custom_result_type") or tmpl.get("custom_result_options")):
+	if not tmpl:
+		return None
+	synth = _synth_range_from_bounds(
+		tmpl.get("custom_low_range"), tmpl.get("custom_upper_range"),
+	)
+	if (tmpl.get("custom_result_type") or tmpl.get("custom_result_options") or synth):
 		return {
 			"lab_test_event": tmpl.get("lab_test_name"),
 			"custom_result_type": tmpl.get("custom_result_type"),
 			"custom_result_options": tmpl.get("custom_result_options"),
+			"synth_range": synth,
+			"lab_test_uom": tmpl.get("lab_test_uom"),
 		}
 	return None
+
+
+def _synth_range_from_bounds(low, high) -> str | None:
+	"""Build a "low - high" range string from a template's numeric bounds.
+	Returns None if neither bound is set / meaningful (0.0 counts as unset
+	because that's Frappe's default for a Float when nothing was entered).
+	"""
+	try:
+		lo = float(low) if low not in (None, "", 0) else None
+		hi = float(high) if high not in (None, "", 0) else None
+	except (TypeError, ValueError):
+		return None
+	if lo is None and hi is None:
+		return None
+	if lo is not None and hi is not None:
+		# Trim trailing .0 for a cleaner "4 - 15" instead of "4.0 - 15.0".
+		def _fmt(x): return str(int(x)) if float(x).is_integer() else str(x)
+		return f"{_fmt(lo)} - {_fmt(hi)}"
+	if hi is not None:
+		return f"< {hi}"
+	return f"> {lo}"
 
 
 def _lab_test_rows(doc) -> dict:
@@ -123,7 +162,15 @@ def _lab_test_rows(doc) -> dict:
 		# every read. Only override when the range parses to something
 		# definitive — otherwise keep whatever the tech picked.
 		stored_status = r.get("status") or "Normal"
-		effective_range = (picked["range_text"] if picked else None) or r.normal_range
+		# Range fallback chain: ADMS picker → row-level normal_range →
+		# template's custom_low_range/custom_upper_range (synth). Fixes
+		# Vitamin C-style templates where bounds live as separate numeric
+		# fields on the template doc instead of the range text.
+		effective_range = (
+			(picked["range_text"] if picked else None)
+			or r.normal_range
+			or (tmpl_row.get("synth_range") if tmpl_row else None)
+		)
 		derived_status = stored_status
 		if (rtype or "Numeric") == "Numeric":
 			from diagnostic_management.utils.formatters import result_flag
@@ -791,8 +838,20 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 			# See _shape_test — Grouped Lab Tests store the ranges on the child template.
 			range_template = r.get("template") or lt.template
 			picked = pick_reference_range(range_template, analyte, lt.patient)
-			rng = (picked["range_text"] if picked else None) or r.normal_range
-			uom = (picked["uom"] if picked else None) or r.lab_test_uom
+			# Range fallback: ADMS picker → row normal_range → template's
+			# custom_low_range / custom_upper_range synth. Same ladder as
+			# _lab_test_rows so print / read agree.
+			tmpl_row = _template_analyte_row(range_template, analyte)
+			rng = (
+				(picked["range_text"] if picked else None)
+				or r.normal_range
+				or (tmpl_row.get("synth_range") if tmpl_row else None)
+			)
+			uom = (
+				(picked["uom"] if picked else None)
+				or r.lab_test_uom
+				or (tmpl_row.get("lab_test_uom") if tmpl_row else None)
+			)
 			# Flagging respects the analyte's result_type. Numeric (default) uses
 			# the bounds parser → High/Low/Normal. For Select and Data types we
 			# treat any value that doesn't case-insensitively match the configured
