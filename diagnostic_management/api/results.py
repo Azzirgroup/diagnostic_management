@@ -739,8 +739,13 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	if csv_names:
 		current_lt_names = [n.strip() for n in csv_names.split(",") if n.strip() and frappe.db.exists("Lab Test", n.strip())]
 	else:
+		# Include Draft (docstatus=0) AND Submitted (=1) Lab Tests. Previously
+		# docstatus=1 was required, which produced a completely empty print
+		# for any Compound Lab Test left in Draft after Save & Complete —
+		# especially Urinalysis, where the tech saves partial data across
+		# 22 analytes and the underlying Lab Test may not be submitted.
 		latest_creation = frappe.db.get_value(
-			"Lab Test", {"sample": sample, "docstatus": 1},
+			"Lab Test", {"sample": sample, "docstatus": ["<", 2]},
 			"creation", order_by="creation desc",
 		)
 		if not latest_creation:
@@ -749,7 +754,8 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 			threshold = frappe.utils.add_to_date(latest_creation, minutes=-30)
 			current_lt_names = frappe.get_all(
 				"Lab Test",
-				filters={"sample": sample, "docstatus": 1, "creation": [">=", threshold]},
+				filters={"sample": sample, "docstatus": ["<", 2],
+				         "creation": [">=", threshold]},
 				order_by="creation asc",
 				pluck="name",
 			)

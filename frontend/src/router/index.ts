@@ -109,7 +109,7 @@ if (base === '/doctor-login') {
         { path: 'lab/instrument/:name', name: 'instrument-detail', meta: { doctype: 'Lab Instrument', title: 'Lab Instrument' }, component: () => import('@/pages/staff/DocDetail.vue') },
         { path: 'lab/qc/:name', name: 'qc-detail', meta: { doctype: 'QC Run', title: 'QC Run' }, component: () => import('@/pages/staff/DocDetail.vue') },
         { path: 'lab/calibration/:name', name: 'calibration-detail', meta: { doctype: 'Calibration Run', title: 'Calibration Run' }, component: () => import('@/pages/staff/DocDetail.vue') },
-        { path: 'lab/peer-review/:name', name: 'peer-review-detail', meta: { doctype: 'Peer Review Case', title: 'Peer Review Case' }, component: () => import('@/pages/staff/DocDetail.vue') },
+        { path: 'lab/peer-review/:name', name: 'peer-review-detail', meta: { title: 'Peer Review Case' }, component: () => import('@/pages/staff/PeerReviewDetail.vue') },
         { path: 'radiology/pre-auth/:name', name: 'pre-auth-detail', meta: { doctype: 'Radiology Pre-Auth', title: 'Radiology Pre-Auth' }, component: () => import('@/pages/staff/DocDetail.vue') },
         { path: 'analytics', name: 'analytics', meta: { managerOnly: true }, component: () => import('@/pages/staff/Analytics.vue') },
         { path: 'audit', name: 'audit', component: () => import('@/pages/staff/AuditCompliance.vue') },
