@@ -270,7 +270,84 @@ def diagnostic_report_detail(name: str) -> dict:
 		"sample": sample_row,
 		"lab_tests": lab_tests,
 		"peer_review_case": pr_case,
+		"workflow_session": _find_workflow_session(sample, lt_names, report=name),
 	}
+
+
+def _find_workflow_session(
+	sample: str | None,
+	lt_names: list[str] | None = None,
+	report: str | None = None,
+) -> str | None:
+	"""Walk back to the Lab Workflow Session that originally opened this
+	workflow. Tried in order:
+
+	  1. Any Lab Test in `lt_names` — read its `service_request` → match on
+	     `Lab Workflow Session.service_request`.
+	  2. Every Lab Test on `sample` — same match.
+	  3. Diagnostic Report's `docname` (older DRs link to a Lab Test that
+	     way instead of via `sample_collection`) — walk to that Lab Test's
+	     service_request.
+	  4. Direct LWS lookup by patient — fall back so an older DR that has
+	     none of the above still surfaces a plausible workflow when the
+	     patient only has one open session.
+
+	Returns None only if nothing plausible matches.
+	"""
+	srs: set[str] = set()
+	if lt_names:
+		for name in lt_names:
+			sr = frappe.db.get_value("Lab Test", name, "service_request")
+			if sr:
+				srs.add(sr)
+	if not srs and sample:
+		for sr in frappe.get_all(
+			"Lab Test",
+			filters={"sample": sample, "service_request": ["is", "set"]},
+			pluck="service_request",
+		):
+			srs.add(sr)
+	if not srs and report:
+		# Older Diagnostic Reports point to a Lab Test via `docname` rather
+		# than sitting on a Sample Collection. Walk that link.
+		docname = frappe.db.get_value("Diagnostic Report", report, "docname")
+		if docname and frappe.db.exists("Lab Test", docname):
+			sr = frappe.db.get_value("Lab Test", docname, "service_request")
+			if sr:
+				srs.add(sr)
+			# Also try the Lab Test's sample to catch sibling Lab Tests.
+			lt_sample = frappe.db.get_value("Lab Test", docname, "sample")
+			if lt_sample:
+				for sr in frappe.get_all(
+					"Lab Test",
+					filters={"sample": lt_sample, "service_request": ["is", "set"]},
+					pluck="service_request",
+				):
+					srs.add(sr)
+	if srs:
+		lws = frappe.get_all(
+			"Lab Workflow Session",
+			filters={"service_request": ["in", list(srs)]},
+			fields=["name"],
+			order_by="modified desc",
+			limit_page_length=1,
+		)
+		if lws:
+			return lws[0]["name"]
+	# Final fallback: only one open LWS for this patient? Pick it.
+	if report:
+		patient = frappe.db.get_value("Diagnostic Report", report, "patient")
+		if patient:
+			lws = frappe.get_all(
+				"Lab Workflow Session",
+				filters={"patient": patient},
+				fields=["name"],
+				order_by="modified desc",
+				limit_page_length=1,
+			)
+			if lws:
+				return lws[0]["name"]
+	return None
 
 
 @frappe.whitelist()
@@ -323,7 +400,16 @@ def peer_review_detail(name: str) -> dict:
 				continue
 			lt_doc = frappe.get_doc("Lab Test", lt_name)
 			lab_tests.append(_lab_test_rows_shim(lt_doc))
-	return {"case": case, "diagnostic_report": dr, "sample": sample, "lab_tests": lab_tests}
+	return {
+		"case": case,
+		"diagnostic_report": dr,
+		"sample": sample,
+		"lab_tests": lab_tests,
+		"workflow_session": _find_workflow_session(
+			sample, [lt.get("name") for lt in lab_tests],
+			report=case.get("subject_report"),
+		),
+	}
 
 
 def _lab_test_rows_shim(lt_doc) -> dict:

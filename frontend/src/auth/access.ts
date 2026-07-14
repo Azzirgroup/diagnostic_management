@@ -13,6 +13,10 @@ export interface SidebarItem {
   key: string
   /** Roles that may see this page. Empty / undefined → everyone. */
   roles?: string[]
+  /** Section header this item lives under in the sidebar (rendered as a
+   * small uppercase caption above the group). Items without a section
+   * render loose at the top before the first grouped item. */
+  section?: string
 }
 
 // Super-roles that always have access to every page.
@@ -31,42 +35,52 @@ export function canSee(item: { roles?: string[] }, userRoles: string[]): boolean
 // The single source of truth for the SPA sidebar. The same `roles` list gates
 // access in router/index.ts so URL-typing can't get around the sidebar.
 export const SIDEBAR_ITEMS: SidebarItem[] = [
+  // Loose top items (no section header).
   { to: '/', label: 'Home', icon: 'home', key: 'home' /* everyone */ },
-  { to: '/workflow', label: 'Workflow', icon: 'workflow', key: 'workflow',
-    roles: ['Phlebotomist','Sample Receiver','Lab Technician','Lab Quality Officer','Pathologist','Lab Manager','Diagnostic Director','Receptionist'] },
   { to: '/patients', label: 'Patients', icon: 'patients', key: 'patients',
     roles: ['Receptionist','Phlebotomist','Sample Receiver','Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Billing Officer'] },
-  // Customers list lives right under Patients — every Patient has an
-  // auto-linked Customer (the billing identity); this surface lets billing
-  // staff edit customer_group / territory / tax_id / etc. directly.
-  { to: '/customers', label: 'Customers', icon: 'patients', key: 'customers',
-    roles: ['Billing Officer','Accounts Manager','Lab Manager','Diagnostic Director'] },
-  { to: '/orders', label: 'Test Orders', icon: 'orders', key: 'orders',
+  { to: '/workflow', label: 'Workflow', icon: 'workflow', key: 'workflow',
+    roles: ['Phlebotomist','Sample Receiver','Lab Technician','Lab Quality Officer','Pathologist','Lab Manager','Diagnostic Director','Receptionist'] },
+
+  // Front-desk workflow
+  { section: 'Front Desk', to: '/orders', label: 'Test Orders', icon: 'orders', key: 'orders',
     roles: ['Receptionist','Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Billing Officer'] },
-  { to: '/collection', label: 'Collection', icon: 'collection', key: 'collection',
+  { section: 'Front Desk', to: '/collection', label: 'Collection', icon: 'collection', key: 'collection',
     roles: ['Phlebotomist','Sample Receiver','Lab Technician','Lab Quality Officer','Lab Manager','Diagnostic Director'] },
-  { to: '/lab', label: 'Lab', icon: 'lab', key: 'lab',
+  { section: 'Front Desk', to: '/checkin', label: 'Check-In', icon: 'checkin', key: 'checkin' },
+
+  // Laboratory
+  { section: 'Laboratory', to: '/lab', label: 'Lab', icon: 'lab', key: 'lab',
     roles: ['Lab Technician','Lab Quality Officer','Pathologist','Lab Manager','Diagnostic Director','Urgent Review Officer'] },
-  { to: '/lab/reports', label: 'Lab Reports', icon: 'reports', key: 'lab-reports',
+  { section: 'Laboratory', to: '/lab/reports', label: 'Lab Reports', icon: 'reports', key: 'lab-reports',
     roles: ['Lab Technician','Pathologist','Lab Manager','Diagnostic Director','Auditor','Referring Doctor'] },
-  { to: '/radiology', label: 'Radiology', icon: 'radiology', key: 'radiology',
-    roles: ['Radiology Technologist','Radiologist','Radiology Manager','Diagnostic Director'] },
-  { to: '/critical-findings', label: 'Critical Findings', icon: 'critical', key: 'critical',
+  { section: 'Laboratory', to: '/critical-findings', label: 'Critical Findings', icon: 'critical', key: 'critical',
     roles: ['Pathologist','Lab Manager','Diagnostic Director','Urgent Review Officer','Radiologist','Radiology Manager'] },
-  { to: '/billing', label: 'Billing', icon: 'billing', key: 'billing',
+
+  // Radiology (its own section)
+  { section: 'Radiology', to: '/radiology', label: 'Radiology', icon: 'radiology', key: 'radiology',
+    roles: ['Radiology Technologist','Radiologist','Radiology Manager','Diagnostic Director'] },
+
+  // Billing & Accounts
+  { section: 'Billing', to: '/billing', label: 'Billing', icon: 'billing', key: 'billing',
     roles: ['Billing Officer','Insurance Officer','Lab Manager','Diagnostic Director'] },
-  { to: '/shift', label: 'Shifts', icon: 'billing', key: 'shift',
+  { section: 'Billing', to: '/customers', label: 'Customers', icon: 'customers', key: 'customers',
+    roles: ['Billing Officer','Accounts Manager','Lab Manager','Diagnostic Director'] },
+  { section: 'Billing', to: '/shift', label: 'Shifts', icon: 'shift', key: 'shift',
     roles: ['Billing Officer','Lab Manager','Diagnostic Director','Receptionist'] },
-  { to: '/checkin', label: 'Check-In', icon: 'workflow', key: 'checkin' /* everyone with an Employee record */ },
-  { to: '/reports', label: 'Reports', icon: 'reports', key: 'reports',
+
+  // Insights
+  { section: 'Insights', to: '/reports', label: 'Reports', icon: 'reports', key: 'reports',
     roles: ['Lab Manager','Radiology Manager','Diagnostic Director','Auditor','Billing Officer'] },
-  { to: '/analytics', label: 'Analytics', icon: 'analytics', key: 'analytics',
+  { section: 'Insights', to: '/analytics', label: 'Analytics', icon: 'analytics', key: 'analytics',
     roles: ['Lab Manager','Radiology Manager','Diagnostic Director','Auditor'] },
-  { to: '/audit', label: 'Audit & Compliance', icon: 'audit', key: 'audit',
+  { section: 'Insights', to: '/audit', label: 'Audit & Compliance', icon: 'audit', key: 'audit',
     roles: ['Auditor','Diagnostic Director','Lab Manager'] },
-  { to: '/branches', label: 'Branches', icon: 'settings', key: 'branches',
+
+  // Administration
+  { section: 'Admin', to: '/branches', label: 'Branches', icon: 'branches', key: 'branches',
     roles: ['Diagnostic Director'] /* + Admin/System Manager bypass */ },
-  { to: '/settings', label: 'Settings', icon: 'settings', key: 'settings' /* everyone — basic profile */ },
+  { section: 'Admin', to: '/settings', label: 'Settings', icon: 'settings', key: 'settings' /* everyone — basic profile */ },
 ]
 
 // Build a path → roles lookup used by the route guard.

@@ -712,6 +712,7 @@ export const labApi = {
         descriptive_test_items: Array<{ name: string; lab_test_particulars: string; result_value?: string }>
       }>
       peer_review_case: { name: string; original_reporter?: string; status?: string } | null
+      workflow_session: string | null
     }>('diagnostic_management.api.lab.diagnostic_report_detail', { name }),
   peerReviewDetail: (name: string) =>
     call<{
@@ -726,6 +727,7 @@ export const labApi = {
         normal_test_items: Array<{ name: string; lab_test_name: string; result_value?: string; normal_range?: string; lab_test_uom?: string; status?: string; result_type?: string }>
         descriptive_test_items: Array<{ name: string; lab_test_particulars: string; result_value?: string }>
       }>
+      workflow_session: string | null
     }>('diagnostic_management.api.lab.peer_review_detail', { name }),
   submitPeerReview: (payload: {
     name: string

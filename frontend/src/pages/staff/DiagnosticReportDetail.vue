@@ -106,8 +106,12 @@ function printReport() {
 <template>
   <Topbar :title="`Report · ${reportName}`" />
 
-  <div class="mb-3">
+  <div class="mb-3 flex items-center gap-2 flex-wrap">
     <button class="btn-ghost !text-xs" @click="router.push('/lab/verification')">← Back to Verification Queue</button>
+    <button v-if="detail?.workflow_session" class="btn-ghost !text-xs"
+            @click="router.push(`/workflow/${detail.workflow_session}`)">
+      ↩ Open Lab Workflow ({{ detail.workflow_session }})
+    </button>
   </div>
 
   <div v-if="loading" class="card p-8 text-center text-surface-400">Loading report…</div>

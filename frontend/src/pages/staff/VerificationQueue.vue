@@ -181,6 +181,10 @@ async function verify() {
               @click="router.push(`/lab/verification/${selected.name}`)">
         Open full detail page →
       </button>
+      <button v-if="detail?.workflow_session" class="btn-ghost w-full mt-2 !text-xs"
+              @click="router.push(`/workflow/${detail.workflow_session}`)">
+        ↩ Open Lab Workflow ({{ detail.workflow_session }})
+      </button>
 
       <div v-if="detailLoading" class="text-xs text-surface-400 mt-3">Loading results…</div>
 

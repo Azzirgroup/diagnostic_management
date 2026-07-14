@@ -177,6 +177,11 @@ async function submitAmend() {
         </div>
       </div>
 
+      <button v-if="detail?.workflow_session" class="btn-ghost w-full mt-3 !text-xs"
+              @click="$router.push(`/workflow/${detail.workflow_session}`)">
+        ↩ Open Lab Workflow ({{ detail.workflow_session }})
+      </button>
+
       <label class="block text-xs text-surface-500 mt-4 mb-1">Review Notes (Required)</label>
       <textarea v-model="reviewNotes" class="input w-full px-3 py-2 rounded border border-surface-200 text-sm" rows="4" placeholder="Enter your comparison, comments, or additional findings..."></textarea>
       <!-- Self-review guard: the user who entered the results can't close
