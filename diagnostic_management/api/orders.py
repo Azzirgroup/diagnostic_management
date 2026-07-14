@@ -355,6 +355,19 @@ def detail(name: str) -> dict:
 				or_filters=report_or,
 				order_by="modified desc",
 			)
+			# Attach the OPEN peer review case (if any) so the ResultsStep
+			# can render an inline "Approve Peer Review" button for any
+			# user who isn't the original reporter — no need to visit the
+			# separate Peer Review page.
+			for r in reports:
+				case = frappe.db.get_value(
+					"Peer Review Case",
+					{"subject_report": r["name"], "status": ["!=", "Closed"]},
+					["name", "original_reporter"],
+					as_dict=True,
+				)
+				r["peer_review_case"] = case["name"] if case else None
+				r["peer_review_original_reporter"] = case["original_reporter"] if case else None
 		except Exception:
 			reports = []
 

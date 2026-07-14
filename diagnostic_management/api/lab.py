@@ -207,6 +207,67 @@ def peer_review_list(status: str | None = None, mine: int = 0, limit: int = 100)
 	)
 
 
+@frappe.whitelist()
+def peer_review_detail(name: str) -> dict:
+	"""Everything the reviewer needs to judge a case: the subject Diagnostic
+	Report, its patient/sample context, and the analyte rows from every
+	Lab Test the report bundles (read-only). Returned inline so the peer-
+	review page shows the same numbers the reporter entered — the reviewer
+	doesn't have to navigate away to see what they're approving.
+
+	`normal_test_items` are shaped through the same reference-range picker
+	the workflow uses, so ranges/status shown here match the printed PDF.
+	"""
+	case = frappe.db.get_value(
+		"Peer Review Case", name,
+		["name", "subject_report", "patient", "patient_name", "section",
+		 "priority", "original_reporter", "status", "outcome", "review_notes"],
+		as_dict=True,
+	)
+	if not case:
+		frappe.throw(f"Peer Review Case {name} not found")
+
+	dr = None
+	sample = None
+	lab_tests: list[dict] = []
+	if case.get("subject_report") and frappe.db.exists("Diagnostic Report", case["subject_report"]):
+		dr_doc = frappe.get_doc("Diagnostic Report", case["subject_report"])
+		dr = {
+			"name": dr_doc.name,
+			"status": dr_doc.status,
+			"is_urgent": dr_doc.get("is_urgent"),
+			"is_critical": dr_doc.get("is_critical"),
+			"conclusion": dr_doc.get("conclusion"),
+			"custom_peer_reviewed": dr_doc.get("custom_peer_reviewed"),
+		}
+		sample = dr_doc.get("sample_collection")
+		# Which Lab Tests does this report bundle? Prefer the CSV the
+		# workflow stamps (authoritative for THIS release); fall back to
+		# every Lab Test on the sample.
+		lt_names: list[str] = []
+		csv = dr_doc.get("custom_lab_tests_csv") or ""
+		if csv:
+			lt_names = [n.strip() for n in csv.split(",") if n.strip()]
+		elif sample:
+			lt_names = frappe.get_all(
+				"Lab Test", filters={"sample": sample}, pluck="name", order_by="creation asc",
+			)
+		for lt_name in lt_names:
+			if not frappe.db.exists("Lab Test", lt_name):
+				continue
+			lt_doc = frappe.get_doc("Lab Test", lt_name)
+			lab_tests.append(_lab_test_rows_shim(lt_doc))
+	return {"case": case, "diagnostic_report": dr, "sample": sample, "lab_tests": lab_tests}
+
+
+def _lab_test_rows_shim(lt_doc) -> dict:
+	"""Delegate to results._lab_test_rows so the peer-review page reads
+	analytes through the exact same shaping pipeline as the workflow UI
+	(reference-range picker, result_type fallback, patient-scoped ranges)."""
+	from diagnostic_management.api.results import _lab_test_rows
+	return _lab_test_rows(lt_doc)
+
+
 def _reject_self_review(case) -> None:
 	"""No-self-review rule: whoever entered the results (recorded as the
 	case's `original_reporter`) cannot close their own peer review case.

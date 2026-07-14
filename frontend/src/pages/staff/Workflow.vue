@@ -11,29 +11,42 @@ const router = useRouter()
 const loading = ref(true)
 const counts = ref({ collection: 0, store: 0, result: 0 })
 const sessions = ref<Array<{ name: string; patient_name?: string; status?: string; current_step?: number }>>([])
+const search = ref('')
+const includeCompleted = ref(false)
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
 
 const STEP_LABELS = ['', 'Patient', 'Order', 'Collection', 'Results']
+
+async function loadSessions() {
+  try {
+    sessions.value = await workflowApi.listOpen(50, search.value, includeCompleted.value)
+  } catch { sessions.value = [] }
+}
 
 async function load() {
   loading.value = true
   try {
-    const [wl, aq, hub, ss] = await Promise.all([
+    const [wl, aq, hub] = await Promise.all([
       collectionApi.worklist().catch(() => []),
       collectionApi.accessionQueue(200).catch(() => []),
       labApi.hubSummary().catch(() => ({}) as any),
-      workflowApi.listOpen(20).catch(() => []),
     ])
     counts.value = {
       collection: wl.length,
       store: aq.filter((s) => s.collected_time && s.workflow_status !== 'Stored').length,
       result: hub.pending_verification || 0,
     }
-    sessions.value = ss
+    await loadSessions()
   } finally {
     loading.value = false
   }
 }
 onMounted(load)
+
+function onSearchInput() {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(loadSessions, 250)
+}
 
 const steps = [
   { n: 1, key: 'order', label: 'Order', desc: 'Register the test order', to: '/orders' },
@@ -80,8 +93,25 @@ function countFor(key: string): number | null {
 
   <!-- Resume a workflow session already in flight -->
   <div class="card p-5 mt-6">
-    <h3 class="font-semibold mb-1">Continue where you left off</h3>
-    <p class="text-sm text-surface-500 mb-3">Open workflow sessions. Resume at the step where you stopped.</p>
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-3">
+      <div>
+        <h3 class="font-semibold mb-1">Continue where you left off</h3>
+        <p class="text-sm text-surface-500">Open workflow sessions. Resume at the step where you stopped.</p>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <input
+          v-model="search"
+          @input="onSearchInput"
+          type="text"
+          placeholder="Search by session, patient, order…"
+          class="input !py-1.5 !px-3 text-sm w-64"
+        />
+        <label class="flex items-center gap-1.5 text-xs text-surface-600 cursor-pointer select-none">
+          <input v-model="includeCompleted" type="checkbox" class="accent-brand-teal-600" @change="loadSessions" />
+          Include completed
+        </label>
+      </div>
+    </div>
     <table v-if="sessions.length" class="w-full text-sm">
       <thead><tr class="text-left text-surface-500 border-b border-surface-200">
         <th class="py-2">Session</th><th>Patient</th><th>Step</th><th>Status</th><th class="text-right">Action</th>
@@ -98,7 +128,9 @@ function countFor(key: string): number | null {
         </tr>
       </tbody>
     </table>
-    <div v-else class="text-sm text-surface-400 py-3">{{ loading ? 'Loading…' : 'No open sessions. Start a new workflow above.' }}</div>
+    <div v-else class="text-sm text-surface-400 py-3">
+      {{ loading ? 'Loading…' : (search || includeCompleted ? 'No sessions match your search.' : 'No open sessions. Start a new workflow above.') }}
+    </div>
   </div>
 
   <p class="text-xs text-surface-400 mt-6">

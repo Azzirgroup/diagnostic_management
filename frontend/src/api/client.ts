@@ -33,10 +33,14 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (r) => r,
   (err: AxiosError) => {
-    if (err.response?.status === 403 || err.response?.status === 401) {
+    // ONLY 401 = session expired → redirect to login. 403 means the SERVER
+    // rejected this specific action (permission denied on one endpoint) —
+    // that's a per-call error the UI must handle inline, NOT a reason to
+    // log the user out of their whole session. Previously a peer review
+    // submit that hit a 403 bounced users straight to /login mid-review.
+    if (err.response?.status === 401) {
       const path = window.location.pathname
       if (!path.endsWith('/login') && !path.endsWith('/doctor-login')) {
-        // Soft redirect to login; preserve return URL.
         const next = encodeURIComponent(window.location.pathname + window.location.search)
         window.location.assign(`/diagnostic_management/login?next=${next}`)
       }

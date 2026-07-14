@@ -520,8 +520,11 @@ export const workflowApi = {
     call<WorkflowSession>('diagnostic_management.api.workflow.save_session', payload),
   complete: (name: string) =>
     call<{ ok: boolean; name: string }>('diagnostic_management.api.workflow.complete_session', { name }),
-  listOpen: (limit = 20) =>
-    call<Array<{ name: string; patient?: string; patient_name?: string; status?: string; current_step?: number; service_request?: string }>>('diagnostic_management.api.workflow.list_open', { limit }),
+  listOpen: (limit = 20, search?: string, includeCompleted = false) =>
+    call<Array<{ name: string; patient?: string; patient_name?: string; status?: string; current_step?: number; service_request?: string }>>(
+      'diagnostic_management.api.workflow.list_open',
+      { limit, search: search || undefined, include_completed: includeCompleted ? 1 : 0 },
+    ),
 }
 
 export const sampleApi = {
@@ -681,6 +684,20 @@ export const labApi = {
     call<{ ok: boolean; name: string; status: string }>('diagnostic_management.api.lab.amend_report', { name, reason }),
   peerReviewList: (status?: string, mine = 0, limit = 100) =>
     call<PeerReviewRow[]>('diagnostic_management.api.lab.peer_review_list', { status, mine, limit }),
+  peerReviewDetail: (name: string) =>
+    call<{
+      case: PeerReviewRow & { review_notes?: string }
+      diagnostic_report: { name: string; status?: string; is_urgent?: number; is_critical?: number; conclusion?: string; custom_peer_reviewed?: number } | null
+      sample: string | null
+      lab_tests: Array<{
+        name: string
+        template: string
+        status?: string
+        docstatus?: number
+        normal_test_items: Array<{ name: string; lab_test_name: string; result_value?: string; normal_range?: string; lab_test_uom?: string; status?: string; result_type?: string }>
+        descriptive_test_items: Array<{ name: string; lab_test_particulars: string; result_value?: string }>
+      }>
+    }>('diagnostic_management.api.lab.peer_review_detail', { name }),
   submitPeerReview: (payload: {
     name: string
     outcome?: string

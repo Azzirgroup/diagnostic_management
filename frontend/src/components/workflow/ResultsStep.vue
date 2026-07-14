@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 // @ts-ignore — genetest SignaturePad uses a JS <script setup>
 import SignaturePad from '@/components/common/SignaturePad.vue'
-import { resultsApi, labReportsApi, type SampleResults, type SampleRow } from '@/api/adms'
+import { resultsApi, labReportsApi, labApi, type SampleResults, type SampleRow } from '@/api/adms'
 import { frappeError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
@@ -117,6 +117,40 @@ const canAuthorizeUrgent = computed(() => !!detail.value?.can_authorize_urgent |
 const peerReviewPassedForSelected = computed(() =>
   !!selectedSample.value && peerReviewed(selectedSample.value.name),
 )
+// Inline "Approve Peer Review" button — visible ONLY when:
+//   (a) the sample has an open peer review case,
+//   (b) the current user is NOT the original reporter (self-review is blocked),
+//   (c) the case hasn't already passed.
+// The button closes the case with outcome=Agree in one click so a colleague
+// doesn't have to leave the workflow and open a separate Peer Review page.
+const peerReviewCaseForSelected = computed(() => {
+  const r: any = reportFor(selectedSample.value?.name)
+  return r?.peer_review_case || null
+})
+const canApprovePeerReview = computed(() => {
+  const r: any = reportFor(selectedSample.value?.name)
+  if (!r?.peer_review_case) return false
+  if (peerReviewed(selectedSample.value?.name)) return false
+  return r.peer_review_original_reporter && r.peer_review_original_reporter !== auth.user?.name
+})
+const peerApproveBusy = ref(false)
+const peerApproveError = ref('')
+async function approvePeerReviewInline() {
+  const caseName = peerReviewCaseForSelected.value
+  if (!caseName) return
+  peerApproveBusy.value = true; peerApproveError.value = ''
+  try {
+    await labApi.submitPeerReview({
+      name: caseName,
+      outcome: 'Agree',
+      review_notes: 'Approved from workflow — analytes reviewed inline.',
+    })
+    emit('reload')
+    await loadDetail()
+  } catch (e: any) {
+    peerApproveError.value = frappeError(e, 'Failed to approve peer review')
+  } finally { peerApproveBusy.value = false }
+}
 const verifyAllowed = computed(() =>
   peerReviewPassedForSelected.value && (!isUrgent.value || urgentAuthorized.value),
 )
@@ -417,13 +451,22 @@ async function printPreliminary() {
         <h3 class="font-semibold">Results</h3>
         <p class="text-sm text-surface-500"><strong class="text-surface-800">{{ doneCount }}</strong> of {{ samples.length }} sample report(s) done</p>
       </div>
-      <div v-if="allDone" class="flex items-center gap-3">
+      <div v-if="allDone" class="flex items-center gap-3 flex-wrap">
         <span v-if="pendingUrgentAuth" class="text-xs text-amber-600">Urgent case awaits authorization — Finish locked</span>
         <span v-else-if="pendingPeerReviewCount > 0" class="text-xs text-amber-600">
           {{ pendingPeerReviewCount }} sample{{ pendingPeerReviewCount === 1 ? '' : 's' }}
           awaiting Peer Review — a reviewer must close each case before Finish
         </span>
         <span v-else-if="!allReleased" class="text-xs text-amber-600">Verify &amp; Release every sample before finishing</span>
+        <!-- Header-level approve button — mirrors the one in the sign-off area
+             so a reviewer doesn't have to scroll down to find it. Approves
+             the currently selected sample's open peer review case in one
+             click. Visibility: same self-review guard applies. -->
+        <button v-if="canApprovePeerReview" class="btn-primary" :disabled="peerApproveBusy"
+                @click="approvePeerReviewInline"
+                :title="'Close the peer review case for ' + (selectedSample?.name || 'the selected sample') + ' with outcome=Agree.'">
+          {{ peerApproveBusy ? 'Approving…' : '✓ Approve Peer Review' }}
+        </button>
         <button class="btn-primary" :disabled="!allReleased"
           :title="!allReleased ? (pendingUrgentAuth ? 'An Urgent Review Officer must authorize the urgent case first' : 'Verify & Release each sample before finishing the workflow') : ''"
           @click="emit('finish')">Finish Workflow →</button>
@@ -574,6 +617,10 @@ async function printPreliminary() {
                 <button v-if="peerReviewPassedForSelected" class="btn-primary" :disabled="saving" @click="verify">
                   {{ saving ? 'Releasing…' : 'Verify &amp; Release' }}
                 </button>
+                <button v-else-if="canApprovePeerReview" class="btn-primary" :disabled="peerApproveBusy"
+                        @click="approvePeerReviewInline">
+                  {{ peerApproveBusy ? 'Approving…' : '✓ Approve Peer Review' }}
+                </button>
                 <span v-else class="text-xs text-amber-700 font-medium">
                   Awaiting Peer Review — a reviewer must close the peer review case first.
                 </span>
@@ -630,7 +677,7 @@ async function printPreliminary() {
                   <span class="text-xs text-surface-500 ml-1">(suppress trend charts)</span>
                 </label>
               </div>
-              <div class="flex items-center justify-end gap-2">
+              <div class="flex items-center justify-end gap-2 flex-wrap">
                 <!-- Preliminary print: available the whole time the sample sits
                      between Save & Complete and Verify & Release. Same PDF as
                      the released version, but stamped with a "PRELIMINARY —
@@ -639,12 +686,23 @@ async function printPreliminary() {
                         :title="'Print interim PDF with a PRELIMINARY watermark — for clinical review while peer review is pending.'">
                   Print Preliminary
                 </button>
+                <!-- Inline peer-review approve. Only visible for a user who is
+                     NOT the original reporter (self-review blocked server-side).
+                     One click closes the case with outcome=Agree — the reviewer
+                     can also open the full Peer Review page if they need to
+                     add notes or pick a different outcome. -->
+                <button v-if="canApprovePeerReview" class="btn-primary" :disabled="peerApproveBusy"
+                        @click="approvePeerReviewInline"
+                        :title="'Approve this report so the reporter can Verify & Release.'">
+                  {{ peerApproveBusy ? 'Approving…' : '✓ Approve Peer Review' }}
+                </button>
                 <button v-if="verifyAllowed" class="btn-primary" :disabled="saving" @click="verify">{{ saving ? 'Releasing…' : 'Verify & Release' }}</button>
                 <span v-else-if="!peerReviewPassedForSelected" class="text-xs text-amber-600">
                   Awaiting Peer Review — a reviewer must close the peer review case before Verify &amp; Release unlocks.
                 </span>
                 <span v-else class="text-xs text-surface-400">Verify &amp; Release unlocks once urgent review is authorized.</span>
               </div>
+              <p v-if="peerApproveError" class="text-xs text-status-danger mt-1 text-right">{{ peerApproveError }}</p>
             </div>
             <div v-else>
               <div class="flex items-center justify-between mb-3">

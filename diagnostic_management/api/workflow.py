@@ -128,12 +128,37 @@ def complete_session(name: str) -> dict:
 
 
 @frappe.whitelist()
-def list_open(limit: int = 20) -> list[dict]:
-	"""Open (Draft / In Progress) sessions, for the Workflow hub's resume list."""
+def list_open(
+	limit: int = 20,
+	search: str | None = None,
+	include_completed: int = 0,
+) -> list[dict]:
+	"""Workflow sessions for the hub's resume list.
+
+	By default returns only open (Draft / In Progress) sessions. Pass
+	`include_completed=1` to also surface finished ones (for looking up an
+	old workflow). `search` matches against session name, patient id,
+	patient name, or linked Service Request — case-insensitive substring.
+	"""
+	filters: dict = {}
+	if not int(include_completed or 0):
+		filters["status"] = ["in", ["Draft", "In Progress"]]
+	or_filters = None
+	q = (search or "").strip()
+	if q:
+		like = f"%{q}%"
+		or_filters = [
+			["name", "like", like],
+			["patient", "like", like],
+			["patient_name", "like", like],
+			["service_request", "like", like],
+		]
 	return frappe.get_all(
 		"Lab Workflow Session",
-		fields=["name", "patient", "patient_name", "status", "current_step", "service_request", "modified"],
-		filters={"status": ["in", ["Draft", "In Progress"]]},
+		fields=["name", "patient", "patient_name", "status", "current_step",
+		        "service_request", "modified"],
+		filters=filters,
+		or_filters=or_filters,
 		order_by="modified desc",
 		limit_page_length=int(limit),
 	)
