@@ -113,6 +113,8 @@ def create_basic(
 	last_name: str | None = None,
 	sex: str = "Other",
 	dob: str | None = None,
+	custom_age: float | int | None = None,
+	custom_age_type: str | None = None,
 	mobile: str | None = None,
 	email: str | None = None,
 	blood_group: str | None = None,
@@ -122,6 +124,11 @@ def create_basic(
 ) -> dict:
 	"""Convenience create. Skips fields the frontend doesn't expose so users
 	can register a patient with just the required minimum.
+
+	Age can be supplied either as `dob` (Date) OR as `custom_age` +
+	`custom_age_type` (Years / Months / Days) — the latter matches how
+	receptionists actually take patient info at the desk ("30 years old",
+	not a birth date). If both are given, DOB wins.
 
 	`branch`: if supplied, written onto Patient.branch. If omitted, the
 	`auto_set_patient_branch` validate hook falls back to the creating
@@ -140,6 +147,15 @@ def create_basic(
 		"permanent_address": permanent_address,
 		"status": "Active",
 	}
+	# Only stamp custom_age fields when DOB isn't provided AND the site
+	# actually has those custom fields installed (they're custom_field on
+	# Patient — safe-guard so a fresh site without them doesn't fail).
+	if not dob and custom_age not in (None, "", 0, "0"):
+		pmeta = {df.fieldname for df in frappe.get_meta("Patient").fields}
+		if "custom_age" in pmeta:
+			payload["custom_age"] = float(custom_age)
+		if "custom_age_type" in pmeta:
+			payload["custom_age_type"] = (custom_age_type or "Years").strip() or "Years"
 	if branch:
 		payload["branch"] = branch
 	doc = frappe.get_doc(payload).insert(ignore_permissions=False)

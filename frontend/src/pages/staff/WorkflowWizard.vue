@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Combobox from '@/components/ui/Combobox.vue'
 import ResultsStep from '@/components/workflow/ResultsStep.vue'
@@ -8,6 +8,8 @@ import {
   type PatientLite, type WorkflowSession,
 } from '@/api/adms'
 import { frappeError } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+const auth = useAuthStore()
 // @ts-ignore — ported genetest component uses a JS <script setup>
 import BillingStep from '@/components/workflow/BillingStep.vue'
 // @ts-ignore — ported genetest component uses a JS <script setup>
@@ -38,8 +40,25 @@ const showNewPatient = ref(false)
 // workflow to capture everything they'd capture there.
 const np = ref({
   first_name: '', last_name: '', sex: 'Female', dob: '',
+  // Reception typically knows the patient's age, not their DOB — so we
+  // collect age + unit (Years / Months / Days) and let the backend stamp
+  // Patient.custom_age / custom_age_type. Empty age = no age recorded.
+  custom_age: '' as string | number,
+  custom_age_type: 'Years' as 'Years' | 'Months' | 'Days',
   mobile: '', email: '', blood_group: '', uid: '', permanent_address: '',
+  // Branch is a mandatory field on Patient. Prefill from the user's active
+  // branch (branch-scoped users see only theirs; admins can pick from the
+  // list of available branches).
+  branch: '',
 })
+// Prefill branch when the user is branch-scoped, otherwise leave it for
+// the admin to pick from the dropdown (source: auth.availableBranches).
+watch(() => auth.ready, (r) => {
+  if (!r || np.value.branch) return
+  if (auth.isBranchScoped && auth.activeBranch && auth.activeBranch !== 'All Branches') {
+    np.value.branch = auth.activeBranch
+  }
+}, { immediate: true })
 const BLOOD_GROUPS = [
   'A Positive', 'A Negative', 'AB Positive', 'AB Negative',
   'B Positive', 'B Negative', 'O Positive', 'O Negative',
@@ -146,7 +165,7 @@ async function createPatient() {
   busy.value = true; error.value = ''
   try {
     // Strip empty optional fields so we don't carry "" into the doc insert.
-    const payload: Record<string, string> = {
+    const payload: Record<string, string | number> = {
       first_name: np.value.first_name.trim(),
       sex: np.value.sex,
     }
@@ -154,6 +173,19 @@ async function createPatient() {
       const v = (np.value[k] || '').trim()
       if (v) payload[k] = v
     }
+    // Age: only send when the user typed a positive value AND didn't fill
+    // in DOB. Backend prefers dob when both are set.
+    const ageNum = parseFloat(String(np.value.custom_age || '').trim())
+    if (!payload.dob && !isNaN(ageNum) && ageNum > 0) {
+      payload.custom_age = ageNum
+      payload.custom_age_type = np.value.custom_age_type
+    }
+    // Branch is mandatory on Patient. If the user picked one, send it;
+    // otherwise the backend's auto_set_patient_branch hook falls back to
+    // the user's tag. Admins with no tag AND no explicit pick will still
+    // fail — the field is exposed below so they can choose.
+    const br = (np.value.branch || '').trim()
+    if (br) payload.branch = br
     const r = await patientsApi.createBasic(payload as any)
     await pickPatient({ name: r.name, patient_name: r.patient_name })
     showNewPatient.value = false
@@ -224,9 +256,111 @@ async function finish() {
           :model-label="selectedPatient?.patient_name"
           @select="pickPatient"
         />
-        <!-- Inline "Register new patient" intentionally removed — patient
-             registration now lives at the dedicated /patients/new page so the
-             workflow stays focused on picking an existing patient. -->
+        <!-- Inline "Register new patient" — expanded when the tech can't
+             find the patient in the combobox. Uses the SAME createBasic
+             endpoint /patients/new uses; on success the new patient is
+             auto-selected and the workflow advances normally. -->
+        <div class="mt-4 border-t border-surface-100 pt-3">
+          <button v-if="!showNewPatient" class="btn-ghost !text-sm"
+                  @click="showNewPatient = true">
+            + Register new patient
+          </button>
+          <div v-else class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="font-semibold text-sm">Register new patient</h4>
+              <button class="btn-ghost !text-xs" @click="showNewPatient = false">Cancel</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">First name <span class="text-status-danger">*</span></label>
+                <input v-model="np.first_name" class="input" placeholder="First name" />
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">Last name</label>
+                <input v-model="np.last_name" class="input" placeholder="Last name" />
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">Sex <span class="text-status-danger">*</span></label>
+                <select v-model="np.sex" class="input">
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">Age</label>
+                <div class="flex gap-2">
+                  <input v-model="np.custom_age" type="number" min="0" step="1"
+                         class="input flex-1" placeholder="e.g. 34" />
+                  <select v-model="np.custom_age_type" class="input w-28">
+                    <option value="Years">Years</option>
+                    <option value="Months">Months</option>
+                    <option value="Days">Days</option>
+                  </select>
+                </div>
+                <p class="text-[10px] text-surface-400 mt-0.5">
+                  Age at registration — reference-range picker uses this when DOB isn't set.
+                </p>
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">Mobile</label>
+                <input v-model="np.mobile" class="input" placeholder="07XXXXXXXX" />
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">Email</label>
+                <input v-model="np.email" type="email" class="input" placeholder="name@example.com" />
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">Blood group</label>
+                <select v-model="np.blood_group" class="input">
+                  <option value="">—</option>
+                  <option v-for="b in BLOOD_GROUPS" :key="b" :value="b">{{ b }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">National ID (UID)</label>
+                <input v-model="np.uid" class="input" placeholder="ID number" />
+              </div>
+              <div>
+                <label class="block text-xs text-surface-500 mb-1">
+                  Branch <span class="text-status-danger">*</span>
+                </label>
+                <!-- Branch-scoped users see a locked pill (they can only
+                     register into their own branch). Admins pick from the
+                     list of available branches. -->
+                <div v-if="auth.isBranchScoped" class="input bg-surface-50 text-surface-700">
+                  {{ np.branch || auth.activeBranch }}
+                </div>
+                <select v-else v-model="np.branch" class="input">
+                  <option value="">— pick a branch —</option>
+                  <option v-for="b in auth.availableBranches" :key="b" :value="b">{{ b }}</option>
+                </select>
+                <p class="text-[10px] text-surface-400 mt-0.5">
+                  {{ auth.isBranchScoped
+                    ? 'Set from your assigned branch.'
+                    : 'Required — Patient must be registered under a branch.' }}
+                </p>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-xs text-surface-500 mb-1">Address</label>
+                <textarea v-model="np.permanent_address" rows="2" class="input" placeholder="Residence"></textarea>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button class="btn-ghost" :disabled="busy"
+                      @click="$router.push('/patients/new')"
+                      :title="'Open the full registration page with every field.'">
+                Open full form →
+              </button>
+              <button class="btn-primary"
+                      :disabled="busy || !np.first_name.trim() || !np.sex ||
+                        (!auth.isBranchScoped && !np.branch)"
+                      @click="createPatient">
+                {{ busy ? 'Creating…' : 'Create & Continue' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Step 2: Billing. If this session already submitted the order, show a

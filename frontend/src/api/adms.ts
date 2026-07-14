@@ -234,6 +234,8 @@ export const patientsApi = {
     last_name?: string
     sex?: string
     dob?: string
+    custom_age?: number
+    custom_age_type?: 'Years' | 'Months' | 'Days'
     mobile?: string
     email?: string
     blood_group?: string
