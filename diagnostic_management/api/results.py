@@ -117,14 +117,27 @@ def _lab_test_rows(doc) -> dict:
 			rtype = picked.get("result_type")
 		if not ropts and picked:
 			ropts = picked.get("result_options")
+		# Status: RECOMPUTE from the current range for Numeric analytes so
+		# old rows saved with a stale "Normal" (either the frontend default
+		# or entered before autoUpdateStatus shipped) get corrected on
+		# every read. Only override when the range parses to something
+		# definitive — otherwise keep whatever the tech picked.
+		stored_status = r.get("status") or "Normal"
+		effective_range = (picked["range_text"] if picked else None) or r.normal_range
+		derived_status = stored_status
+		if (rtype or "Numeric") == "Numeric":
+			from diagnostic_management.utils.formatters import result_flag
+			flag = result_flag(r.result_value, effective_range)
+			if flag:  # ""=couldn't derive → don't touch stored value
+				derived_status = flag
 		normal.append({
 			"name": r.name, "idx": r.idx,
 			"lab_test_name": analyte,
 			"result_value": r.result_value,
-			"normal_range": (picked["range_text"] if picked else None) or r.normal_range,
+			"normal_range": effective_range,
 			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
 			"lab_test_comment": r.lab_test_comment,
-			"status": r.get("status") or "Normal",
+			"status": derived_status,
 			"result_type": rtype or "Numeric",
 			"result_options": ropts or "",
 		})
@@ -447,14 +460,24 @@ def get_lab_test(name: str) -> dict:
 			if tmpl_row:
 				rtype = rtype or tmpl_row.get("custom_result_type")
 				ropts = ropts or tmpl_row.get("custom_result_options")
+		# See _lab_test_rows — recompute Numeric status so stale "Normal"
+		# defaults get corrected on every read.
+		stored_status = r.get("status") or "Normal"
+		effective_range = (picked["range_text"] if picked else None) or r.normal_range
+		derived_status = stored_status
+		if (rtype or "Numeric") == "Numeric":
+			from diagnostic_management.utils.formatters import result_flag
+			flag = result_flag(r.result_value, effective_range)
+			if flag:
+				derived_status = flag
 		normal.append({
 			"name": r.name, "idx": r.idx,
 			"lab_test_name": analyte,
 			"result_value": r.result_value,
-			"normal_range": (picked["range_text"] if picked else None) or r.normal_range,
+			"normal_range": effective_range,
 			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
 			"lab_test_comment": r.lab_test_comment,
-			"status": r.get("status") or "Normal",
+			"status": derived_status,
 			"allow_blank": r.allow_blank,
 			"require_result_value": r.require_result_value,
 			"result_type": rtype or "Numeric",

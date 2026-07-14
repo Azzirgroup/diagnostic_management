@@ -234,6 +234,22 @@ function autoUpdateStatus(r: { result_value?: string; normal_range?: string; res
   const flag = numericFlag(r.result_value, r.normal_range)
   if (flag) r.status = flag
 }
+
+// LOCK STATUS OVERRIDE — user requested that when a range determines the
+// status, the tech can't override it manually. Flip this flag back to true
+// later if we want manual override back; the STATUS_OPTIONS + select
+// element are kept intentionally so no other code has to change to revert.
+const ALLOW_MANUAL_STATUS_OVERRIDE = false
+// Returns true when the Status dropdown for this row should be locked
+// (read-only): Numeric analyte + a range that parses to a definitive
+// High / Low / Normal. Select / Data / unparseable-range rows keep manual
+// control so techs can still flag qualitative results.
+function statusLocked(r: { result_value?: string; normal_range?: string; result_type?: string }): boolean {
+  if (ALLOW_MANUAL_STATUS_OVERRIDE) return false
+  const t = (r.result_type || 'Numeric').toLowerCase()
+  if (t !== 'numeric') return false
+  return !!numericFlag(r.result_value, r.normal_range)
+}
 // Split "Negative\nPositive\nTrace" into a clean string list.
 function optionsList(raw?: string): string[] {
   return (raw || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
@@ -578,7 +594,10 @@ async function printPreliminary() {
                 <td class="pr-3 text-surface-500">{{ r.lab_test_uom || '—' }}</td>
                 <td class="pr-3 text-surface-500 whitespace-pre-line">{{ r.normal_range || '—' }}</td>
                 <td>
-                  <select v-model="r.status" :disabled="t.docstatus === 1" class="input !py-1.5">
+                  <select v-model="r.status"
+                    :disabled="t.docstatus === 1 || statusLocked(r)"
+                    :title="statusLocked(r) ? 'Auto-set from the reference range — cannot be overridden.' : ''"
+                    :class="['input !py-1.5', statusLocked(r) ? 'bg-surface-50 cursor-not-allowed' : '']">
                     <option v-for="opt in STATUS_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
                 </td>
