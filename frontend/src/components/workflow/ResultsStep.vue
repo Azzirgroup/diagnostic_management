@@ -197,7 +197,11 @@ function abnormalQualitative(value?: string, range?: string): boolean {
 function isAbnormal(r: { result_value?: string; normal_range?: string; result_type?: string }): boolean {
   const t = (r.result_type || 'Numeric').toLowerCase()
   if (t === 'numeric') return abnormal(r.result_value, r.normal_range)
-  if (t === 'select' || t === 'data') return abnormalQualitative(r.result_value, r.normal_range)
+  // Select: value must match the configured "normal" option exactly.
+  if (t === 'select') return abnormalQualitative(r.result_value, r.normal_range)
+  // Data: free-text narrative. There is no meaningful "normal range" to
+  // compare against — even a range like "-" or "Clear" is just a hint,
+  // not a rule. Never flag; let the reviewer read the text and judge.
   return false
 }
 

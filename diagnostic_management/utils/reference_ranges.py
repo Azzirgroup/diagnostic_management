@@ -139,7 +139,11 @@ def pick_reference_range(template: str | None, analyte: str | None, patient: str
 		"range_text": best.get("range_text"),
 		"uom": best.get("uom"),
 		"notes": best.get("notes"),
-		"result_type": best.get("result_type") or "Numeric",
+		# Return the raw value (None when unset) so upstream fallback can pull
+		# from the template's `custom_result_type` instead. Defaulting to
+		# "Numeric" here masked Nitrite/Glucose Select rows that had no
+		# result_type stamped on their ADMS Reference Range rows.
+		"result_type": best.get("result_type") or None,
 		"result_options": best.get("result_options"),
 		"row_name": best.get("name"),
 	}

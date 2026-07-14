@@ -1,0 +1,2 @@
+import{_ as t}from"./PatientProfile.vue_vue_type_script_setup_true_lang-CCwJ0qL0.js";import{m as o,w as r,d as e}from"./vendor-CuKR31Qh.js";import"./Topbar.vue_vue_type_script_setup_true_lang-BEdsEugl.js";import"./index-D_0mZ_JQ.js";import"./index-D9PFS4uz.js";import"./adms-CtoYhuqP.js";import"./StatusPill.vue_vue_type_script_setup_true_lang-vM_Pytq5.js";const u=o({__name:"PatientDetail",setup(m){return(a,p)=>(r(),e(t))}});export{u as default};
+//# sourceMappingURL=PatientDetail-DPjOwkaK.js.map

@@ -41,6 +41,43 @@ def _allow_blanks(doc) -> None:
 			row.allow_blank = 1
 
 
+def _template_analyte_row(template: str | None, analyte: str | None) -> dict | None:
+	"""Source `custom_result_type` / `custom_result_options` for this analyte,
+	regardless of whether the template is Single or Compound.
+
+	Compound templates carry per-analyte config on `normal_test_templates`
+	child rows (`lab_test_event` matches the analyte name). Single templates
+	carry the config on the template DOC ITSELF (one analyte per template).
+	Try the child row first (Compound path), then fall back to the template's
+	own `custom_result_type` — that's the Single-template path Frappe
+	Healthcare's `create_normals` doesn't propagate into `normal_test_items`.
+	"""
+	if not template or not analyte:
+		return None
+	clean = analyte.strip()
+	rows = frappe.get_all(
+		"Normal Test Template",
+		filters={"parent": template, "parenttype": "Lab Test Template"},
+		fields=["lab_test_event", "custom_result_type", "custom_result_options"],
+	)
+	for row in rows:
+		if (row.get("lab_test_event") or "").strip() == clean:
+			return row
+	# Single template — one analyte per template, config lives on the parent.
+	tmpl = frappe.db.get_value(
+		"Lab Test Template", template,
+		["lab_test_name", "custom_result_type", "custom_result_options"],
+		as_dict=True,
+	)
+	if tmpl and (tmpl.get("custom_result_type") or tmpl.get("custom_result_options")):
+		return {
+			"lab_test_event": tmpl.get("lab_test_name"),
+			"custom_result_type": tmpl.get("custom_result_type"),
+			"custom_result_options": tmpl.get("custom_result_options"),
+		}
+	return None
+
+
 def _lab_test_rows(doc) -> dict:
 	"""Shape one Lab Test's expanded result rows for the entry UI. Each
 	normal-test row is overlaid with the reference range / UoM that matches
@@ -59,6 +96,27 @@ def _lab_test_rows(doc) -> dict:
 		# Compound Lab Tests (where the two are the same) keep working.
 		range_template = r.get("template") or doc.template
 		picked = pick_reference_range(range_template, analyte, doc.patient)
+		# result_type / result_options priority:
+		#   1. Template's `normal_test_templates` row — AUTHORITATIVE for
+		#      widget type (Numeric / Select / Data), because that's where
+		#      the lab configures how an analyte is entered.
+		#   2. Reference-range row (if it set them) — patient-scoped override.
+		#   3. Default to Numeric.
+		# The backfill that populated ADMS Reference Range rows stamped
+		# result_type='Numeric' by default even for Select analytes like
+		# Nitrite / Glucose, so trusting the ADMS row first led the SPA to
+		# render a number input for a dropdown field. The template row is
+		# the source of truth.
+		tmpl_row = _template_analyte_row(range_template, analyte)
+		rtype = None
+		ropts = None
+		if tmpl_row:
+			rtype = tmpl_row.get("custom_result_type")
+			ropts = tmpl_row.get("custom_result_options")
+		if not rtype and picked:
+			rtype = picked.get("result_type")
+		if not ropts and picked:
+			ropts = picked.get("result_options")
 		normal.append({
 			"name": r.name, "idx": r.idx,
 			"lab_test_name": analyte,
@@ -67,8 +125,8 @@ def _lab_test_rows(doc) -> dict:
 			"lab_test_uom": (picked["uom"] if picked else None) or r.lab_test_uom,
 			"lab_test_comment": r.lab_test_comment,
 			"status": r.get("status") or "Normal",
-			"result_type": (picked["result_type"] if picked else None) or "Numeric",
-			"result_options": (picked["result_options"] if picked else None) or "",
+			"result_type": rtype or "Numeric",
+			"result_options": ropts or "",
 		})
 	return {
 		"name": doc.name,
@@ -381,6 +439,14 @@ def get_lab_test(name: str) -> dict:
 		# See _shape_test — Grouped Lab Tests need the child row's own template.
 		range_template = r.get("template") or doc.template
 		picked = pick_reference_range(range_template, analyte, doc.patient)
+		# Same result_type fallback ladder as _shape_test — see docstring there.
+		rtype = picked["result_type"] if picked else None
+		ropts = picked["result_options"] if picked else None
+		if not rtype or not ropts:
+			tmpl_row = _template_analyte_row(range_template, analyte)
+			if tmpl_row:
+				rtype = rtype or tmpl_row.get("custom_result_type")
+				ropts = ropts or tmpl_row.get("custom_result_options")
 		normal.append({
 			"name": r.name, "idx": r.idx,
 			"lab_test_name": analyte,
@@ -391,8 +457,8 @@ def get_lab_test(name: str) -> dict:
 			"status": r.get("status") or "Normal",
 			"allow_blank": r.allow_blank,
 			"require_result_value": r.require_result_value,
-			"result_type": (picked["result_type"] if picked else None) or "Numeric",
-			"result_options": (picked["result_options"] if picked else None) or "",
+			"result_type": rtype or "Numeric",
+			"result_options": ropts or "",
 		})
 	return {
 		"name": doc.name,
