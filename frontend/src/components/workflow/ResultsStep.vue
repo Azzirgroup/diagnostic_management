@@ -212,6 +212,28 @@ function abnormal(value?: string, range?: string): boolean {
   const { low, high } = bounds(range)
   return (low != null && v < low) || (high != null && v > high)
 }
+// Numeric High/Low/Normal — matches backend utils.formatters.result_flag.
+// Returns '' when the value isn't numeric or no range is set, so we don't
+// overwrite the user's manual pick with a default.
+function numericFlag(value?: string, range?: string): 'High' | 'Low' | 'Normal' | '' {
+  const v = parseFloat(value || '')
+  if (isNaN(v)) return ''
+  const { low, high } = bounds(range)
+  if (high != null && v > high) return 'High'
+  if (low != null && v < low) return 'Low'
+  if (low != null || high != null) return 'Normal'
+  return ''
+}
+// Called on every keystroke in the result input — sets `r.status` to match
+// the entered value against the range. Only fires for Numeric analytes;
+// Select/Data keep manual status. If range doesn't parse (e.g. free text
+// like "Refer to notes"), leave status untouched so the tech can override.
+function autoUpdateStatus(r: { result_value?: string; normal_range?: string; result_type?: string; status?: string }): void {
+  const t = (r.result_type || 'Numeric').toLowerCase()
+  if (t !== 'numeric') return
+  const flag = numericFlag(r.result_value, r.normal_range)
+  if (flag) r.status = flag
+}
 // Split "Negative\nPositive\nTrace" into a clean string list.
 function optionsList(raw?: string): string[] {
   return (raw || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
@@ -545,6 +567,7 @@ async function printPreliminary() {
                       class="input !py-1.5" />
                     <input v-else-if="(r.result_type || 'Numeric') === 'Numeric'"
                       v-model="r.result_value" :disabled="t.docstatus === 1" type="number" step="any"
+                      @input="autoUpdateStatus(r)"
                       :class="['input !py-1.5', isAbnormal(r) ? '!border-status-danger text-status-danger font-semibold' : '']" />
                     <input v-else
                       v-model="r.result_value" :disabled="t.docstatus === 1"

@@ -208,6 +208,72 @@ def peer_review_list(status: str | None = None, mine: int = 0, limit: int = 100)
 
 
 @frappe.whitelist()
+def diagnostic_report_detail(name: str) -> dict:
+	"""Full context for a Diagnostic Report on the verification page: DR
+	metadata, sample, its linked Lab Tests, all analyte rows (shaped via the
+	same reference-range picker as the workflow), the open peer review case
+	if any, and enough flags for the Verify & Release button to gate itself.
+	One call — no back-and-forth navigation for the verifier."""
+	# Filter to fields that actually exist on this site's Diagnostic Report —
+	# `conclusion` isn't always installed as a custom field, and picking a
+	# missing column errors out the whole query.
+	_dr_fields = {df.fieldname for df in frappe.get_meta("Diagnostic Report").fields}
+	_wanted = ["name", "patient", "patient_name", "status", "conclusion",
+	           "is_urgent", "urgent_review_status", "is_critical",
+	           "critical_acknowledged", "custom_peer_reviewed",
+	           "sample_collection", "docname", "custom_lab_tests_csv",
+	           "diagnosis", "clinical_notes", "pathologist_name",
+	           "signed_by", "practitioner"]
+	select_fields = [f for f in _wanted if f == "name" or f in _dr_fields]
+	dr = frappe.db.get_value("Diagnostic Report", name, select_fields, as_dict=True)
+	if not dr:
+		frappe.throw(f"Diagnostic Report {name} not found")
+
+	sample = dr.get("sample_collection")
+	# Resolve the Lab Tests bundled by this DR — prefer the CSV stamped at
+	# release time; fall back to every Lab Test on the sample.
+	lt_names: list[str] = []
+	csv = dr.get("custom_lab_tests_csv") or ""
+	if csv:
+		lt_names = [n.strip() for n in csv.split(",") if n.strip()]
+	elif sample:
+		lt_names = frappe.get_all(
+			"Lab Test", filters={"sample": sample, "docstatus": ["<", 2]},
+			pluck="name", order_by="creation asc",
+		)
+	from diagnostic_management.api.results import _lab_test_rows
+	lab_tests = []
+	for lt_name in lt_names:
+		if not frappe.db.exists("Lab Test", lt_name):
+			continue
+		lt_doc = frappe.get_doc("Lab Test", lt_name)
+		lab_tests.append(_lab_test_rows(lt_doc))
+
+	# Peer review context — one open case (if any) drives the gate.
+	pr_case = frappe.db.get_value(
+		"Peer Review Case",
+		{"subject_report": name, "status": ["!=", "Closed"]},
+		["name", "original_reporter", "status"], as_dict=True,
+	)
+
+	sample_row = None
+	if sample and frappe.db.exists("Sample Collection", sample):
+		sample_row = frappe.db.get_value(
+			"Sample Collection", sample,
+			["name", "sample", "collected_time", "workflow_status",
+			 "referring_practitioner"],
+			as_dict=True,
+		)
+
+	return {
+		"report": dr,
+		"sample": sample_row,
+		"lab_tests": lab_tests,
+		"peer_review_case": pr_case,
+	}
+
+
+@frappe.whitelist()
 def peer_review_detail(name: str) -> dict:
 	"""Everything the reviewer needs to judge a case: the subject Diagnostic
 	Report, its patient/sample context, and the analyte rows from every

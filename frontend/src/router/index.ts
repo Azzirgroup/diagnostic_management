@@ -89,6 +89,7 @@ if (base === '/doctor-login') {
         { path: 'lab/calibration', name: 'calibration', component: () => import('@/pages/staff/Calibration.vue') },
         { path: 'lab/analyzer-monitor', name: 'analyzer-monitor', component: () => import('@/pages/staff/AnalyzerMonitor.vue') },
         { path: 'lab/verification', name: 'verification', component: () => import('@/pages/staff/VerificationQueue.vue') },
+        { path: 'lab/verification/:name', name: 'verification-detail', meta: { title: 'Diagnostic Report' }, component: () => import('@/pages/staff/DiagnosticReportDetail.vue') },
         { path: 'lab/peer-review', name: 'peer-review', component: () => import('@/pages/staff/PeerReview.vue') },
         { path: 'lab/reports', name: 'lab-reports', component: () => import('@/pages/staff/LabReports.vue') },
         { path: 'lab/reports/:name', name: 'lab-report-detail', component: () => import('@/pages/staff/LabReportDetail.vue') },

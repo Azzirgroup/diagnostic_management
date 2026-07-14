@@ -684,6 +684,35 @@ export const labApi = {
     call<{ ok: boolean; name: string; status: string }>('diagnostic_management.api.lab.amend_report', { name, reason }),
   peerReviewList: (status?: string, mine = 0, limit = 100) =>
     call<PeerReviewRow[]>('diagnostic_management.api.lab.peer_review_list', { status, mine, limit }),
+  diagnosticReportDetail: (name: string) =>
+    call<{
+      report: {
+        name: string
+        patient?: string
+        patient_name?: string
+        status?: string
+        conclusion?: string
+        is_urgent?: number
+        urgent_review_status?: string
+        is_critical?: number
+        critical_acknowledged?: number
+        custom_peer_reviewed?: number
+        sample_collection?: string
+        practitioner?: string
+        pathologist_name?: string
+        signed_by?: string
+      }
+      sample: { name: string; sample?: string; collected_time?: string; workflow_status?: string; referring_practitioner?: string } | null
+      lab_tests: Array<{
+        name: string
+        template: string
+        status?: string
+        docstatus?: number
+        normal_test_items: Array<{ name: string; lab_test_name: string; result_value?: string; normal_range?: string; lab_test_uom?: string; status?: string; result_type?: string }>
+        descriptive_test_items: Array<{ name: string; lab_test_particulars: string; result_value?: string }>
+      }>
+      peer_review_case: { name: string; original_reporter?: string; status?: string } | null
+    }>('diagnostic_management.api.lab.diagnostic_report_detail', { name }),
   peerReviewDetail: (name: string) =>
     call<{
       case: PeerReviewRow & { review_notes?: string }
