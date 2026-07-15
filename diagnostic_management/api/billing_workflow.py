@@ -335,12 +335,42 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 			line["rate"] = t["rate"]
 		return line
 
+	# Full-payment shortcut: when the user ticks "Include Payment" and picks
+	# a mode, they've stated the intent — pay in full, now. Compute the
+	# invoice's grand_total from the item lines up-front and pass it as
+	# `paid_amount` so `create_invoice_for_tests` fires the Payment Entry
+	# in the same call. Without this the SI got created unpaid and the
+	# separate "Submit Payment" button was hidden — leaking every
+	# include_payment=True flow through as an unpaid invoice.
+	auto_pay_amount = None
+	if include_payment and bd.get("mode_of_payment"):
+		# Total = sum of qty × unit_rate × (1 − pct/100) minus per-line
+		# discount_amount. Mirrors the SPA's running total exactly.
+		total = 0.0
+		for t in tests:
+			qty = flt(t.get("qty") or 1)
+			base = None
+			if "rate" in t and flt(t.get("rate")) > 0:
+				base = flt(t.get("rate"))
+			else:
+				base = flt(frappe.db.get_value(
+					"Lab Test Template", t.get("template_dn"), "lab_test_rate"
+				) or 0)
+			line = qty * base
+			if flt(t.get("discount_amount") or 0) > 0:
+				line -= min(line, flt(t["discount_amount"]))
+			elif flt(t.get("discount_percentage") or 0) > 0:
+				line *= (1 - flt(t["discount_percentage"]) / 100)
+			total += line
+		if total > 0:
+			auto_pay_amount = total
+
 	inv = billing_api.create_invoice_for_tests(
 		patient=patient,
 		items=[_line(t) for t in tests],
 		service_requests=created_orders,
 		mode_of_payment=bd.get("mode_of_payment") if include_payment else None,
-		paid_amount=None,  # full payment handled via the dedicated payment form
+		paid_amount=auto_pay_amount,
 		submit=1,
 	)
 
