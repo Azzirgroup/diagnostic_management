@@ -159,6 +159,7 @@ def create_invoice_for_tests(
 	paid_amount: float | None = None,
 	reference_no: str | None = None,
 	submit: int = 1,
+	custom_doctor: str | None = None,
 ) -> dict:
 	"""Create ONE Sales Invoice covering several ordered tests, with per-line
 	quantity + discount, and optionally record a payment.
@@ -166,6 +167,9 @@ def create_invoice_for_tests(
 	`items`: list of {template_dt, template_dn, qty, discount_percentage, label}.
 	`service_requests`: optional list (parallel to items) to link each line back
 	to its order. With `paid_amount` > 0 a Payment Entry is recorded too.
+	`custom_doctor`: Referring Doctor picked in the SPA's Billing step —
+	stamped onto Sales Invoice.custom_doctor so it shows on prints and in
+	the Sales Register Detailed report.
 	"""
 	import json
 
@@ -184,6 +188,11 @@ def create_invoice_for_tests(
 	inv = frappe.get_doc({"doctype": "Sales Invoice", "customer": customer, "company": company, "posting_date": nowdate()})
 	if _has_field("Sales Invoice", "patient"):
 		inv.patient = patient
+	# Referring Doctor is written AFTER insert via db.set_value so we bypass
+	# Frappe's link validation — the field's `options=Doctor` may not resolve
+	# on all sites (e.g. where the legacy `Doctor` doctype isn't installed),
+	# and historical data has free-text values ("DR C.K Jandu" etc.) that
+	# don't match any Doctor record either. See _stamp_doctor call below.
 	for i, it in enumerate(items):
 		# Per-line rate override: the SPA's Billing step lets the user edit
 		# the Rate column per row. When set, `it["rate"]` is the SOURCE OF
@@ -232,6 +241,23 @@ def create_invoice_for_tests(
 	inv.insert(ignore_permissions=False)
 	if int(submit or 0):
 		inv.submit()
+
+	# Stamp Referring Doctor via db.set_value — bypasses Frappe's link
+	# validation on `custom_doctor` (whose target `Doctor` doctype may not
+	# be installed OR the value may be free-text that doesn't match any
+	# Doctor record — historical data has both). Also set `ref_practitioner`
+	# when the value happens to be a valid Healthcare Practitioner so the
+	# built-in Healthcare linkage isn't broken.
+	if custom_doctor:
+		updates = {}
+		if _has_field("Sales Invoice", "custom_doctor"):
+			updates["custom_doctor"] = custom_doctor
+		if (_has_field("Sales Invoice", "ref_practitioner")
+		        and frappe.db.exists("Healthcare Practitioner", custom_doctor)):
+			updates["ref_practitioner"] = custom_doctor
+		if updates:
+			frappe.db.set_value("Sales Invoice", inv.name, updates, update_modified=False)
+			inv.reload()
 
 	payment = None
 	if paid_amount and flt(paid_amount) > 0 and inv.docstatus == 1:

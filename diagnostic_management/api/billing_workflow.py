@@ -372,6 +372,10 @@ def create_sales_invoice_for_tests(session_id: str | None = None, billing_data: 
 		mode_of_payment=bd.get("mode_of_payment") if include_payment else None,
 		paid_amount=auto_pay_amount,
 		submit=1,
+		# Referring Doctor from the SPA — was previously dropped on the
+		# floor (only stamped on Service Request). Now propagates onto the
+		# Sales Invoice so prints + Sales Register Detailed show it.
+		custom_doctor=bd.get("custom_doctor") or None,
 	)
 
 	# 2b) Stamp the Sales Invoice link on every Lab Test fanned out from these
