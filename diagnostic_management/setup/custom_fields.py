@@ -541,10 +541,13 @@ def _field_map() -> dict[str, list[dict]]:
 			# the missing doctype's metadata. `create_custom_fields`
 			# with `update=True` upgrades the existing field's fieldtype
 			# on migrate; no data loss because values are already text.
+			# `options` explicitly emptied — old Link definition left
+			# "Doctor" in that column, which desk widgets still probe.
 			{
 				"fieldname": "custom_doctor",
 				"label": "Doctor",
 				"fieldtype": "Data",
+				"options": "",
 				"insert_after": "customer_name",
 				"allow_on_submit": 1,
 				"in_list_view": 1,
