@@ -224,14 +224,75 @@ function numericFlag(value?: string, range?: string): 'High' | 'Low' | 'Normal' 
   if (low != null || high != null) return 'Normal'
   return ''
 }
+// Banded interpretation — mirrors backend utils.formatters.banded_flag.
+// Multi-band ranges like HbA1c ("Normal 4-5.6, Pre-diabetes 5.7-6.5,
+// Diabetes >6.5") map a numeric value to a category label (Normal /
+// Pre-diabetic / Diabetic / …) rather than plain High / Low / Normal.
+// Returns '' when the range doesn't parse into ≥2 recognised bands.
+const BAND_ALIASES: Array<[RegExp, string]> = [
+  [/pre[- ]?diabet/i,        'Pre-diabetic'],
+  [/non[- ]?diabet/i,        'Normal'],
+  [/diabet/i,                'Diabetic'],
+  [/normal/i,                'Normal'],
+  [/optim/i,                 'Optimal'],
+  [/insufficien/i,           'Insufficiency'],
+  [/sufficien/i,             'Sufficiency'],
+  [/deficien/i,              'Deficiency'],
+  [/toxic/i,                 'Potential Toxicity'],
+  [/critical/i,              'Critical'],
+  [/intermediat|borderline/i,'Intermediate'],
+  [/abnormal/i,              'Abnormal'],
+  [/high/i,                  'High'],
+  [/low/i,                   'Low'],
+]
+function normaliseBandLabel(raw: string): string {
+  for (const [pat, canonical] of BAND_ALIASES) if (pat.test(raw)) return canonical
+  return ''
+}
+function bandedFlag(value?: string, range?: string): string {
+  const v = parseFloat(value || '')
+  if (isNaN(v) || !range) return ''
+  const parts = String(range).split(/[\n,;]/)
+  const bands: Array<{ label: string; matcher: (x: number) => boolean }> = []
+  for (const raw of parts) {
+    const s = raw.trim().replace(/\.$/, '').trim()
+    if (!s) continue
+    const ineq = s.match(/(<=|>=|≤|≥|<|>)\s*(-?\d+(?:\.\d+)?)/)
+    if (ineq) {
+      const op = ineq[1]; const n = parseFloat(ineq[2])
+      const label = normaliseBandLabel(s.slice(0, ineq.index))
+      if (!label) continue
+      if (op === '<' || op === '≤' || op === '<=') {
+        const incl = op !== '<'
+        bands.push({ label, matcher: (x) => incl ? x <= n : x < n })
+      } else {
+        const incl = op !== '>'
+        bands.push({ label, matcher: (x) => incl ? x >= n : x > n })
+      }
+      continue
+    }
+    const normalised = s.replace(/(?<=\d)\s*-\s*(?=\d)/g, ' ~ ')
+    const rm = normalised.match(/(-?\d+(?:\.\d+)?)\s*~\s*(-?\d+(?:\.\d+)?)/)
+    if (rm) {
+      const low = parseFloat(rm[1]); const high = parseFloat(rm[2])
+      const label = normaliseBandLabel(normalised.slice(0, rm.index))
+      if (!label) continue
+      bands.push({ label, matcher: (x) => low <= x && x <= high })
+    }
+  }
+  if (bands.length < 2) return ''
+  for (const b of bands) if (b.matcher(v)) return b.label
+  return ''
+}
 // Called on every keystroke in the result input — sets `r.status` to match
 // the entered value against the range. Only fires for Numeric analytes;
 // Select/Data keep manual status. If range doesn't parse (e.g. free text
 // like "Refer to notes"), leave status untouched so the tech can override.
+// Banded ranges (HbA1c etc.) take precedence over plain High/Low/Normal.
 function autoUpdateStatus(r: { result_value?: string; normal_range?: string; result_type?: string; status?: string }): void {
   const t = (r.result_type || 'Numeric').toLowerCase()
   if (t !== 'numeric') return
-  const flag = numericFlag(r.result_value, r.normal_range)
+  const flag = bandedFlag(r.result_value, r.normal_range) || numericFlag(r.result_value, r.normal_range)
   if (flag) r.status = flag
 }
 
@@ -248,7 +309,7 @@ function statusLocked(r: { result_value?: string; normal_range?: string; result_
   if (ALLOW_MANUAL_STATUS_OVERRIDE) return false
   const t = (r.result_type || 'Numeric').toLowerCase()
   if (t !== 'numeric') return false
-  return !!numericFlag(r.result_value, r.normal_range)
+  return !!(bandedFlag(r.result_value, r.normal_range) || numericFlag(r.result_value, r.normal_range))
 }
 // Split "Negative\nPositive\nTrace" into a clean string list.
 function optionsList(raw?: string): string[] {

@@ -278,6 +278,36 @@ def create_invoice_for_tests(
 
 
 @frappe.whitelist()
+def set_invoice_doctor(invoice: str, doctor: str | None) -> dict:
+	"""Update the Referring Doctor on a Sales Invoice — allowed AFTER submit.
+	Depends on the `Sales Invoice.custom_doctor allow_on_submit = 1` Property
+	Setter installed by setup._allow_doctor_after_submit.
+
+	Uses `db.set_value` so the change bypasses the docstatus lock without
+	needing to cancel/amend. If the value is a valid Healthcare Practitioner,
+	also mirror to `ref_practitioner` so the built-in linkage stays in sync.
+	Pass `doctor=None` (or empty string) to clear the field."""
+	if not invoice:
+		frappe.throw("invoice is required")
+	if not frappe.db.exists("Sales Invoice", invoice):
+		frappe.throw(f"Sales Invoice {invoice} not found")
+	# Trim + normalise blank → None so the field really clears.
+	val = (doctor or "").strip() or None
+	updates = {}
+	if _has_field("Sales Invoice", "custom_doctor"):
+		updates["custom_doctor"] = val
+	if _has_field("Sales Invoice", "ref_practitioner"):
+		# Only mirror when the value maps to an actual HP; otherwise clear
+		# ref_practitioner (a stale link would confuse downstream reports).
+		updates["ref_practitioner"] = (
+			val if val and frappe.db.exists("Healthcare Practitioner", val) else None
+		)
+	if updates:
+		frappe.db.set_value("Sales Invoice", invoice, updates, update_modified=False)
+	return {"ok": True, "invoice": invoice, "custom_doctor": val}
+
+
+@frappe.whitelist()
 def record_payment(invoice: str, amount: float, mode_of_payment: str | None = None) -> dict:
 	"""Record a payment against a submitted Sales Invoice.
 

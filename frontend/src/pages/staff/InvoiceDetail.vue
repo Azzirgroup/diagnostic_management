@@ -20,6 +20,7 @@ interface InvoiceDetail {
   posting_date: string
   due_date?: string
   currency: string
+  custom_doctor?: string
   items_list: InvoiceLine[]
   payments?: Array<{ parent: string; allocated_amount: number; outstanding_amount: number }>
 }
@@ -68,6 +69,36 @@ onMounted(() => {
 
 const isDraft = computed(() => invoice.value?.docstatus === 0)
 const isOutstanding = computed(() => invoice.value && invoice.value.docstatus === 1 && (invoice.value.outstanding_amount || 0) > 0)
+
+// Referring Doctor — editable even after the invoice is submitted, thanks
+// to the `allow_on_submit` Property Setter installed by
+// setup._allow_doctor_after_submit. Saves via a dedicated endpoint that
+// uses db.set_value so we don't have to cancel/amend the SI.
+const doctorEditing = ref(false)
+const doctorDraft = ref('')
+const doctorSaving = ref(false)
+const doctorMessage = ref('')
+
+function startEditDoctor() {
+  doctorDraft.value = invoice.value?.custom_doctor || ''
+  doctorMessage.value = ''
+  doctorEditing.value = true
+}
+async function saveDoctor() {
+  if (!invoice.value) return
+  doctorSaving.value = true; doctorMessage.value = ''; error.value = ''
+  try {
+    await call<{ ok: boolean; custom_doctor?: string }>(
+      'diagnostic_management.api.billing.set_invoice_doctor',
+      { invoice: invoice.value.name, doctor: doctorDraft.value.trim() || null },
+    )
+    doctorMessage.value = 'Doctor updated.'
+    doctorEditing.value = false
+    await load()
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || 'Failed to update doctor'
+  } finally { doctorSaving.value = false }
+}
 
 async function recordPayment() {
   if (!invoice.value || !paymentAmount.value || paymentAmount.value <= 0) return
@@ -184,6 +215,33 @@ function downloadPdf() {
           <div class="flex justify-between"><dt class="text-surface-500">Posted</dt><dd>{{ invoice.posting_date }}</dd></div>
           <div class="flex justify-between"><dt class="text-surface-500">Due</dt><dd>{{ invoice.due_date || '—' }}</dd></div>
           <div class="flex justify-between"><dt class="text-surface-500">Status</dt><dd><StatusPill :status="invoice.status" /></dd></div>
+          <!-- Referring Doctor — inline editable even after submit. -->
+          <div>
+            <div class="flex justify-between items-start">
+              <dt class="text-surface-500">Doctor</dt>
+              <dd class="text-right max-w-[65%]">
+                <template v-if="!doctorEditing">
+                  <span>{{ invoice.custom_doctor || '—' }}</span>
+                  <button class="ml-2 text-xs text-brand-teal-600 hover:underline"
+                          @click="startEditDoctor">Edit</button>
+                </template>
+                <template v-else>
+                  <input v-model="doctorDraft" type="text"
+                         class="w-full px-2 py-1 border border-surface-200 rounded text-sm"
+                         placeholder="Referring doctor name" />
+                  <div class="flex gap-2 justify-end mt-1">
+                    <button class="text-xs text-surface-500 hover:underline"
+                            :disabled="doctorSaving" @click="doctorEditing = false">Cancel</button>
+                    <button class="text-xs text-brand-teal-600 hover:underline font-medium"
+                            :disabled="doctorSaving" @click="saveDoctor">
+                      {{ doctorSaving ? 'Saving…' : 'Save' }}
+                    </button>
+                  </div>
+                </template>
+              </dd>
+            </div>
+            <p v-if="doctorMessage" class="text-xs text-status-success text-right mt-1">{{ doctorMessage }}</p>
+          </div>
         </dl>
       </div>
 

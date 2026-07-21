@@ -534,6 +534,22 @@ def _field_map() -> dict[str, list[dict]]:
 				"insert_after": "pos_profile",
 				"read_only": 1,
 			},
+			# Referring doctor — free-text so it works on sites where the
+			# "Doctor" doctype was never installed (all genetest sites).
+			# Was historically created interactively as `Link → Doctor`,
+			# which caused the Framework UI's row-open to 404 fetching
+			# the missing doctype's metadata. `create_custom_fields`
+			# with `update=True` upgrades the existing field's fieldtype
+			# on migrate; no data loss because values are already text.
+			{
+				"fieldname": "custom_doctor",
+				"label": "Doctor",
+				"fieldtype": "Data",
+				"insert_after": "customer_name",
+				"allow_on_submit": 1,
+				"in_list_view": 1,
+				"in_standard_filter": 1,
+			},
 			# NOTE: `branch` on financial doctypes (Sales Invoice / Payment
 			# Entry / Purchase Invoice / Journal Entry / GL Entry / …) is NOT
 			# managed here. Instead we register `Branch` as an ERPNext

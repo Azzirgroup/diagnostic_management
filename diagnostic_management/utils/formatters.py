@@ -174,6 +174,120 @@ def result_flag(value, normal_range=None) -> str:
 	return ""
 
 
+# --- Banded interpretation ---------------------------------------------------
+#
+# Some analytes (HbA1c, ACR, Vitamin D) are read as CATEGORIES (Normal /
+# Pre-diabetic / Diabetic; Optimal / Insufficient / Sufficient) instead of a
+# simple in-range / out-of-range. The bands live free-text on the template's
+# `normal_range`, e.g. for DCCT-HbA1c:
+#
+#   NORMAL GLUCOSE  4.0- 5.6%,
+#   PRE-DIABETES MELLITUS 5.7 - 6.5 %,
+#   DIABETES MELLITUS (Desirable Target) >6.5 %.
+#
+# `banded_flag` parses this into (label, matcher) pairs and returns the band
+# a value falls into. The label is then normalised onto the fixed enum on
+# Normal Test Result.status (Normal / Pre-diabetic / Diabetic / …) so the
+# frontend saves it back without a Select validation error.
+
+_BAND_ALIASES = (
+	# order matters — first match wins. More specific patterns come first.
+	("pre[- ]?diabet",        "Pre-diabetic"),
+	("non[- ]?diabet",        "Normal"),
+	("diabet",                "Diabetic"),
+	("normal",                "Normal"),
+	("optim",                 "Optimal"),
+	("insufficien",           "Insufficiency"),
+	("sufficien",             "Sufficiency"),
+	("deficien",              "Deficiency"),
+	("toxic",                 "Potential Toxicity"),
+	("critical",              "Critical"),
+	("intermediat|borderline","Intermediate"),
+	("abnormal",              "Abnormal"),
+	("high",                  "High"),
+	("low",                   "Low"),
+)
+
+
+def _normalise_band_label(raw: str) -> str:
+	"""Map a free-text band label ('PRE-DIABETES MELLITUS', 'Non Diabetic',
+	'Diabetic') onto the Normal Test Result.status Select enum. Returns ""
+	when nothing matches — caller falls back to numeric flag."""
+	import re
+	s = (raw or "").lower()
+	for pat, canonical in _BAND_ALIASES:
+		if re.search(pat, s):
+			return canonical
+	return ""
+
+
+def banded_flag(value, range_text) -> str:
+	"""Return the interpretive band for a numeric value against a multi-band
+	range text. Empty string when the range doesn't parse into ≥2 bands or the
+	value doesn't fall into any recognised band.
+
+	Recognised per-line specs (comma-separated also splits):
+	  * `LABEL LOW - HIGH`         → inclusive band
+	  * `LABEL < N` / `LABEL ≤ N`  → open / closed upper-bounded band
+	  * `LABEL > N` / `LABEL ≥ N`  → open / closed lower-bounded band
+
+	The label is normalised via `_normalise_band_label` onto the fixed status
+	enum. Bands whose label doesn't normalise are skipped so we don't hand
+	the frontend a value it can't save (e.g. "NORMAL GLUCOSE" → "Normal";
+	"PRE-DIABETES MELLITUS" → "Pre-diabetic")."""
+	import re
+
+	try:
+		v = float(value)
+	except (TypeError, ValueError):
+		return ""
+	if not range_text:
+		return ""
+
+	# Split on newlines / commas / semicolons — templates use any combination.
+	parts = re.split(r"[\n,;]", str(range_text))
+
+	bands = []  # (canonical_label, matcher)
+	for raw in parts:
+		s = raw.strip().rstrip(".").strip()
+		if not s:
+			continue
+		# 1. Inequality band: `<N`, `<=N`, `≤N`, `>N`, `>=N`, `≥N`
+		m = re.search(r"(<=|>=|≤|≥|<|>)\s*(-?\d+(?:\.\d+)?)", s)
+		if m:
+			op, n = m.group(1), float(m.group(2))
+			raw_label = s[:m.start()]
+			label = _normalise_band_label(raw_label)
+			if not label:
+				continue
+			if op in ("<", "≤", "<="):
+				inclusive = op in ("≤", "<=")
+				bands.append((label, (lambda x, h=n, incl=inclusive: (x <= h) if incl else (x < h))))
+			else:
+				inclusive = op in ("≥", ">=")
+				bands.append((label, (lambda x, l=n, incl=inclusive: (x >= l) if incl else (x > l))))
+			continue
+		# 2. Range band: `LOW - HIGH` (any dash spacing). Same normalisation as
+		# `result_flag` so `5.7 -6.5` isn't parsed as [5.7, -6.5].
+		normalised = re.sub(r"(?<=\d)\s*-\s*(?=\d)", " ~ ", s)
+		rm = re.search(r"(-?\d+(?:\.\d+)?)\s*~\s*(-?\d+(?:\.\d+)?)", normalised)
+		if rm:
+			low, high = float(rm.group(1)), float(rm.group(2))
+			raw_label = normalised[:rm.start()]
+			label = _normalise_band_label(raw_label)
+			if not label:
+				continue
+			bands.append((label, (lambda x, l=low, h=high: l <= x <= h)))
+
+	if len(bands) < 2:
+		return ""
+
+	for label, matcher in bands:
+		if matcher(v):
+			return label
+	return ""
+
+
 def format_patient_age(dob, reference_date=None) -> str:
 	"""Human age from a date of birth: "25 Years" / "6 Months" / "15 Days"."""
 	if not dob:

@@ -45,14 +45,13 @@ def _get_data(filters):
 		f"""
 		SELECT
 			COALESCE(si.custom_doctor, '') AS doctor,
-			COALESCE(d.doctor_name, si.custom_doctor, '(No Doctor)') AS doctor_name,
+			COALESCE(NULLIF(si.custom_doctor, ''), '(No Doctor)') AS doctor_name,
 			COUNT(DISTINCT si.patient) AS patients,
 			COUNT(sii.name) AS tests,
 			SUM(sii.net_amount) AS revenue,
 			SUM(DISTINCT si.outstanding_amount) AS outstanding
 		FROM `tabSales Invoice` si
 		INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
-		LEFT JOIN `tabDoctor` d ON d.name = si.custom_doctor
 		LEFT JOIN `tabLab Test Template` ltt ON ltt.item = sii.item_code
 		LEFT JOIN `tabPatient` p ON p.name = si.patient
 		WHERE si.docstatus = 1

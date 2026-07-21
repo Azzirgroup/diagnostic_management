@@ -173,8 +173,14 @@ def _lab_test_rows(doc) -> dict:
 		)
 		derived_status = stored_status
 		if (rtype or "Numeric") == "Numeric":
-			from diagnostic_management.utils.formatters import result_flag
-			flag = result_flag(r.result_value, effective_range)
+			from diagnostic_management.utils.formatters import banded_flag, result_flag
+			# Banded interpretation first (HbA1c → Pre-diabetic / Diabetic;
+			# ACR → Normal / Microalbuminuria / Macroalbuminuria). Uses the
+			# TEMPLATE's raw multi-line `normal_range` since ADMS Reference
+			# Range picker collapses it to a single-band summary.
+			band_source = (tmpl_row.get("normal_range") if tmpl_row else None) or effective_range
+			bflag = banded_flag(r.result_value, band_source)
+			flag = bflag or result_flag(r.result_value, effective_range)
 			if flag:  # ""=couldn't derive → don't touch stored value
 				derived_status = flag
 		normal.append({
@@ -502,19 +508,24 @@ def get_lab_test(name: str) -> dict:
 		# Same result_type fallback ladder as _shape_test — see docstring there.
 		rtype = picked["result_type"] if picked else None
 		ropts = picked["result_options"] if picked else None
-		if not rtype or not ropts:
-			tmpl_row = _template_analyte_row(range_template, analyte)
-			if tmpl_row:
-				rtype = rtype or tmpl_row.get("custom_result_type")
-				ropts = ropts or tmpl_row.get("custom_result_options")
+		# Always fetch tmpl_row — banded flagging below needs its raw
+		# `normal_range` text regardless of whether rtype/ropts already
+		# came from the picker.
+		tmpl_row = _template_analyte_row(range_template, analyte)
+		if tmpl_row:
+			rtype = rtype or tmpl_row.get("custom_result_type")
+			ropts = ropts or tmpl_row.get("custom_result_options")
 		# See _lab_test_rows — recompute Numeric status so stale "Normal"
 		# defaults get corrected on every read.
 		stored_status = r.get("status") or "Normal"
 		effective_range = (picked["range_text"] if picked else None) or r.normal_range
 		derived_status = stored_status
 		if (rtype or "Numeric") == "Numeric":
-			from diagnostic_management.utils.formatters import result_flag
-			flag = result_flag(r.result_value, effective_range)
+			from diagnostic_management.utils.formatters import banded_flag, result_flag
+			# See _lab_test_rows — banded first (HbA1c / ACR), numeric fallback.
+			band_source = (tmpl_row.get("normal_range") if tmpl_row else None) or effective_range
+			bflag = banded_flag(r.result_value, band_source)
+			flag = bflag or result_flag(r.result_value, effective_range)
 			if flag:
 				derived_status = flag
 		normal.append({
@@ -868,8 +879,15 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 			ref_effective = "" if ref.lower() in ("", "-", "—", "n/a", "na") else ref
 			if val:
 				if rtype == "Numeric":
-					flag = result_flag(val, rng)
-					abnormal = 1 if flag in ("High", "Low") else 0
+					from diagnostic_management.utils.formatters import banded_flag
+					# Banded interpretation wins (HbA1c → Pre-diabetic / Diabetic).
+					# Source the raw multi-line text from the child template — the
+					# ADMS Reference Range picker collapses it to a single band.
+					band_source = (tmpl_row.get("normal_range") if tmpl_row else None) or rng
+					flag = banded_flag(val, band_source) or result_flag(val, rng)
+					# "Normal" is not abnormal; anything else derived from a band
+					# (High / Low / Pre-diabetic / Diabetic / …) is.
+					abnormal = 1 if flag and flag != "Normal" else 0
 				elif rtype in ("Select", "Data"):
 					# `status` is a strict Select on the child (Normal/High/Low/Critical),
 					# so we leave it blank for qualitative mismatches and rely on

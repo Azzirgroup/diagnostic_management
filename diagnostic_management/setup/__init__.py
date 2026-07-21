@@ -169,6 +169,7 @@ def after_install():
 	install_director_and_lab_manager_workspaces()
 	_pin_patient_field_uniqueness()
 	_pin_default_print_formats()
+	_allow_doctor_after_submit()
 
 
 def after_migrate():
@@ -186,6 +187,7 @@ def after_migrate():
 	install_director_and_lab_manager_workspaces()
 	_pin_patient_field_uniqueness()
 	_pin_default_print_formats()
+	_allow_doctor_after_submit()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -254,6 +256,23 @@ def _pin_default_print_formats():
 			)
 		except Exception:
 			frappe.log_error(title="_pin_default_print_formats(SalesInvoice) failed")
+
+
+def _allow_doctor_after_submit():
+	"""Allow `Sales Invoice.custom_doctor` to be edited AFTER the invoice
+	is submitted. Without this the field is locked once the SI is
+	docstatus=1 — and legacy invoices that were imported/created without
+	a Referring Doctor would need to be cancelled + amended to correct.
+
+	Idempotent property setter; ships in `after_install` + `after_migrate`."""
+	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+	try:
+		make_property_setter(
+			"Sales Invoice", "custom_doctor", "allow_on_submit", "1", "Check",
+			for_doctype=False, validate_fields_for_doctype=False,
+		)
+	except Exception:
+		frappe.log_error(title="_allow_doctor_after_submit(SalesInvoice) failed")
 
 
 def _pin_patient_field_uniqueness():
