@@ -1,0 +1,275 @@
+{
+ "app": "diagnostic_management",
+ "charts": [
+  {
+   "chart_name": "Director \u2014 Monthly Revenue Trend",
+   "label": "Monthly Revenue Trend"
+  }
+ ],
+ "content": "[{\"id\": \"3572d6ab9f\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Director \\u2014 Monthly Revenue Trend\", \"col\": 12}}, {\"id\": \"ae73787166\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Today's Revenue\", \"col\": 3}}, {\"id\": \"f7e38b90f1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Monthly Revenue\", \"col\": 3}}, {\"id\": \"a46c8fde72\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Outstanding Receivables\", \"col\": 3}}, {\"id\": \"fbb822eeba\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Tests Today\", \"col\": 3}}, {\"id\": \"4477deec77\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"cd3d1fdc1b\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue Intelligence\", \"col\": 4}}, {\"id\": \"5b06e0dbad\", \"type\": \"card\", \"data\": {\"card_name\": \"Lab Operations\", \"col\": 4}}, {\"id\": \"20478c7ec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Inventory\", \"col\": 4}}, {\"id\": \"b1b753198d\", \"type\": \"card\", \"data\": {\"card_name\": \"Financial Health\", \"col\": 4}}, {\"id\": \"16f20ad38c\", \"type\": \"card\", \"data\": {\"card_name\": \"Assets and Equipment\", \"col\": 4}}, {\"id\": \"1f156b284f\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters\", \"col\": 4}}]",
+ "creation": "2026-03-16 00:01:14.983868",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "graph-up-arrow",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Director Workspace",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Revenue Intelligence",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sales by Test",
+   "link_count": 0,
+   "link_to": "Sales Analytics",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sales Invoice",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sales by Customer",
+   "link_count": 0,
+   "link_to": "Sales Analytics",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Sales Invoice",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Credit Customers",
+   "link_count": 0,
+   "link_to": "Accounts Receivable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Operations",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tests per Day",
+   "link_count": 0,
+   "link_to": "Lab Test",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Turnaround Time",
+   "link_count": 0,
+   "link_to": "Lab Test",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inventory",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Balance",
+   "link_count": 0,
+   "link_to": "Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Batch Item Expiry Status",
+   "link_count": 0,
+   "link_to": "Batch-Wise Balance History",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Item Shortage Report",
+   "link_count": 0,
+   "link_to": "Item Shortage Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Financial Health",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Accounts Receivable",
+   "link_count": 0,
+   "link_to": "Accounts Receivable",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Cash Flow",
+   "link_count": 0,
+   "link_to": "Cash Flow",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sales Register",
+   "link_count": 0,
+   "link_to": "Sales Register",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Profitability Analysis",
+   "link_count": 0,
+   "link_to": "Profitability Analysis",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Assets and Equipment",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Fixed Asset Register",
+   "link_count": 0,
+   "link_to": "Fixed Asset Register",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Asset Depreciation Ledger",
+   "link_count": 0,
+   "link_to": "Asset Depreciation Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-07-22 20:27:51.334761",
+ "modified_by": "Administrator",
+ "module": "Diagnostic Management",
+ "name": "Director Workspace",
+ "number_cards": [
+  {
+   "label": "Director \u2014 Today's Revenue",
+   "number_card_name": "Director \u2014 Today's Revenue"
+  },
+  {
+   "label": "Director \u2014 Monthly Revenue",
+   "number_card_name": "Director \u2014 Monthly Revenue"
+  },
+  {
+   "label": "Director \u2014 Outstanding Receivables",
+   "number_card_name": "Director \u2014 Outstanding Receivables"
+  },
+  {
+   "label": "Director \u2014 Tests Today",
+   "number_card_name": "Director \u2014 Tests Today"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "Kanonas Diagnosis",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "Director"
+  }
+ ],
+ "sequence_id": 15.0,
+ "shortcuts": [],
+ "title": "Director Workspace",
+ "type": "Workspace"
+}

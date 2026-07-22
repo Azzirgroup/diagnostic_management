@@ -236,9 +236,12 @@ def _ensure_dashboard_charts() -> None:
 
 _DIRECTOR_SECTIONS: list[tuple[str, list[tuple[str, str, str]]]] = [
 	("Revenue Intelligence", [
-		("Sales by Test", "Sales Analytics", "Report"),
-		("Sales by Customer", "Sales Analytics", "Report"),
-		("Credit Customers", "Accounts Receivable", "Report"),
+		# Sales Analytics defaults to ref_doctype=Sales Order (ERPNext default).
+		# Genetest bills directly via Sales Invoice, so opening the report under
+		# Sales Order shows an empty page. Override ref_doctype to Sales Invoice.
+		("Sales by Test",     "Sales Analytics", "Report", "Sales Invoice"),
+		("Sales by Customer", "Sales Analytics", "Report", "Sales Invoice"),
+		("Credit Customers",  "Accounts Receivable", "Report"),
 	]),
 	("Lab Operations", [
 		("Tests per Day", "Lab Test", "DocType"),
@@ -286,7 +289,9 @@ _LAB_MGR_SECTIONS: list[tuple[str, list[tuple[str, str, str]]]] = [
 		("Sales Register (Lab Billing)", "Sales Register", "Report"),
 	]),
 	("Revenue & Sales Reports", [
-		("Sales Analytics", "Sales Analytics", "Report"),
+		# Same ref_doctype override as the Director workspace — see
+		# _populate_section_links docstring.
+		("Sales Analytics",         "Sales Analytics",         "Report", "Sales Invoice"),
 		("Customer Ledger Summary", "Customer Ledger Summary", "Report"),
 	]),
 	("Stock & Inventory", [
@@ -305,22 +310,44 @@ def _populate_section_links(ws, sections) -> list[str]:
 	"""Append Card Break + Link rows to `ws.links` for each section, skipping
 	any link whose target doesn't exist on this site. Returns the list of
 	Card Break labels that ended up with at least one valid link (so the
-	caller knows which ones to put into `content`)."""
+	caller knows which ones to put into `content`).
+
+	Each item tuple: (label, link_to, link_type, [report_ref_doctype]).
+	The optional 4th element overrides `report_ref_doctype` on the Workspace
+	Link — controls which doctype route the report page opens under. Needed
+	for reports whose ERPNext default `ref_doctype` doesn't have data on
+	this site (e.g. Sales Analytics defaults to Sales Order; we point it at
+	Sales Invoice)."""
 	rendered: list[str] = []
 	for card_label, items in sections:
 		valid_items = [
-			(lbl, lt, tp) for (lbl, lt, tp) in items
-			if (tp == "Report" and frappe.db.exists("Report", lt))
-			or (tp == "DocType" and frappe.db.exists("DocType", lt))
+			it for it in items
+			if (it[2] == "Report" and frappe.db.exists("Report", it[1]))
+			or (it[2] == "DocType" and frappe.db.exists("DocType", it[1]))
 		]
 		if not valid_items:
 			continue
 		ws.append("links", {"label": card_label, "type": "Card Break", "hidden": 0})
-		for lbl, lt, tp in valid_items:
-			ws.append("links", {
+		for it in valid_items:
+			lbl, lt, tp = it[0], it[1], it[2]
+			ref_dt = it[3] if len(it) > 3 else None
+			link_row: dict = {
 				"label": lbl, "link_to": lt, "link_type": tp,
 				"type": "Link", "hidden": 0,
-			})
+			}
+			if tp == "Report":
+				# Framework UI needs `is_query_report=1` on the Link to route
+				# script/query reports through /desk/<doctype>/view/report/... .
+				# Without it the link renders as a plain page and script reports
+				# often fail to bind their filters.
+				rtype = frappe.db.get_value("Report", lt, "report_type")
+				if rtype in ("Script Report", "Query Report", "Report Builder"):
+					link_row["is_query_report"] = 1 if rtype != "Report Builder" else 0
+				# Override ref_doctype for reports whose default lives on a
+				# doctype with no data (see docstring).
+				if ref_dt and frappe.db.exists("DocType", ref_dt):
+					link_row["report_ref_doctype"] = ref_dt
+			ws.append("links", link_row)
 		rendered.append(card_label)
 	return rendered
 

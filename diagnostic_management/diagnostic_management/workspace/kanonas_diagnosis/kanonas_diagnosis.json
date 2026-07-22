@@ -1,58 +1,304 @@
 {
  "app": "diagnostic_management",
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Kanonas Diagnosis</b></span>\",\"col\":12}},{\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"text-muted small\\\">Launch the SPA from the buttons below, or jump straight into a record set via the cards.</span>\",\"col\":12}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Staff App\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Doctor Portal\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lab Hub\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Radiology\",\"col\":3}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Patients\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Service Requests\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Diagnostic Reports\",\"col\":3}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Critical Findings\",\"col\":3}},{\"type\":\"spacer\",\"data\":{\"col\":12}},{\"type\":\"card\",\"data\":{\"card_name\":\"Lab Operations\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Radiology\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Billing & Finance\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Clinical Master Data\",\"col\":4}},{\"type\":\"card\",\"data\":{\"card_name\":\"Administration\",\"col\":4}},{\"type\":\"spacer\",\"data\":{\"col\":4}}]",
- "creation": "2026-05-16 00:00:00",
+ "content": "[{\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Kanonas Diagnosis</b></span>\", \"col\": 12}}, {\"type\": \"paragraph\", \"data\": {\"text\": \"<span class=\\\"text-muted small\\\">Launch the SPA from the buttons below, or jump straight into a record set via the cards.</span>\", \"col\": 12}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"1d3a436f95\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Director Workspace\", \"col\": 3}}, {\"id\": \"ab766d30f3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Lab Manager Workspace\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open Staff App\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open Doctor Portal\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Lab Hub\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Radiology\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Patients\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Service Requests\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Diagnostic Reports\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Critical Findings\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Lab Operations\", \"col\": 4}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Radiology\", \"col\": 4}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Billing & Finance\", \"col\": 4}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Clinical Master Data\", \"col\": 4}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Administration\", \"col\": 4}}, {\"type\": \"spacer\", \"data\": {\"col\": 4}}]",
+ "creation": "2026-07-18 11:13:56.676826",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
  "hide_custom": 0,
  "icon": "stethoscope",
- "indicator_color": "green",
  "idx": 0,
+ "indicator_color": "green",
  "is_hidden": 0,
  "label": "Kanonas Diagnosis",
  "links": [
-  {"hidden": 0, "is_query_report": 0, "label": "Lab Operations", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "Sample Collection", "link_count": 0, "link_to": "Sample Collection", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Lab Test", "link_count": 0, "link_to": "Lab Test", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Reagent Lot", "link_count": 0, "link_to": "Reagent Lot", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Lab Instrument", "link_count": 0, "link_to": "Lab Instrument", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "QC Run", "link_count": 0, "link_to": "QC Run", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Calibration Run", "link_count": 0, "link_to": "Calibration Run", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Peer Review Case", "link_count": 0, "link_to": "Peer Review Case", "link_type": "DocType", "onboard": 0, "type": "Link"},
-
-  {"hidden": 0, "is_query_report": 0, "label": "Radiology", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "Service Request", "link_count": 0, "link_to": "Service Request", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Diagnostic Report", "link_count": 0, "link_to": "Diagnostic Report", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Radiology Pre-Auth", "link_count": 0, "link_to": "Radiology Pre-Auth", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Critical Finding Log", "link_count": 0, "link_to": "Critical Finding Log", "link_type": "DocType", "onboard": 0, "type": "Link"},
-
-  {"hidden": 0, "is_query_report": 0, "label": "Billing & Finance", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "Sales Invoice", "link_count": 0, "link_to": "Sales Invoice", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Payment Entry", "link_count": 0, "link_to": "Payment Entry", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Insurance Claim", "link_count": 0, "link_to": "Insurance Claim", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Doctor Statement", "link_count": 0, "link_to": "Doctor Statement", "link_type": "DocType", "onboard": 0, "type": "Link"},
-
-  {"hidden": 0, "is_query_report": 0, "label": "Clinical Master Data", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "Patient", "link_count": 0, "link_to": "Patient", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Healthcare Practitioner", "link_count": 0, "link_to": "Healthcare Practitioner", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Lab Test Template", "link_count": 0, "link_to": "Lab Test Template", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Sample Type", "link_count": 0, "link_to": "Sample Type", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Body Part", "link_count": 0, "link_to": "Body Part", "link_type": "DocType", "onboard": 0, "type": "Link"},
-
-  {"hidden": 0, "is_query_report": 0, "label": "Administration", "link_count": 0, "onboard": 0, "type": "Card Break"},
-  {"hidden": 0, "is_query_report": 0, "label": "Healthcare Settings", "link_count": 0, "link_to": "Healthcare Settings", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Code System", "link_count": 0, "link_to": "Code System", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "Role", "link_count": 0, "link_to": "Role", "link_type": "DocType", "onboard": 0, "type": "Link"},
-  {"hidden": 0, "is_query_report": 0, "label": "User", "link_count": 0, "link_to": "User", "link_type": "DocType", "onboard": 0, "type": "Link"}
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Operations",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sample Collection",
+   "link_count": 0,
+   "link_to": "Sample Collection",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Test",
+   "link_count": 0,
+   "link_to": "Lab Test",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reagent Lot",
+   "link_count": 0,
+   "link_to": "Reagent Lot",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Instrument",
+   "link_count": 0,
+   "link_to": "Lab Instrument",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "QC Run",
+   "link_count": 0,
+   "link_to": "QC Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Calibration Run",
+   "link_count": 0,
+   "link_to": "Calibration Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Peer Review Case",
+   "link_count": 0,
+   "link_to": "Peer Review Case",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Radiology",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Service Request",
+   "link_count": 0,
+   "link_to": "Service Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diagnostic Report",
+   "link_count": 0,
+   "link_to": "Diagnostic Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Radiology Pre-Auth",
+   "link_count": 0,
+   "link_to": "Radiology Pre-Auth",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Critical Finding Log",
+   "link_count": 0,
+   "link_to": "Critical Finding Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Billing & Finance",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Payment Entry",
+   "link_count": 0,
+   "link_to": "Payment Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Insurance Claim",
+   "link_count": 0,
+   "link_to": "Insurance Claim",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Doctor Statement",
+   "link_count": 0,
+   "link_to": "Doctor Statement",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Clinical Master Data",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Patient",
+   "link_count": 0,
+   "link_to": "Patient",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Healthcare Practitioner",
+   "link_count": 0,
+   "link_to": "Healthcare Practitioner",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Lab Test Template",
+   "link_count": 0,
+   "link_to": "Lab Test Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sample Type",
+   "link_count": 0,
+   "link_to": "Sample Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Body Part",
+   "link_count": 0,
+   "link_to": "Body Part",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Administration",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Healthcare Settings",
+   "link_count": 0,
+   "link_to": "Healthcare Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Code System",
+   "link_count": 0,
+   "link_to": "Code System",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Role",
+   "link_count": 0,
+   "link_to": "Role",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "User",
+   "link_count": 0,
+   "link_to": "User",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
  ],
- "modified": "2026-05-16 00:00:00",
+ "modified": "2026-07-22 20:27:51.856920",
  "modified_by": "Administrator",
  "module": "Diagnostic Management",
  "name": "Kanonas Diagnosis",
- "type": "Workspace",
  "number_cards": [],
  "owner": "Administrator",
  "parent_page": "",
@@ -62,14 +308,85 @@
  "roles": [],
  "sequence_id": 10.0,
  "shortcuts": [
-  {"color": "Green", "doc_view": "", "label": "Open Staff App", "stats_filter": "", "type": "URL", "url": "/diagnostic_management"},
-  {"color": "Green", "doc_view": "", "label": "Open Doctor Portal", "stats_filter": "", "type": "URL", "url": "/doctor"},
-  {"color": "Cyan", "doc_view": "", "label": "Lab Hub", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/lab"},
-  {"color": "Purple", "doc_view": "", "label": "Radiology", "stats_filter": "", "type": "URL", "url": "/diagnostic_management/radiology"},
-  {"color": "Blue", "doc_view": "List", "label": "Patients", "link_to": "Patient", "stats_filter": "{\"status\":\"Active\"}", "type": "DocType"},
-  {"color": "Blue", "doc_view": "List", "label": "Service Requests", "link_to": "Service Request", "stats_filter": "{\"status\":\"Active\"}", "type": "DocType"},
-  {"color": "Cyan", "doc_view": "List", "label": "Diagnostic Reports", "link_to": "Diagnostic Report", "stats_filter": "{\"status\":[\"in\",[\"Draft\",\"Pending\"]]}", "type": "DocType"},
-  {"color": "Red", "doc_view": "List", "label": "Critical Findings", "link_to": "Critical Finding Log", "stats_filter": "{\"status\":[\"in\",[\"Detected\",\"Notified\",\"Escalated\"]]}", "type": "DocType"}
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Open Staff App",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Open Doctor Portal",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/doctor"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "",
+   "label": "Lab Hub",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/lab"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "label": "Radiology",
+   "stats_filter": "",
+   "type": "URL",
+   "url": "/diagnostic_management/radiology"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Patients",
+   "link_to": "Patient",
+   "stats_filter": "{\"status\":\"Active\"}",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Service Requests",
+   "link_to": "Service Request",
+   "stats_filter": "{\"status\":\"Active\"}",
+   "type": "DocType"
+  },
+  {
+   "color": "Cyan",
+   "doc_view": "List",
+   "label": "Diagnostic Reports",
+   "link_to": "Diagnostic Report",
+   "stats_filter": "{\"status\":[\"in\",[\"Draft\",\"Pending\"]]}",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "Critical Findings",
+   "link_to": "Critical Finding Log",
+   "stats_filter": "{\"status\":[\"in\",[\"Detected\",\"Notified\",\"Escalated\"]]}",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Director Workspace",
+   "type": "URL",
+   "url": "/app/director-workspace"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Lab Manager Workspace",
+   "type": "URL",
+   "url": "/app/lab-manager-workspace"
+  }
  ],
- "title": "Kanonas Diagnosis"
+ "title": "Kanonas Diagnosis",
+ "type": "Workspace"
 }
