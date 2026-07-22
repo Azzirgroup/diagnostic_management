@@ -170,6 +170,7 @@ def after_install():
 	_pin_patient_field_uniqueness()
 	_pin_default_print_formats()
 	_allow_doctor_after_submit()
+	_align_lab_report_status_options()
 
 
 def after_migrate():
@@ -188,6 +189,7 @@ def after_migrate():
 	_pin_patient_field_uniqueness()
 	_pin_default_print_formats()
 	_allow_doctor_after_submit()
+	_align_lab_report_status_options()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -256,6 +258,40 @@ def _pin_default_print_formats():
 			)
 		except Exception:
 			frappe.log_error(title="_pin_default_print_formats(SalesInvoice) failed")
+
+
+def _align_lab_report_status_options():
+	"""Sync the Select `options` on Lab Report child tables' `status` field with
+	the canonical enum (Normal / High / Low / … / Pre-diabetic / Diabetic).
+
+	Historical Property Setters on these child doctypes shipped without the
+	banded labels (Pre-diabetic / Diabetic), so `_build_lab_report` — which
+	now derives status via `banded_flag` for HbA1c-like analytes — fails
+	validation with `Row #N: Status cannot be "Diabetic". It should be one of
+	"Normal", "High", ...`. This helper rewrites those Property Setters (kept
+	as PS rather than deleted so a manual customisation stays reversible).
+
+	Idempotent — `make_property_setter` upserts by (doc_type, field_name,
+	property)."""
+	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+	# Leading blank kept — matches the original PS shape so the dropdown
+	# still offers an "empty" pick that the frontend uses for unset rows.
+	CANONICAL = (
+		"\nNormal\nHigh\nLow\nAbnormal\nCritical\nOptimal\nIntermediate"
+		"\nDeficiency\nInsufficiency\nSufficiency\nPotential Toxicity"
+		"\nPre-diabetic\nDiabetic"
+	)
+	for dt in ("Lab Report Numeric Result", "Lab Report Test",
+	           "Lab Report Grouped Result", "Lab Report Qualitative Result"):
+		if not frappe.db.exists("DocType", dt):
+			continue
+		try:
+			make_property_setter(
+				dt, "status", "options", CANONICAL, "Text",
+				for_doctype=False, validate_fields_for_doctype=False,
+			)
+		except Exception:
+			frappe.log_error(title=f"_align_lab_report_status_options({dt}) failed")
 
 
 def _allow_doctor_after_submit():
