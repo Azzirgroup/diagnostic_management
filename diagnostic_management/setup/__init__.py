@@ -172,6 +172,7 @@ def after_install():
 	_allow_doctor_after_submit()
 	_align_lab_report_status_options()
 	_allow_result_edit_after_submit()
+	_ensure_user_company_default()
 
 
 def after_migrate():
@@ -192,6 +193,7 @@ def after_migrate():
 	_allow_doctor_after_submit()
 	_align_lab_report_status_options()
 	_allow_result_edit_after_submit()
+	_ensure_user_company_default()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -294,6 +296,51 @@ def _align_lab_report_status_options():
 			)
 		except Exception:
 			frappe.log_error(title=f"_align_lab_report_status_options({dt}) failed")
+
+
+def _ensure_user_company_default():
+	"""Stamp the site's Company as a per-user default on every enabled user.
+
+	Without this, standard ERPNext reports opened from the desk (Sales
+	Register, Accounts Receivable, Cash Flow, Profitability Analysis, …)
+	render EMPTY: the Framework UI auto-populates the Company filter from
+	the user's DefaultValue map, and if it's missing, the filter goes in
+	blank → SQL matches nothing → report looks empty even though rows
+	exist. Symptom: Director Workspace KPI cards show real revenue but
+	every linked report is empty.
+
+	We only stamp when the site has EXACTLY ONE Company — multi-company
+	sites need the user to pick their own default via User Settings.
+	Idempotent: only inserts a DefaultValue row when one doesn't already
+	exist for that user."""
+	companies = frappe.get_all("Company", pluck="name")
+	if len(companies) != 1:
+		return
+	company = companies[0]
+	users = frappe.get_all("User",
+		filters={"enabled": 1, "user_type": ["!=", "Website User"]},
+		pluck="name")
+	from frappe.defaults import add_default
+	for u in users:
+		if u in ("Administrator", "Guest"):
+			continue
+		existing = frappe.db.exists("DefaultValue",
+			{"parent": u, "defkey": "company"})
+		if existing:
+			continue
+		try:
+			add_default("company", company, u, parenttype="User Permission")
+		except Exception:
+			# Signature differs by Frappe version — fall back to raw insert.
+			try:
+				frappe.get_doc({
+					"doctype": "DefaultValue",
+					"parent": u, "parenttype": "User Permission",
+					"parentfield": "system_defaults",
+					"defkey": "company", "defvalue": company,
+				}).insert(ignore_permissions=True)
+			except Exception:
+				frappe.log_error(title=f"_ensure_user_company_default({u}) failed")
 
 
 def _allow_result_edit_after_submit():
