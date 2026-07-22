@@ -73,14 +73,15 @@ async function submit(outcome: string) {
   } finally { busy.value = false }
 }
 
-// Close the case with outcome=Amend AND re-open the underlying Lab Tests so
-// the technologist can edit the actual analyte values. Restricted server-side
-// to System Manager + Lab Manager; the button is also hidden for other roles.
-async function submitAmend() {
+// Close the case with outcome=Correction Required and send the report back
+// to the tech for IN-PLACE editing. Non-destructive: the Lab Tests stay
+// submitted (result fields are allow_on_submit) and every edit lands as an
+// audit Comment on the Lab Test. Replaces the old destructive amend path.
+async function submitCorrection() {
   if (!selected.value) return
   busy.value = true; amendError.value = ''
   try {
-    const r = await labApi.submitPeerReviewAmend({
+    const r = await labApi.submitPeerReviewCorrection({
       name: selected.value.name,
       review_notes: reviewNotes.value,
       discrepancy_severity: 'Major',
@@ -88,9 +89,9 @@ async function submitAmend() {
     reviewNotes.value = ''
     selected.value = null
     await load()
-    alert(`Report ${r.report} sent back for amendment. ${r.amended_lab_tests.length} lab test(s) re-opened for editing.`)
+    alert(`Report ${r.report} sent back for correction. The tech can now edit result values in place; each edit is audit-logged.`)
   } catch (e: any) {
-    amendError.value = frappeError(e, 'Failed to request amendment')
+    amendError.value = frappeError(e, 'Failed to send back for correction')
   } finally { busy.value = false }
 }
 </script>
@@ -208,10 +209,10 @@ async function submitAmend() {
           v-if="canAmend"
           class="btn-danger w-full mt-2"
           :disabled="busy || !reviewNotes.trim()"
-          :title="'Closes the case with outcome=Amendment Required AND re-opens the underlying Lab Tests for editing.'"
-          @click="submitAmend"
+          :title="'Sends the report back to the tech for in-place correction. Lab Tests stay submitted; each edit is audit-logged.'"
+          @click="submitCorrection"
         >
-          Submit &amp; Amend (re-open results for editing)
+          Send Back for Correction
         </button>
       </template>
       <p v-if="amendError" class="text-status-danger text-xs mt-2">{{ amendError }}</p>

@@ -580,6 +580,11 @@ def _field_map() -> dict[str, list[dict]]:
 				"options": "Normal\nHigh\nLow\nAbnormal\nCritical\nOptimal\nIntermediate\nDeficiency\nInsufficiency\nSufficiency\nPotential Toxicity\nPre-diabetic\nDiabetic",
 				"default": "Normal",
 				"insert_after": "lab_test_comment",
+				# Editable after the parent Lab Test is submitted — the
+				# peer-review "Send Back for Correction" path uses in-place
+				# editing (audit-logged) instead of the destructive amend
+				# flow that cancels + copies Lab Tests.
+				"allow_on_submit": 1,
 			},
 		],
 		"Stock Entry": [

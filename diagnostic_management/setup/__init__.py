@@ -171,6 +171,7 @@ def after_install():
 	_pin_default_print_formats()
 	_allow_doctor_after_submit()
 	_align_lab_report_status_options()
+	_allow_result_edit_after_submit()
 
 
 def after_migrate():
@@ -190,6 +191,7 @@ def after_migrate():
 	_pin_default_print_formats()
 	_allow_doctor_after_submit()
 	_align_lab_report_status_options()
+	_allow_result_edit_after_submit()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -292,6 +294,49 @@ def _align_lab_report_status_options():
 			)
 		except Exception:
 			frappe.log_error(title=f"_align_lab_report_status_options({dt}) failed")
+
+
+def _allow_result_edit_after_submit():
+	"""Let peer-review corrections edit result values on submitted Lab Tests.
+
+	The peer-review path used to CANCEL the Lab Test and copy_doc a new
+	`-1` amendment — Frappe's default `amend_doc` flow. Two failure modes
+	followed: the amendment carried the old values forward (looked like
+	the reviewer's correction was ignored), and rebills piled a second
+	batch onto the same reused Sample Collection (duplicate rows on
+	Results). The new peer-review "Send Back for Correction" path keeps
+	the Lab Test submitted and mutates result rows in place; each mutation
+	is audit-logged as a Comment on the parent Lab Test. To make that
+	possible without cancelling, the mutable result fields must be
+	allow_on_submit.
+
+	Idempotent — `make_property_setter` upserts by
+	(doc_type, field_name, property)."""
+	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+	targets = [
+		# Numeric / range analytes (Chemistry, Haematology).
+		("Normal Test Result", "result_value"),
+		("Normal Test Result", "lab_test_comment"),
+		# Free-text narratives (Histology, Radiology-narrative).
+		("Descriptive Test Result", "result_value"),
+		# Microbiology — antibiotic sensitivity (which drug, susceptibility).
+		("Sensitivity Test Result", "antibiotic"),
+		("Sensitivity Test Result", "antibiotic_sensitivity"),
+		# Microbiology — organism identification + colony count.
+		("Organism Test Result", "organism"),
+		("Organism Test Result", "colony_population"),
+		("Organism Test Result", "colony_uom"),
+	]
+	for dt, field in targets:
+		if not frappe.db.exists("DocType", dt):
+			continue
+		try:
+			make_property_setter(
+				dt, field, "allow_on_submit", "1", "Check",
+				for_doctype=False, validate_fields_for_doctype=False,
+			)
+		except Exception:
+			frappe.log_error(title=f"_allow_result_edit_after_submit({dt}.{field}) failed")
 
 
 def _allow_doctor_after_submit():

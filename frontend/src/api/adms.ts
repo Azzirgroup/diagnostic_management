@@ -738,10 +738,13 @@ export const labApi = {
     discrepancy_severity?: string
     concurrence?: number
   }) => call<{ ok: boolean; name: string; status: string; outcome: string }>('diagnostic_management.api.lab.submit_peer_review', payload),
-  // Close a peer review case with outcome=Amend AND roll the underlying
-  // Lab Tests back to Draft so analyte values become editable again.
-  // Server enforces: only System Manager + Lab Manager may call this.
-  submitPeerReviewAmend: (payload: {
+  // Close a peer review case with outcome=Correction Required.
+  // Non-destructive: the Lab Tests stay submitted; the tech opens Results
+  // and edits values in place (result fields are allow_on_submit), and
+  // each edit is audit-logged as a Comment on the Lab Test. Replaces the
+  // old amend flow, which cancelled + copy_doc'd Lab Tests and caused
+  // duplicate rows on the reused Sample Collection.
+  submitPeerReviewCorrection: (payload: {
     name: string
     review_notes: string
     discrepancy_severity?: string
@@ -750,8 +753,7 @@ export const labApi = {
     case: string
     report: string
     report_status: string
-    amended_lab_tests: string[]
-  }>('diagnostic_management.api.lab.submit_peer_review_amend', payload),
+  }>('diagnostic_management.api.lab.submit_peer_review_correction', payload),
 }
 
 // -------------------------------------------------------------------------

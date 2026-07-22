@@ -41,6 +41,31 @@ def _allow_blanks(doc) -> None:
 			row.allow_blank = 1
 
 
+def _infer_result_type(picked: dict | None, tmpl_row: dict | None, row_normal_range: str | None) -> str:
+	"""Fallback result_type when the template + reference-range picker BOTH
+	leave `custom_result_type` blank.
+
+	Rule: `Numeric` requires *some* numeric context — an ADMS picker range,
+	the child template's numeric bounds, or free-text `normal_range` that
+	parses. Otherwise the analyte is free-text (`Data`). Rendering a number
+	spinner for an analyte with no reference range (e.g. Peripheral Blood
+	Film's RBC/WBC observations, or a COMMENT field) is worse than a plain
+	text box — the user has no signal that a number is even expected.
+
+	Never returns `""` — the frontend switches its widget on this string.
+	"""
+	if picked and picked.get("range_text"):
+		return "Numeric"
+	if tmpl_row:
+		if tmpl_row.get("synth_range"):
+			return "Numeric"
+		if tmpl_row.get("normal_range") and str(tmpl_row.get("normal_range")).strip():
+			return "Numeric"
+	if row_normal_range and str(row_normal_range).strip():
+		return "Numeric"
+	return "Data"
+
+
 def _template_analyte_row(template: str | None, analyte: str | None) -> dict | None:
 	"""Source `custom_result_type` / `custom_result_options` for this analyte,
 	regardless of whether the template is Single or Compound. Also synthesizes
@@ -156,6 +181,13 @@ def _lab_test_rows(doc) -> dict:
 			rtype = picked.get("result_type")
 		if not ropts and picked:
 			ropts = picked.get("result_options")
+		# Fallback when the template AND picker both leave `custom_result_type`
+		# blank: infer from whether there's ANY numeric context (a range text,
+		# a numeric-bounds synth, or a picker range). If yes → Numeric. If
+		# nothing numeric → Data (free text), because rendering a spinner for
+		# an analyte with no range (e.g. Peripheral Blood Film's RBC/WBC/PLT
+		# observations, or a COMMENT field) is worse than a plain text box.
+		rtype = rtype or _infer_result_type(picked, tmpl_row, r.normal_range)
 		# Status: RECOMPUTE from the current range for Numeric analytes so
 		# old rows saved with a stale "Normal" (either the frontend default
 		# or entered before autoUpdateStatus shipped) get corrected on
@@ -260,6 +292,12 @@ def get_sample(sample: str, session_id: str | None = None,
 	else:
 		# No batch context → only Draft tests.
 		lt_filters["docstatus"] = 0
+	# Never surface CANCELLED (docstatus=2) Lab Tests, even when the SI
+	# filter matches them. The legacy peer-review amend flow left the
+	# original doc cancelled alongside a new -1 draft — showing both
+	# produced the "two copies per test" duplication users reported.
+	if lt_filters.get("docstatus") != 0:
+		lt_filters["docstatus"] = ["<", 2]
 	lab_tests = frappe.get_all(
 		"Lab Test", filters=lt_filters,
 		order_by="creation", pluck="name",
@@ -335,6 +373,132 @@ def _report_for_sample(sample: str) -> str | None:
 	return frappe.db.get_value("Diagnostic Report", {"ref_doctype": "Sample Collection", "docname": sample}, "name")
 
 
+def _apply_result_corrections(
+	doc,
+	nmap: dict,
+	dmap: dict,
+	smap: dict | None = None,
+	omap: dict | None = None,
+) -> None:
+	"""Write result mutations onto an already-SUBMITTED Lab Test across ALL
+	four result child tables:
+
+	  * Normal Test Result       — numeric/range analytes (Chemistry, Haem)
+	  * Descriptive Test Result  — free-text narratives (Histology)
+	  * Sensitivity Test Result  — Microbiology antibiotic sensitivities
+	  * Organism Test Result     — Microbiology organism ID + colony count
+
+	Each row whose incoming payload differs from what's on disk gets a
+	`db.set_value` write (bypasses docstatus lock — the mutable fields are
+	allow_on_submit, see setup._allow_result_edit_after_submit) and a
+	change line in a single audit Comment on the parent Lab Test. Rows
+	that weren't sent, or were sent with an unchanged value, are noops.
+	"""
+	smap = smap or {}
+	omap = omap or {}
+	changes: list[str] = []
+
+	def _esc(v):
+		return frappe.utils.escape_html(str(v or ""))
+
+	def _diff(label: str, before, after) -> str:
+		return f"{_esc(label)}: <code>{_esc(before)}</code> → <code>{_esc(after)}</code>"
+
+	# Normal Test Result — track value / status / comment.
+	for row in doc.normal_test_items:
+		if row.name not in nmap:
+			continue
+		src = nmap[row.name]
+		updates: dict = {}
+		for field, before in (
+			("result_value",      row.result_value),
+			("status",            row.status),
+			("lab_test_comment",  row.lab_test_comment),
+		):
+			if field not in src:
+				continue
+			after = src.get(field)
+			if (before or "") == (after or ""):
+				continue
+			updates[field] = after
+			if field == "result_value":
+				changes.append(_diff(
+					row.lab_test_name or row.lab_test_event or row.name,
+					before, after,
+				))
+		if updates:
+			frappe.db.set_value("Normal Test Result", row.name, updates,
+			                    update_modified=False)
+
+	# Descriptive Test Result — track value only.
+	for row in doc.descriptive_test_items:
+		if row.name not in dmap:
+			continue
+		after = dmap[row.name].get("result_value")
+		before = row.result_value
+		if (before or "") == (after or ""):
+			continue
+		frappe.db.set_value("Descriptive Test Result", row.name,
+		                    "result_value", after, update_modified=False)
+		changes.append(_diff(row.lab_test_particulars or row.name, before, after))
+
+	# Sensitivity Test Result — Microbiology (antibiotic + susceptibility).
+	for row in getattr(doc, "sensitivity_test_items", []) or []:
+		if row.name not in smap:
+			continue
+		src = smap[row.name]
+		updates = {}
+		for field, before in (
+			("antibiotic",              row.antibiotic),
+			("antibiotic_sensitivity",  row.antibiotic_sensitivity),
+		):
+			if field not in src:
+				continue
+			after = src.get(field)
+			if (before or "") == (after or ""):
+				continue
+			updates[field] = after
+			changes.append(_diff(f"{row.antibiotic or row.name} · {field}", before, after))
+		if updates:
+			frappe.db.set_value("Sensitivity Test Result", row.name, updates,
+			                    update_modified=False)
+
+	# Organism Test Result — Microbiology (organism + colony count).
+	for row in getattr(doc, "organism_test_items", []) or []:
+		if row.name not in omap:
+			continue
+		src = omap[row.name]
+		updates = {}
+		for field, before in (
+			("organism",          row.organism),
+			("colony_population", row.colony_population),
+			("colony_uom",        row.colony_uom),
+		):
+			if field not in src:
+				continue
+			after = src.get(field)
+			if (before or "") == (after or ""):
+				continue
+			updates[field] = after
+			changes.append(_diff(f"{row.organism or row.name} · {field}", before, after))
+		if updates:
+			frappe.db.set_value("Organism Test Result", row.name, updates,
+			                    update_modified=False)
+
+	if changes:
+		# One Comment per save carries every field change made in this call.
+		# Keeps the timeline compact and matches how a reviewer would think
+		# about the correction ("this save fixed X and Y").
+		doc.add_comment(
+			"Comment",
+			text=(
+				"<b>Results corrected in place</b><br>"
+				f"By: {_esc(frappe.session.user)}<br>"
+				+ "<br>".join(changes)
+			),
+		)
+
+
 @frappe.whitelist()
 def save_sample(
 	sample: str,
@@ -349,10 +513,25 @@ def save_sample(
 	tests = json.loads(tests) if isinstance(tests, str) else (tests or [])
 	for t in tests:
 		doc = frappe.get_doc("Lab Test", t["name"])
-		if doc.docstatus == 1:
-			continue
 		nmap = {r["name"]: r for r in (t.get("normal") or [])}
 		dmap = {r["name"]: r for r in (t.get("descriptive") or [])}
+		# Microbiology payloads — optional keys; SPA doesn't send them today
+		# but the plumbing is here so any future Sensitivity/Organism editor
+		# (or a Desk-side save) uses the same audit-logged edit path.
+		smap = {r["name"]: r for r in (t.get("sensitivity") or [])}
+		omap = {r["name"]: r for r in (t.get("organism") or [])}
+
+		# Peer-review correction path: the Lab Test may already be SUBMITTED
+		# (docstatus=1) — e.g. the reviewer sent it back with "Send Back for
+		# Correction" and the tech is now editing the numbers in place. The
+		# result fields are allow_on_submit (see setup._allow_result_edit_after_submit),
+		# so we mutate them directly via db.set_value (bypasses docstatus lock
+		# on child rows) and audit-log each change as a Comment on the Lab
+		# Test. `complete` is ignored on this branch — the doc stays submitted.
+		if doc.docstatus == 1:
+			_apply_result_corrections(doc, nmap, dmap, smap, omap)
+			continue
+
 		for row in doc.normal_test_items:
 			if row.name in nmap:
 				row.result_value = nmap[row.name].get("result_value")
@@ -363,6 +542,25 @@ def save_sample(
 		for row in doc.descriptive_test_items:
 			if row.name in dmap:
 				row.result_value = dmap[row.name].get("result_value")
+		# Sensitivity / Organism child rows — draft path. Same optional-key
+		# contract as the correction branch above; only fields present in the
+		# payload get written, everything else is left alone.
+		for row in getattr(doc, "sensitivity_test_items", []) or []:
+			if row.name in smap:
+				src = smap[row.name]
+				if "antibiotic" in src:
+					row.antibiotic = src.get("antibiotic")
+				if "antibiotic_sensitivity" in src:
+					row.antibiotic_sensitivity = src.get("antibiotic_sensitivity")
+		for row in getattr(doc, "organism_test_items", []) or []:
+			if row.name in omap:
+				src = omap[row.name]
+				if "organism" in src:
+					row.organism = src.get("organism")
+				if "colony_population" in src:
+					row.colony_population = src.get("colony_population")
+				if "colony_uom" in src:
+					row.colony_uom = src.get("colony_uom")
 		if int(complete or 0):
 			_allow_blanks(doc)
 		doc.save(ignore_permissions=False)
@@ -515,6 +713,9 @@ def get_lab_test(name: str) -> dict:
 		if tmpl_row:
 			rtype = rtype or tmpl_row.get("custom_result_type")
 			ropts = ropts or tmpl_row.get("custom_result_options")
+		# Same fallback rule as _lab_test_rows — no explicit type +
+		# no numeric context → Data (free text), not Numeric.
+		rtype = rtype or _infer_result_type(picked, tmpl_row, r.normal_range)
 		# See _lab_test_rows — recompute Numeric status so stale "Normal"
 		# defaults get corrected on every read.
 		stored_status = r.get("status") or "Normal"
@@ -818,7 +1019,14 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	if existing_dr_for_sample:
 		csv_names = frappe.db.get_value("Diagnostic Report", existing_dr_for_sample, "custom_lab_tests_csv")
 	if csv_names:
-		current_lt_names = [n.strip() for n in csv_names.split(",") if n.strip() and frappe.db.exists("Lab Test", n.strip())]
+		# Skip cancelled entries (docstatus=2) — the legacy amend flow could
+		# leave a cancelled Lab Test name in the CSV alongside its `-1`
+		# draft, which would print duplicate rows.
+		raw = [n.strip() for n in csv_names.split(",") if n.strip()]
+		current_lt_names = [
+			n for n in raw
+			if frappe.db.get_value("Lab Test", n, "docstatus") in (0, 1)
+		]
 	else:
 		# Include Draft (docstatus=0) AND Submitted (=1) Lab Tests. Previously
 		# docstatus=1 was required, which produced a completely empty print
@@ -863,11 +1071,15 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 				or r.lab_test_uom
 				or (tmpl_row.get("lab_test_uom") if tmpl_row else None)
 			)
-			# Flagging respects the analyte's result_type. Numeric (default) uses
-			# the bounds parser → High/Low/Normal. For Select and Data types we
+			# Flagging respects the analyte's result_type. Numeric uses the
+			# bounds parser → High/Low/Normal. For Select and Data types we
 			# treat any value that doesn't case-insensitively match the configured
 			# "normal" range as Abnormal (e.g. result Positive vs reference Negative).
-			rtype = (picked["result_type"] if picked else None) or "Numeric"
+			# Fallback rule shared with the read paths: no explicit type + no
+			# numeric context → Data, never a bare Numeric assumption.
+			rtype = (picked["result_type"] if picked else None) or \
+			        (tmpl_row.get("custom_result_type") if tmpl_row else None) or \
+			        _infer_result_type(picked, tmpl_row, r.normal_range)
 			flag = ""
 			abnormal = 0
 			val = (r.result_value or "").strip()

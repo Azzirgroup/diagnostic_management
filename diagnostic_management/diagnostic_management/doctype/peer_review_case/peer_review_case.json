@@ -44,7 +44,7 @@
   {"fieldname": "due_date", "fieldtype": "Date", "label": "Due Date"},
   {"fieldname": "column_break_2", "fieldtype": "Column Break"},
   {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Open\nIn Review\nDiscussion\nClosed", "default": "Open", "in_list_view": 1, "in_standard_filter": 1},
-  {"fieldname": "outcome", "fieldtype": "Select", "label": "Outcome", "options": "\nAgree\nMinor Disagreement\nMajor Disagreement\nAmendment Required"},
+  {"fieldname": "outcome", "fieldtype": "Select", "label": "Outcome", "options": "\nAgree\nMinor Disagreement\nMajor Disagreement\nCorrection Required\nAmendment Required"},
   {"fieldname": "concurrence", "fieldtype": "Percent", "label": "Concurrence %"},
   {"fieldname": "section_break_2", "fieldtype": "Section Break", "label": "Review"},
   {"fieldname": "clinical_question", "fieldtype": "Small Text", "label": "Clinical Question / Focus"},

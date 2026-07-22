@@ -512,99 +512,69 @@ def submit_peer_review(
 
 
 @frappe.whitelist()
-def submit_peer_review_amend(
+def submit_peer_review_correction(
 	name: str,
 	review_notes: str,
 	discrepancy_severity: str | None = None,
 ) -> dict:
-	"""Close a Peer Review Case with `outcome=Amend` AND pull the underlying
-	Lab Tests back to Draft so the technologist can edit the actual analyte
-	values, then re-submit through the normal verify/release flow.
+	"""Close a Peer Review Case with `outcome=Correction Required` and send
+	the report back to the tech for in-place editing — WITHOUT cancelling or
+	duplicating any Lab Test.
 
-	Access rule: any logged-in user can amend EXCEPT the case's
-	`original_reporter` (see `_reject_self_review`). Same "no self-review"
-	guardrail as the normal peer-review outcomes — a small lab may not
-	have dedicated Lab Managers, so we open the amend flow to peers as
-	long as they didn't enter the results themselves.
+	Replaces the older `submit_peer_review_amend`, which used Frappe's
+	destructive `amend_doc` flow (cancel + copy_doc `-1` draft). That flow
+	carried old result values forward and, when the tech re-billed instead
+	of resuming the amended session, piled duplicate Lab Tests onto the
+	same reused Sample Collection. In-place edit avoids both failure modes:
+	  * Values stay authoritative (no copy carrying stale numbers).
+	  * No new Lab Tests / Service Requests / SIs are created.
+
+	Access rule: any logged-in user EXCEPT the case's original_reporter
+	(see `_reject_self_review`). Same "no self-review" guardrail as the
+	normal peer-review outcomes.
 
 	Steps:
-	  1. Close the Peer Review Case with outcome=Amend and the review notes.
-	  2. Flip the Diagnostic Report back to "Pending Review" and stamp a
-	     comment trail explaining why.
-	  3. For each Lab Test the report covers (via DR.custom_lab_tests_csv —
-	     the authoritative list of which Lab Tests THIS report bundles):
-	        - cancel the submitted doc (docstatus 1 → 2)
-	        - copy_doc into a new draft amended_from the cancelled one
-	        - re-insert as docstatus=0 so its rows become editable again
-	  4. Update DR.custom_lab_tests_csv to point at the new (amended) Lab
-	     Test names so the workflow's Results step shows the right batch.
-	  5. Re-link the Sample Collection's workflow_status to "In Processing"
-	     so the wizard's derived-step calc lands the user back on Results
-	     (the docstatus=0 lab tests are already editable; this just makes
-	     the wizard's "furthest reached step" calc match reality).
+	  1. Close the Peer Review Case with outcome=Correction Required.
+	  2. Flip the Diagnostic Report back to "Pending Review" and log a
+	     comment trail with the reviewer's notes.
+	  3. Keep `custom_peer_reviewed=0` so Verify & Release stays blocked
+	     until a fresh peer review passes.
+	  4. Reset the Sample Collection's workflow_status to "In Processing"
+	     so the wizard lands the tech back on the Results step. The
+	     Lab Tests stay submitted; the tech mutates result_value / status
+	     / lab_test_comment via the normal save endpoint — those fields
+	     are allow_on_submit (see setup._allow_result_edit_after_submit)
+	     and each mutation lands as an audit Comment on the Lab Test.
 	"""
 	case = frappe.get_doc("Peer Review Case", name)
 	_reject_self_review(case)
-	if case.status == "Closed" and case.outcome == "Amendment Required":
-		frappe.throw("This case has already been amended.")
+	if case.status == "Closed" and case.outcome == "Correction Required":
+		frappe.throw("This case has already been sent back for correction.")
 
-	# 1. Close the peer review case.
-	case.outcome = "Amendment Required"
+	# 1. Close the case.
+	case.outcome = "Correction Required"
 	case.review_notes = review_notes
 	if discrepancy_severity:
 		case.discrepancy_severity = discrepancy_severity
 	case.status = "Closed"
 	case.completed_at = now_datetime()
-	# Same rationale as `submit_peer_review`: the self-review guard is the real
-	# business rule; the DocPerm role gate is deliberately opened up so a bare
-	# Lab Technician can amend a colleague's report.
 	case.save(ignore_permissions=True)
 
-	# 2. Roll the Diagnostic Report back to Pending Review.
+	# 2 + 3. Roll DR back to Pending Review; keep peer-review flag off.
 	dr = frappe.get_doc("Diagnostic Report", case.subject_report)
 	dr.db_set("status", "Pending Review")
+	dr.db_set("custom_peer_reviewed", 0)
 	dr.add_comment(
 		"Comment",
 		text=(
-			f"<b>Amendment requested via peer review {frappe.utils.escape_html(name)}</b>"
+			f"<b>Correction requested via peer review {frappe.utils.escape_html(name)}</b>"
 			f"<br>By: {frappe.utils.escape_html(frappe.session.user)}"
 			f"<br>{frappe.utils.escape_html(review_notes or '')}"
+			f"<br><i>Lab Tests stay submitted; edits are applied in place and audit-logged.</i>"
 		),
 	)
 
-	# 3. Cancel + amend each submitted Lab Test so values become editable.
-	csv = (dr.get("custom_lab_tests_csv") or "").strip()
-	if not csv:
-		# Fallback: walk the sample's lab tests when csv was never stamped.
-		csv = ",".join(
-			frappe.get_all(
-				"Lab Test",
-				filters={"sample": dr.sample_collection, "docstatus": 1},
-				pluck="name",
-			)
-		)
-	old_names = [n.strip() for n in csv.split(",") if n.strip()]
-	new_names: list[str] = []
-	for lt_name in old_names:
-		if not frappe.db.exists("Lab Test", lt_name):
-			continue
-		lt = frappe.get_doc("Lab Test", lt_name)
-		if lt.docstatus == 1:
-			lt.cancel()
-			amended = frappe.copy_doc(lt)
-			amended.amended_from = lt_name
-			amended.docstatus = 0
-			amended.insert(ignore_permissions=False)
-			new_names.append(amended.name)
-		elif lt.docstatus == 0:
-			# Already a draft (rare) — keep it.
-			new_names.append(lt.name)
-
-	# 4. Update DR's csv to point at the new draft names.
-	if new_names:
-		dr.db_set("custom_lab_tests_csv", ",".join(new_names))
-
-	# 5. Re-open the Results step in the workflow wizard.
+	# 4. Re-open the Results step for the tech.
 	if dr.sample_collection and frappe.db.exists("Sample Collection", dr.sample_collection):
 		sc = frappe.get_doc("Sample Collection", dr.sample_collection)
 		if "workflow_status" in {df.fieldname for df in sc.meta.fields}:
@@ -615,8 +585,23 @@ def submit_peer_review_amend(
 		"case": name,
 		"report": dr.name,
 		"report_status": "Pending Review",
-		"amended_lab_tests": new_names,
 	}
+
+
+# Backwards-compat alias — old SPA bundles still call `submit_peer_review_amend`.
+# Delegates to the new correction endpoint; safe to remove once every SPA
+# client has picked up the rebuild.
+@frappe.whitelist()
+def submit_peer_review_amend(
+	name: str,
+	review_notes: str,
+	discrepancy_severity: str | None = None,
+) -> dict:
+	return submit_peer_review_correction(
+		name=name,
+		review_notes=review_notes,
+		discrepancy_severity=discrepancy_severity,
+	)
 
 
 # -- Lab Reports browser ---------------------------------------------------

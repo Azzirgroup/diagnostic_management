@@ -51,17 +51,17 @@ async function submit(outcome: string) {
   } finally { busy.value = false }
 }
 
-async function submitAmend() {
+async function submitCorrection() {
   busy.value = true; err.value = ''
   try {
-    const r = await labApi.submitPeerReviewAmend({
+    const r = await labApi.submitPeerReviewCorrection({
       name: caseName.value, review_notes: reviewNotes.value,
       discrepancy_severity: 'Major',
     })
-    alert(`Report ${r.report} sent back for amendment. ${r.amended_lab_tests.length} lab test(s) re-opened for editing.`)
+    alert(`Report ${r.report} sent back for correction. The tech can now edit result values in place; each edit is audit-logged.`)
     router.push('/lab/peer-review')
   } catch (e: any) {
-    err.value = frappeError(e, 'Failed to request amendment')
+    err.value = frappeError(e, 'Failed to send back for correction')
   } finally { busy.value = false }
 }
 </script>
@@ -186,8 +186,8 @@ async function submitAmend() {
             <button class="btn-danger-ghost w-full mt-2" :disabled="busy || !reviewNotes.trim()"
               @click="submit('Major Disagreement')">Submit · Major Disagree</button>
             <button v-if="canAmend" class="btn-danger w-full mt-2" :disabled="busy || !reviewNotes.trim()"
-              :title="'Closes with outcome=Amendment Required AND re-opens the underlying Lab Tests for editing.'"
-              @click="submitAmend">Submit &amp; Amend (re-open results)</button>
+              :title="'Sends the report back to the tech for in-place correction. Lab Tests stay submitted; each edit is audit-logged.'"
+              @click="submitCorrection">Send Back for Correction</button>
           </template>
 
           <p v-if="err" class="text-xs text-status-danger mt-2">{{ err }}</p>
