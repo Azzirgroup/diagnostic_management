@@ -158,8 +158,38 @@ def create_basic(
 			payload["custom_age_type"] = (custom_age_type or "Years").strip() or "Years"
 	if branch:
 		payload["branch"] = branch
+	# Naming series follows the v15 pattern: KE-PMC-######## for PMC-branch
+	# patients, KE-UMC-######## for UMC. Pick from the resolved branch (either
+	# the explicit `branch` arg or the auto_set_patient_branch hook's fallback
+	# to session user's branch); when nothing resolves, leave `naming_series`
+	# unset and Frappe uses the field default (KE-PMC-.########).
+	effective_branch = (branch or _resolve_branch_for_naming()) or ""
+	series = _series_for_branch(effective_branch)
+	if series:
+		payload["naming_series"] = series
 	doc = frappe.get_doc(payload).insert(ignore_permissions=False)
 	return {"ok": True, "name": doc.name, "patient_name": doc.patient_name}
+
+
+def _resolve_branch_for_naming() -> str | None:
+	"""Best-guess branch when the SPA didn't pass one — used to pick the
+	naming series. Mirrors auto_set_patient_branch: session user's
+	User.branch first, else None."""
+	try:
+		user = frappe.session.user
+		if user and user != "Guest":
+			return frappe.db.get_value("User", user, "branch") or None
+	except Exception:
+		pass
+	return None
+
+
+def _series_for_branch(branch: str | None) -> str | None:
+	"""Map branch → naming series prefix. UMC → KE-UMC, everything else →
+	KE-PMC. Case-insensitive match on the branch name."""
+	if branch and "umc" in branch.lower():
+		return "KE-UMC-.########"
+	return "KE-PMC-.########"
 
 
 @frappe.whitelist()

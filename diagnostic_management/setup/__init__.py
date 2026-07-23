@@ -303,35 +303,37 @@ def _align_lab_report_status_options():
 
 
 def _pin_patient_naming_series():
-	"""Force `Patient.autoname` = 'naming_series:' and give the naming_series
-	field a real default (`HLC-PAT-.YYYY.-`).
+	"""Force `Patient.autoname` = 'naming_series:' and expose the v15 series
+	options (`KE-PMC-.########` for PMC-branch patients, `KE-UMC-.########`
+	for UMC). Default series is PMC — the SPA registration path (see
+	`api.patients.register`) OVERRIDES this per-patient based on the
+	registering user's branch, so the default only kicks in when no branch
+	context exists.
 
 	Symptom this fixes: on live, new patients registered via the SPA end up
 	with `Patient.name` == `patient_name` — the print format then shows
-	"PATIENT ID: ZAIN MOHAMED" instead of "HLC-PAT-2026-00042". Root cause
-	is one of: (a) autoname got set to `field:patient_name` via desk
-	customisation, or (b) naming_series has no default so Frappe falls back
-	to using the first available field (patient_name).
+	"PATIENT ID: ZAIN MOHAMED" instead of "KE-PMC-00000523". Root cause is
+	either (a) autoname got flipped to `field:patient_name`, or (b) the
+	naming_series field has no default so Frappe falls back to using
+	patient_name.
 
-	Two Property Setters, both idempotent:
-	  1. Patient.autoname = 'naming_series:'
-	  2. Patient.naming_series.default = 'HLC-PAT-.YYYY.-'
-	Plus a Property Setter to keep the series `options` populated (some
-	sites lost it on restore)."""
+	The 8-digit width matches every existing v15 Patient code (e.g.
+	KE-PMC-00000522). Property Setters are idempotent."""
 	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 	if not frappe.db.exists("DocType", "Patient"):
 		return
+	options = "KE-PMC-.########\nKE-UMC-.########"
 	try:
 		make_property_setter(
 			"Patient", None, "autoname", "naming_series:", "Data",
 			for_doctype=True, validate_fields_for_doctype=False,
 		)
 		make_property_setter(
-			"Patient", "naming_series", "options", "HLC-PAT-.YYYY.-", "Text",
+			"Patient", "naming_series", "options", options, "Text",
 			for_doctype=False, validate_fields_for_doctype=False,
 		)
 		make_property_setter(
-			"Patient", "naming_series", "default", "HLC-PAT-.YYYY.-", "Text",
+			"Patient", "naming_series", "default", "KE-PMC-.########", "Text",
 			for_doctype=False, validate_fields_for_doctype=False,
 		)
 	except Exception:
