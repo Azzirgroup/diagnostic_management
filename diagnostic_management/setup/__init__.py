@@ -336,6 +336,13 @@ def _pin_patient_naming_series():
 			"Patient", "naming_series", "default", "KE-PMC-.########", "Text",
 			for_doctype=False, validate_fields_for_doctype=False,
 		)
+		# Healthcare's Patient.autoname() reads `Healthcare Settings.patient_name_by`
+		# and if it's "Patient Name" it OVERRIDES every Property Setter above —
+		# the doc gets named after the person, producing the "ZAIN MOHAMED as
+		# ID" bug. Force it to "Naming Series" so the series wins.
+		if frappe.db.exists("DocType", "Healthcare Settings"):
+			frappe.db.set_single_value("Healthcare Settings",
+			                            "patient_name_by", "Naming Series")
 	except Exception:
 		frappe.log_error(title="_pin_patient_naming_series failed")
 
