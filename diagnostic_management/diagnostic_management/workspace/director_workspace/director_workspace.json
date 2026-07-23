@@ -6,7 +6,7 @@
    "label": "Monthly Revenue Trend"
   }
  ],
- "content": "[{\"id\": \"3572d6ab9f\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Director \\u2014 Monthly Revenue Trend\", \"col\": 12}}, {\"id\": \"ae73787166\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Today's Revenue\", \"col\": 3}}, {\"id\": \"f7e38b90f1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Monthly Revenue\", \"col\": 3}}, {\"id\": \"a46c8fde72\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Outstanding Receivables\", \"col\": 3}}, {\"id\": \"fbb822eeba\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Tests Today\", \"col\": 3}}, {\"id\": \"4477deec77\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"cd3d1fdc1b\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue Intelligence\", \"col\": 4}}, {\"id\": \"5b06e0dbad\", \"type\": \"card\", \"data\": {\"card_name\": \"Lab Operations\", \"col\": 4}}, {\"id\": \"20478c7ec1\", \"type\": \"card\", \"data\": {\"card_name\": \"Inventory\", \"col\": 4}}, {\"id\": \"b1b753198d\", \"type\": \"card\", \"data\": {\"card_name\": \"Financial Health\", \"col\": 4}}, {\"id\": \"16f20ad38c\", \"type\": \"card\", \"data\": {\"card_name\": \"Assets and Equipment\", \"col\": 4}}, {\"id\": \"1f156b284f\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters\", \"col\": 4}}]",
+ "content": "[{\"id\": \"3525c19080\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Director \\u2014 Monthly Revenue Trend\", \"col\": 12}}, {\"id\": \"322f6d6395\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Today's Revenue\", \"col\": 3}}, {\"id\": \"75d9045250\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Monthly Revenue\", \"col\": 3}}, {\"id\": \"bfc42d23b2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Outstanding Receivables\", \"col\": 3}}, {\"id\": \"46cf800c6c\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Director \\u2014 Tests Today\", \"col\": 3}}, {\"id\": \"a0a4c076f8\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"85944d9eea\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue Intelligence\", \"col\": 4}}, {\"id\": \"93df12cd4e\", \"type\": \"card\", \"data\": {\"card_name\": \"Lab Operations\", \"col\": 4}}, {\"id\": \"d897736753\", \"type\": \"card\", \"data\": {\"card_name\": \"Inventory\", \"col\": 4}}, {\"id\": \"5e878d9d3d\", \"type\": \"card\", \"data\": {\"card_name\": \"Financial Health\", \"col\": 4}}, {\"id\": \"f213bfd0d1\", \"type\": \"card\", \"data\": {\"card_name\": \"Assets and Equipment\", \"col\": 4}}, {\"id\": \"03282eb079\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters\", \"col\": 4}}]",
  "creation": "2026-03-16 00:01:14.983868",
  "custom_blocks": [],
  "docstatus": 0,
@@ -68,6 +68,16 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Workflow Session Reconciliation",
+   "link_count": 0,
+   "link_to": "Workflow Session Reconciliation",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   },
   {
    "hidden": 0,
@@ -236,7 +246,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-22 20:27:51.334761",
+ "modified": "2026-07-23 11:24:28.557013",
  "modified_by": "Administrator",
  "module": "Diagnostic Management",
  "name": "Director Workspace",

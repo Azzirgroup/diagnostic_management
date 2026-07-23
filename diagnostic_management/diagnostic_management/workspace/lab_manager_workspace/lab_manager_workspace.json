@@ -1,7 +1,7 @@
 {
  "app": "diagnostic_management",
  "charts": [],
- "content": "[{\"id\": \"6c60b3b89f\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">LAB MANAGER</span>\", \"col\": 12}}, {\"id\": \"9f023c61fe\", \"type\": \"card\", \"data\": {\"card_name\": \"Ordering\", \"col\": 6}}, {\"id\": \"c044e6c951\", \"type\": \"card\", \"data\": {\"card_name\": \"Accounting\", \"col\": 6}}, {\"id\": \"660560bb3a\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"00daf5ae49\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Reports</span>\", \"col\": 12}}, {\"id\": \"6a0bca351a\", \"type\": \"card\", \"data\": {\"card_name\": \"Laboratory Reports\", \"col\": 3}}, {\"id\": \"8a74b0dfbb\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue & Sales Reports\", \"col\": 3}}, {\"id\": \"1751742cad\", \"type\": \"card\", \"data\": {\"card_name\": \"Stock & Inventory\", \"col\": 3}}, {\"id\": \"aacfc578d7\", \"type\": \"card\", \"data\": {\"card_name\": \"Accounting Reports\", \"col\": 3}}]",
+ "content": "[{\"id\": \"139e4ae909\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">LAB MANAGER</span>\", \"col\": 12}}, {\"id\": \"2b0f638ca9\", \"type\": \"card\", \"data\": {\"card_name\": \"Ordering\", \"col\": 6}}, {\"id\": \"6cd87eaa5c\", \"type\": \"card\", \"data\": {\"card_name\": \"Accounting\", \"col\": 6}}, {\"id\": \"4411186ac6\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"30520a940d\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Reports</span>\", \"col\": 12}}, {\"id\": \"46f0d95048\", \"type\": \"card\", \"data\": {\"card_name\": \"Laboratory Reports\", \"col\": 3}}, {\"id\": \"edd7460151\", \"type\": \"card\", \"data\": {\"card_name\": \"Revenue & Sales Reports\", \"col\": 3}}, {\"id\": \"1fa23ba889\", \"type\": \"card\", \"data\": {\"card_name\": \"Stock & Inventory\", \"col\": 3}}, {\"id\": \"2cd12ee2cb\", \"type\": \"card\", \"data\": {\"card_name\": \"Accounting Reports\", \"col\": 3}}]",
  "creation": "2026-07-18 11:13:50.051514",
  "custom_blocks": [],
  "docstatus": 0,
@@ -231,7 +231,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-07-22 20:27:51.797987",
+ "modified": "2026-07-23 11:24:29.050866",
  "modified_by": "Administrator",
  "module": "Diagnostic Management",
  "name": "Lab Manager Workspace",

@@ -244,6 +244,10 @@ _DIRECTOR_SECTIONS: list[tuple[str, list[tuple[str, str, str]]]] = [
 		("Credit Customers",  "Accounts Receivable", "Report"),
 	]),
 	("Lab Operations", [
+		# One-row-per-session reconciliation view — joins LWS to its SI, items,
+		# doctor, sample, and diagnostic-report state so a director can eyeball
+		# billed vs paid vs delivered without opening five other lists.
+		("Workflow Session Reconciliation", "Workflow Session Reconciliation", "Report"),
 		("Tests per Day", "Lab Test", "DocType"),
 		("Turnaround Time", "Lab Test", "DocType"),
 	]),
