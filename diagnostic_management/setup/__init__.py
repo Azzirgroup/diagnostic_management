@@ -173,6 +173,8 @@ def after_install():
 	_align_lab_report_status_options()
 	_allow_result_edit_after_submit()
 	_ensure_user_company_default()
+	_dedupe_genetest_lab_report_comments()
+	_pin_patient_naming_series()
 
 
 def after_migrate():
@@ -194,6 +196,8 @@ def after_migrate():
 	_align_lab_report_status_options()
 	_allow_result_edit_after_submit()
 	_ensure_user_company_default()
+	_dedupe_genetest_lab_report_comments()
+	_pin_patient_naming_series()
 	# Fill `branch` on historical financial docs (Sales Invoice / Payment
 	# Entry / Purchase Invoice / Journal Entry) that posted before the
 	# Branch dimension was registered. Idempotent — only touches rows with
@@ -296,6 +300,83 @@ def _align_lab_report_status_options():
 			)
 		except Exception:
 			frappe.log_error(title=f"_align_lab_report_status_options({dt}) failed")
+
+
+def _pin_patient_naming_series():
+	"""Force `Patient.autoname` = 'naming_series:' and give the naming_series
+	field a real default (`HLC-PAT-.YYYY.-`).
+
+	Symptom this fixes: on live, new patients registered via the SPA end up
+	with `Patient.name` == `patient_name` — the print format then shows
+	"PATIENT ID: ZAIN MOHAMED" instead of "HLC-PAT-2026-00042". Root cause
+	is one of: (a) autoname got set to `field:patient_name` via desk
+	customisation, or (b) naming_series has no default so Frappe falls back
+	to using the first available field (patient_name).
+
+	Two Property Setters, both idempotent:
+	  1. Patient.autoname = 'naming_series:'
+	  2. Patient.naming_series.default = 'HLC-PAT-.YYYY.-'
+	Plus a Property Setter to keep the series `options` populated (some
+	sites lost it on restore)."""
+	from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+	if not frappe.db.exists("DocType", "Patient"):
+		return
+	try:
+		make_property_setter(
+			"Patient", None, "autoname", "naming_series:", "Data",
+			for_doctype=True, validate_fields_for_doctype=False,
+		)
+		make_property_setter(
+			"Patient", "naming_series", "options", "HLC-PAT-.YYYY.-", "Text",
+			for_doctype=False, validate_fields_for_doctype=False,
+		)
+		make_property_setter(
+			"Patient", "naming_series", "default", "HLC-PAT-.YYYY.-", "Text",
+			for_doctype=False, validate_fields_for_doctype=False,
+		)
+	except Exception:
+		frappe.log_error(title="_pin_patient_naming_series failed")
+
+
+def _dedupe_genetest_lab_report_comments():
+	"""Patch the 'Genetest Lab Report' print format so analyte comments
+	print ONCE per test, not twice.
+
+	The DB-stored HTML emits `_section_comments[key]` at TWO levels:
+	  * per-row  — inside the test-item loop, keyed by `item.test_name`
+	  * per-category — after the table, keyed by the category / group name
+	For a Compound template like "Vitamin B12" or "Inhibin B, Serum" the
+	category IS the only test_name, so both fires produce identical yellow
+	blocks. Fix: keep the row-level emission, and gate the category-level
+	one behind "no row already showed this key".
+
+	Idempotent: only patches segments that don't already carry the guard.
+	Only touches the 'Genetest Lab Report' Print Format."""
+	if not frappe.db.exists("Print Format", "Genetest Lab Report"):
+		return
+	html = frappe.db.get_value("Print Format", "Genetest Lab Report", "html") or ""
+	if not html or "_section_comments" not in html:
+		return
+	patched = html
+	# Every occurrence of the category-level emission we need to guard.
+	# Pattern for numeric/qualitative/descriptive (category key):
+	targets = [
+		("{% if _section_comments.get(category) %}",
+		 "{% if _section_comments.get(category) and category not in items|map(attribute='test_name')|list %}"),
+		# Grouped section uses group_name instead of category.
+		("{% if _section_comments.get(group_name) %}",
+		 "{% if _section_comments.get(group_name) and group_name not in items|map(attribute='test_name')|list %}"),
+	]
+	changed = False
+	for old, new in targets:
+		if old in patched and new not in patched:
+			patched = patched.replace(old, new)
+			changed = True
+	if not changed:
+		return  # already deduped or template shape moved on
+	frappe.db.set_value("Print Format", "Genetest Lab Report", "html", patched,
+	                    update_modified=False)
+	frappe.db.commit()
 
 
 def _ensure_user_company_default():
