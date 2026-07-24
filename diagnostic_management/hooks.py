@@ -88,8 +88,15 @@ doc_events = {
 	# When a Lab Test stamped with a Sales Invoice is inserted, push that
 	# stamp onto the parent Sample Collection too (if it doesn't have one
 	# yet). Lets every downstream list filter by SI in one step.
+	# Also expand Grouped-inside-Grouped templates. Marley's load_result_format()
+	# has no branch for a Grouped member of a Grouped package, so nested packages
+	# (TFT / Electrolytes / Lipid Profile inside "Afya Bora") were silently
+	# dropped from normal_test_items. Runs after Marley's own expansion.
 	"Lab Test": {
-		"after_insert": "diagnostic_management.api.branches.stamp_sample_collection_si",
+		"after_insert": [
+			"diagnostic_management.api.branches.stamp_sample_collection_si",
+			"diagnostic_management.overrides.lab_test_expansion.expand_nested_groups",
+		],
 	},
 }
 
