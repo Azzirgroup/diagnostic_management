@@ -118,17 +118,41 @@ def _ensure_patient_customer(patient_name: str, display_name: str | None) -> str
 			default_territory = "All Territories"
 		label = (display_name or patient_name).strip() or patient_name
 
-		# Reuse a same-named Customer if one exists.
-		existing = frappe.db.get_value("Customer", {"customer_name": label}, "name")
-		cust_name = existing
+		# Already linked? Cheapest and most correct answer — don't re-derive a
+		# Customer for a patient that has one.
+		linked = frappe.db.get_value("Patient", patient_name, "customer")
+		if linked and frappe.db.exists("Customer", linked):
+			return linked
+
+		# Reuse a same-named Customer if one exists. Check BOTH the field and the
+		# primary key: ERPNext names a Customer after `customer_name`, but a
+		# renamed Customer keeps the old `name` while `customer_name` moves on.
+		# Matching only on the field misses those and walks into a duplicate-PK
+		# insert (this is what blew up for "LUQMAN ISMAIL").
+		cust_name = frappe.db.get_value("Customer", {"customer_name": label}, "name")
+		if not cust_name and frappe.db.exists("Customer", label):
+			cust_name = label
 		if not cust_name:
 			doc = frappe.new_doc("Customer")
 			doc.customer_name = label
 			doc.customer_type = "Individual"
 			doc.customer_group = default_group
 			doc.territory = default_territory
-			doc.insert(ignore_permissions=True)
-			cust_name = doc.name
+			# Belt and braces: two techs registering the same walk-in at once, or
+			# any naming rule we haven't anticipated, can still collide. Take the
+			# savepoint so a duplicate doesn't poison the caller's transaction,
+			# then adopt the Customer that already holds the name.
+			savepoint = "dm_ensure_patient_customer"
+			frappe.db.savepoint(savepoint)
+			try:
+				doc.insert(ignore_permissions=True)
+				cust_name = doc.name
+			except frappe.DuplicateEntryError:
+				frappe.db.rollback(save_point=savepoint)
+				clash = doc.name or label
+				if not frappe.db.exists("Customer", clash):
+					raise
+				cust_name = clash
 
 		frappe.db.set_value("Patient", patient_name, "customer", cust_name, update_modified=False)
 		return cust_name

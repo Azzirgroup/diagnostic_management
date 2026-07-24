@@ -1051,6 +1051,13 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	for lt_name in current_lt_names:
 		lt = frappe.get_doc("Lab Test", lt_name)
 		ttype = frappe.db.get_value("Lab Test Template", lt.template, "lab_test_template_type") or "Single"
+		# Panel headings for the print. Without this every row of a package
+		# carried `group_name = <the package>`, so the print format's
+		# group-by produced a SINGLE section holding all 70+ analytes. Map each
+		# leaf template to the package member that owns it so FBC / Lipid /
+		# Liver / Urinalysis / TFT each print under their own heading.
+		from diagnostic_management.overrides.lab_test_expansion import section_map
+		sections = section_map(lt.template) if ttype == "Grouped" else {}
 		from diagnostic_management.utils.reference_ranges import pick_reference_range
 		for r in lt.normal_test_items:
 			analyte = r.lab_test_name or r.lab_test_event
@@ -1119,7 +1126,10 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 				"is_abnormal": abnormal,
 			}
 			if ttype == "Grouped" and "grouped_results" in fns:
-				lr.append("grouped_results", {**row, "group_name": lt.template})
+				# Panel heading for this analyte; standalone Singles fall back to
+				# the package itself so they still print under one section.
+				heading = sections.get(range_template) or lt.template
+				lr.append("grouped_results", {**row, "group_name": heading})
 			elif ttype == "Compound" and "numeric_results" in fns:
 				lr.append("numeric_results", row)
 			elif "lab_report_tests" in fns:

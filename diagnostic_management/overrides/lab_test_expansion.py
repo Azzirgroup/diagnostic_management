@@ -278,6 +278,160 @@ def expand_nested_groups(doc, method=None):
 		)
 
 
+def section_map(package_name):
+	"""Map each leaf template -> the PANEL heading its results belong under.
+
+	A package's printed report should read as one section per panel (FBC,
+	Lipid Profile, Liver Function, Urinalysis, TFT…), not one undifferentiated
+	list. The Lab Test row only knows its *leaf* template, which is too fine a
+	grain: grouping by it would give every standalone analyte (Vitamin B12,
+	Urea, eGFR…) a one-row section of its own.
+
+	So the heading is the package's own group-row member that OWNS the leaf:
+	  - member is Compound or Grouped  -> that member's name is the heading
+	    (all of FBC's 18 analytes -> "Full Blood Count", TSH/FT3/FT4 -> "TFT")
+	  - member is a plain Single       -> no heading; it belongs to the
+	    package's own catch-all section
+
+	Returns {leaf_template_name: heading}. Leaves of Single members are
+	deliberately absent, so callers fall back to the package name.
+	"""
+	mapping = {}
+	if not package_name or not frappe.db.exists("Lab Test Template", package_name):
+		return mapping
+	tmpl = frappe.get_doc("Lab Test Template", package_name)
+	if (tmpl.get("lab_test_template_type") or "") != "Grouped":
+		return mapping
+
+	for row in _group_rows(tmpl):
+		child = row.get("lab_test_template")
+		if not child:
+			continue
+		child_type = frappe.db.get_value("Lab Test Template", child, "lab_test_template_type")
+		if child_type not in ("Compound", "Grouped"):
+			# Standalone analyte — leave it to the package's catch-all section.
+			continue
+		heading = frappe.db.get_value("Lab Test Template", child, "lab_test_name") or child
+		# Every leaf under this member (recursing through nested packages)
+		# prints under the member's heading.
+		for leaf in _collect_leaves(child):
+			if leaf[0] in ("template", "header"):
+				mapping.setdefault(leaf[1].name, heading)
+			elif leaf[0] == "newline":
+				mapping.setdefault(leaf[2], heading)
+		mapping.setdefault(child, heading)
+	return mapping
+
+
+def _describe_member(child_name):
+	"""Diagnose ONE group member, purely from the templates — no Lab Test or
+	Lab Report involved. This is what tells you whether a panel will ever
+	expand, and if not, why."""
+	info = {"template": child_name, "exists": False, "type": None, "disabled": None,
+	        "group_rows": 0, "analyte_rows": 0, "leaf_count": 0, "leaves": [], "problem": None}
+	if not child_name:
+		info["problem"] = "group row has no template (an 'Add new line' entry)"
+		return info
+	if not frappe.db.exists("Lab Test Template", child_name):
+		info["problem"] = "template does not exist — the group row points at a deleted/renamed template"
+		return info
+
+	tmpl = frappe.get_doc("Lab Test Template", child_name)
+	info["exists"] = True
+	info["type"] = tmpl.get("lab_test_template_type") or "Single"
+	info["disabled"] = int(tmpl.get("disabled") or 0)
+	info["group_rows"] = len(tmpl.get("lab_test_groups") or [])
+	info["analyte_rows"] = len(tmpl.get("normal_test_templates") or []) + len(
+		tmpl.get("descriptive_test_templates") or []
+	)
+
+	leaves = _collect_leaves(child_name)
+	info["leaf_count"] = len([l for l in leaves if l[0] == "template"])
+	info["leaves"] = [l[1].name for l in leaves if l[0] == "template"]
+
+	if info["type"] == "Grouped":
+		if info["group_rows"] == 0:
+			info["problem"] = ("nested package with NO tests in its lab_test_groups table — "
+			                   "nothing to expand, so it can never print")
+		elif info["leaf_count"] == 0:
+			info["problem"] = "nested package whose members are all empty/missing"
+	elif info["type"] in ("Compound", "Descriptive") and info["analyte_rows"] == 0:
+		info["problem"] = f"{info['type']} template with no analyte rows configured"
+	if info["disabled"]:
+		info["problem"] = (info["problem"] + "; also DISABLED") if info["problem"] else "template is DISABLED"
+	return info
+
+
+@frappe.whitelist()
+def audit_template(name: str) -> dict:
+	"""Explain exactly what ONE Grouped template will expand into.
+
+	Reads only Lab Test Template data — no Lab Test, no Lab Report. Open in a
+	browser while logged in:
+	  /api/method/diagnostic_management.overrides.lab_test_expansion.audit_template?name=Afya%20Bora%20Comprehensive%20Male%20Package
+	"""
+	if not frappe.db.exists("Lab Test Template", name):
+		frappe.throw(f"Lab Test Template {name} not found")
+	tmpl = frappe.get_doc("Lab Test Template", name)
+	ttype = tmpl.get("lab_test_template_type") or "Single"
+	members = []
+	for row in _group_rows(tmpl):
+		info = _describe_member(row.get("lab_test_template"))
+		info["idx"] = row.idx
+		# Marley expands Single / Compound / Descriptive members and silently
+		# skips Grouped ones. That single fact is the whole bug.
+		info["marley_expands"] = info["type"] in ("Single", "Compound", "Descriptive")
+		info["needs_recursion"] = info["type"] == "Grouped"
+		members.append(info)
+
+	return {
+		"template": name,
+		"type": ttype,
+		"is_package": ttype == "Grouped",
+		"member_count": len(members),
+		"nested_packages": [m["template"] for m in members if m["needs_recursion"]],
+		"dropped_by_marley": [m["template"] for m in members if m["needs_recursion"]],
+		"broken": [{"template": m["template"], "problem": m["problem"]} for m in members if m["problem"]],
+		"members": members,
+	}
+
+
+@frappe.whitelist()
+def audit_nested_groups(limit: int = 500) -> dict:
+	"""Scan EVERY Grouped Lab Test Template for packages nested inside packages.
+
+	Template-only — needs no Lab Test or Lab Report to run, so it works before
+	anything is ordered. Open in a browser while logged in:
+	  /api/method/diagnostic_management.overrides.lab_test_expansion.audit_nested_groups
+	"""
+	packages = frappe.get_all(
+		"Lab Test Template",
+		filters={"lab_test_template_type": "Grouped"},
+		pluck="name",
+		limit_page_length=int(limit),
+	)
+	affected, broken = [], []
+	for pkg in packages:
+		report = audit_template(pkg)
+		if report["nested_packages"]:
+			affected.append({
+				"package": pkg,
+				"nested_packages": report["nested_packages"],
+				"analytes_lost": sum(
+					m["leaf_count"] for m in report["members"] if m["needs_recursion"]
+				),
+			})
+		for b in report["broken"]:
+			broken.append({"package": pkg, **b})
+
+	return {
+		"grouped_templates_scanned": len(packages),
+		"packages_with_nested_packages": len(affected),
+		"affected": affected,
+		"misconfigured_members": broken,
+	}
+
+
 @frappe.whitelist()
 def repair_lab_test(name: str, rebuild_report: int = 1) -> dict:
 	"""Backfill one already-created Lab Test that lost its nested packages.
