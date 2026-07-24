@@ -16,7 +16,7 @@ frappe.ui.form.on('Lab Report', {
 				return;
 			}
 			frappe.confirm(
-				__('Rebuild this Lab Report from Sales Invoice <b>{0}</b>? Existing rows in Numeric / Grouped / Qualitative / Descriptive tables will be replaced from the source Lab Tests.',
+				__('Rebuild this Lab Report from Sales Invoice <b>{0}</b>?<br><br>Existing rows in Numeric / Grouped / Qualitative / Descriptive tables will be replaced from the source Lab Tests.<br><br>Any package test missing from a draft Lab Test (e.g. a panel nested inside a package, like TFT inside a health package) is expanded first, so those analytes come back too. Results already entered are kept.',
 					[frm.doc.custom_sales_invoice]),
 				() => {
 					frm.call({
@@ -32,6 +32,19 @@ frappe.ui.form.on('Lab Report', {
 								[r.message.sample, c.numeric, c.grouped, c.qualitative, c.descriptive]),
 							indicator: 'green',
 						}, 6);
+						// Call out any Lab Test that was widened — the tech needs to
+						// know new analytes just appeared and still need results.
+						const repaired = r.message.repaired_lab_tests || [];
+						if (repaired.length) {
+							const lines = repaired
+								.map((x) => `<li><b>${frappe.utils.escape_html(x.lab_test)}</b> — ${x.rows_added} missing test(s) restored</li>`)
+								.join('');
+							frappe.msgprint({
+								title: __('Missing package tests restored'),
+								message: __('These Lab Tests were missing analytes from packages nested inside a package. They have been expanded and pulled into this report — the new rows still need results entered.<br><ul>{0}</ul>', [lines]),
+								indicator: 'blue',
+							});
+						}
 						frm.reload_doc();
 					});
 				},

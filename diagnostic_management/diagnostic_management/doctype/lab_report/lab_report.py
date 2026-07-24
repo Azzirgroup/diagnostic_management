@@ -39,6 +39,14 @@ class LabReport(Document):
 				f"No Lab Sample linked to Sales Invoice {si}. Confirm the invoice "
 				"was submitted through the workflow so Lab Tests + Sample were created."
 			)
+		# Self-heal the SOURCE first. Refetch only reshapes whatever sits on the
+		# Lab Tests, so if the Lab Test itself is missing analytes there is
+		# nothing for the builder to copy. The known cause is Marley's
+		# `load_result_format()` having no branch for a Grouped member of a
+		# Grouped package — nested packages (TFT / Electrolytes / Lipid Profile
+		# inside "Afya Bora") get silently dropped at Lab Test creation. Expand
+		# them here so one click fixes the root, not just the symptom.
+		repaired = self._repair_source_lab_tests(si)
 		# Delegate to the workflow's builder — it upserts rows on the same
 		# Lab Report doc (matched by the Lab Report Sample child table).
 		from diagnostic_management.api.results import _build_lab_report
@@ -51,6 +59,7 @@ class LabReport(Document):
 			"ok": True,
 			"lab_report": result or self.name,
 			"sample": sample,
+			"repaired_lab_tests": repaired,
 			"counts": {
 				"numeric": len(self.get("numeric_results") or []),
 				"grouped": len(self.get("grouped_results") or []),
@@ -59,6 +68,41 @@ class LabReport(Document):
 				"lab_report_tests": len(self.get("lab_report_tests") or []),
 			},
 		}
+
+	def _repair_source_lab_tests(self, sales_invoice: str) -> list:
+		"""Re-expand nested Grouped packages on every DRAFT Lab Test behind
+		this report, and report which ones actually gained rows.
+
+		Idempotent and safe to run on every refetch: a Lab Test whose packages
+		are already expanded is left untouched and never re-saved. Submitted
+		Lab Tests are skipped — their results are locked.
+
+		Never raises: a repair failure must not block the refetch itself, which
+		is still useful even if the source can't be widened.
+		"""
+		from diagnostic_management.overrides.lab_test_expansion import expand_nested_groups
+
+		repaired = []
+		lab_tests = frappe.get_all(
+			"Lab Test",
+			filters={"custom_sales_invoice": sales_invoice, "docstatus": 0},
+			pluck="name",
+		)
+		for name in lab_tests:
+			try:
+				doc = frappe.get_doc("Lab Test", name)
+				before = len(doc.get("normal_test_items") or [])
+				expand_nested_groups(doc)
+				doc.reload()
+				after = len(doc.get("normal_test_items") or [])
+				if after > before:
+					repaired.append({"lab_test": name, "rows_added": after - before})
+			except Exception:
+				frappe.log_error(
+					title=f"refetch_from_invoice: repair failed for {name}",
+					message=frappe.get_traceback(),
+				)
+		return repaired
 
 	def get_section_comments_dict(self):
 		stored = {}
