@@ -259,7 +259,9 @@ _DIRECTOR_SECTIONS: list[tuple[str, list[tuple[str, str, str]]]] = [
 	("Financial Health", [
 		("Accounts Receivable", "Accounts Receivable", "Report"),
 		("Cash Flow", "Cash Flow", "Report"),
-		("Sales Register", "Sales Register", "Report"),
+		# Our Sales Register variant — identical to ERPNext's plus a Doctor
+		# column and filter, so the Director can slice revenue by referrer.
+		("Sales Register", "Sales Register with Doctor", "Report"),
 		("Profitability Analysis", "Profitability Analysis", "Report"),
 	]),
 	("Assets and Equipment", [
@@ -290,7 +292,7 @@ _LAB_MGR_SECTIONS: list[tuple[str, list[tuple[str, str, str]]]] = [
 		("Lab Tests", "Lab Test", "DocType"),
 		("Lab Reports", "Lab Report", "DocType"),
 		("Sample Collections", "Sample Collection", "DocType"),
-		("Sales Register (Lab Billing)", "Sales Register", "Report"),
+		("Sales Register (Lab Billing)", "Sales Register with Doctor", "Report"),
 	]),
 	("Revenue & Sales Reports", [
 		# Same ref_doctype override as the Director workspace — see

@@ -287,15 +287,13 @@
 
     <!-- ===== GROUPED RESULTS ===== -->
     {% if doc.grouped_results %}
-    {% set grp_groups = {} %}
-    {% for item in doc.grouped_results %}
-        {% set grp = item.group_name or item.test_category or 'General Tests' %}
-        {% if grp not in grp_groups %}
-            {% set _ = grp_groups.update({grp: []}) %}
-        {% endif %}
-        {% set _ = grp_groups[grp].append(item) %}
-    {% endfor %}
-    {% for group_name, items in grp_groups.items() %}
+    {# One section per PANEL (FBC / Lipid / Liver / Urinalysis / TFT …), worked
+       out at render time. Grouping by the stored `group_name` printed every
+       analyte of a package under a single heading, because _build_lab_report
+       stamps the outer package onto every row. #}
+    {% for _section in lab_report_grouped_sections(doc) %}
+    {% set group_name = _section.name %}
+    {% set items = _section['items'] %}
     <div class="section-header-alt">{{ group_name }}</div>
     <table class="results-table">
         <thead>

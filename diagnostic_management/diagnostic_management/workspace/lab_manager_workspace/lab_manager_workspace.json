@@ -127,7 +127,7 @@
    "is_query_report": 1,
    "label": "Sales Register (Lab Billing)",
    "link_count": 0,
-   "link_to": "Sales Register",
+   "link_to": "Sales Register with Doctor",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"

@@ -53,6 +53,9 @@ jinja = {
 		"diagnostic_management.utils.formatters.result_flag",
 		"diagnostic_management.utils.formatters.get_patient_test_history",
 		"diagnostic_management.utils.formatters.generate_trend_chart_svg",
+		# Panel-per-section grouping for the Lab Report print, derived at render
+		# time so existing (and submitted) reports regroup without a migration.
+		"diagnostic_management.utils.formatters.lab_report_grouped_sections",
 	],
 }
 

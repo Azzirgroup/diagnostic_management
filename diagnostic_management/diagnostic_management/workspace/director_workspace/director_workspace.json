@@ -2,7 +2,7 @@
  "app": "diagnostic_management",
  "charts": [
   {
-   "chart_name": "Director \u2014 Monthly Revenue Trend",
+   "chart_name": "Director — Monthly Revenue Trend",
    "label": "Monthly Revenue Trend"
   }
  ],
@@ -172,7 +172,7 @@
    "is_query_report": 1,
    "label": "Sales Register",
    "link_count": 0,
-   "link_to": "Sales Register",
+   "link_to": "Sales Register with Doctor",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
@@ -252,20 +252,20 @@
  "name": "Director Workspace",
  "number_cards": [
   {
-   "label": "Director \u2014 Today's Revenue",
-   "number_card_name": "Director \u2014 Today's Revenue"
+   "label": "Director — Today's Revenue",
+   "number_card_name": "Director — Today's Revenue"
   },
   {
-   "label": "Director \u2014 Monthly Revenue",
-   "number_card_name": "Director \u2014 Monthly Revenue"
+   "label": "Director — Monthly Revenue",
+   "number_card_name": "Director — Monthly Revenue"
   },
   {
-   "label": "Director \u2014 Outstanding Receivables",
-   "number_card_name": "Director \u2014 Outstanding Receivables"
+   "label": "Director — Outstanding Receivables",
+   "number_card_name": "Director — Outstanding Receivables"
   },
   {
-   "label": "Director \u2014 Tests Today",
-   "number_card_name": "Director \u2014 Tests Today"
+   "label": "Director — Tests Today",
+   "number_card_name": "Director — Tests Today"
   }
  ],
  "owner": "Administrator",

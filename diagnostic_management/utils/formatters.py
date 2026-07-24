@@ -328,6 +328,76 @@ def format_report_date(dt, format_str: str = "dd-MMM-yyyy") -> str:
 		return str(dt) if dt else "-"
 
 
+def lab_report_grouped_sections(doc):
+	"""Split a Lab Report's `grouped_results` into one section PER PANEL.
+
+	Derived at render time rather than read from the stored `group_name`, which
+	`_build_lab_report` stamps with the outer package for every row — so a
+	package prints as one undifferentiated list of 70+ analytes instead of
+	FBC / Lipid / Liver / Urinalysis / TFT sections.
+
+	Doing it here means every EXISTING report regroups on its next print, with
+	no data migration and nothing rewritten on released (submitted) reports.
+
+	The grouped row doesn't store its own template, so the leaf is recovered by
+	matching `test_name` back to the Lab Test's `normal_test_items` row, whose
+	`.template` is the leaf; `section_map` then resolves the leaf to the panel
+	that owns it. Standalone analytes fall back to the package heading.
+
+	Returns [{"name": <heading>, "items": [row, ...]}, ...] in first-appearance
+	order. Never raises — on any failure it degrades to the old stored-
+	`group_name` grouping so a report still prints.
+	"""
+	rows = doc.get("grouped_results") or []
+	if not rows:
+		return []
+
+	def _fallback(row):
+		return row.get("group_name") or row.get("test_category") or "General Tests"
+
+	order, buckets = [], {}
+
+	def _place(row, heading):
+		if heading not in buckets:
+			buckets[heading] = []
+			order.append(heading)
+		buckets[heading].append(row)
+
+	try:
+		from diagnostic_management.overrides.lab_test_expansion import section_map
+
+		cache = {}
+		for row in rows:
+			lt_name = row.get("lab_test")
+			info = None
+			if lt_name:
+				if lt_name not in cache:
+					try:
+						lt = frappe.get_doc("Lab Test", lt_name)
+						analytes = {}
+						for r in lt.get("normal_test_items") or []:
+							key = r.get("lab_test_name") or r.get("lab_test_event")
+							if key and key not in analytes:
+								analytes[key] = r.get("template")
+						cache[lt_name] = (lt.get("template"), section_map(lt.get("template")), analytes)
+					except Exception:
+						cache[lt_name] = None
+				info = cache[lt_name]
+			if info:
+				package, smap, analytes = info
+				heading = smap.get(analytes.get(row.get("test_name"))) or _fallback(row) or package
+			else:
+				heading = _fallback(row)
+			_place(row, heading)
+	except Exception:
+		frappe.log_error(title="formatters.lab_report_grouped_sections failed")
+		order, buckets = [], {}
+		for row in rows:
+			_place(row, _fallback(row))
+
+	return [{"name": h, "items": buckets[h]} for h in order]
+
+
 def get_patient_test_history(patient, test_name, limit=6):
 	"""Historical results for a patient+test (oldest->newest) for trend charts.
 
