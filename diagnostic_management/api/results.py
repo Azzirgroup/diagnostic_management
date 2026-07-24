@@ -942,7 +942,30 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 		return None
 	sc = frappe.get_doc("Sample Collection", sample)
 	existing = frappe.db.get_value("Lab Report Sample", {"lab_sample": sample}, "parent")
-	lr = frappe.get_doc("Lab Report", existing) if existing and frappe.db.exists("Lab Report", existing) else frappe.new_doc("Lab Report")
+	lr = None
+	if existing and frappe.db.exists("Lab Report", existing):
+		candidate = frappe.get_doc("Lab Report", existing)
+		docstatus = int(candidate.get("docstatus") or 0)
+		if docstatus == 1:
+			# SUBMITTED = released and signed. Rebuilding would rewrite
+			# `collection_datetime` from the Sample Collection's CURRENT
+			# collected_time and wipe/re-append every result child table —
+			# which Frappe correctly refuses:
+			#   "Not allowed to change Collection Date/Time after submission
+			#    from 2026-07-24 13:06:20 to 2026-07-24 19:11:02"
+			# That killed Print Preliminary and the Results screen's initial
+			# load, because both route through here. Printing a released
+			# report must never mutate it — hand the existing doc straight
+			# back. (Marking the field allow_on_submit would only convert the
+			# error into a silent, undetected edit of a signed report.)
+			return candidate.name
+		if docstatus == 2:
+			# Cancelled docs can't be modified either — start a fresh report
+			# rather than throwing on the first save.
+			candidate = None
+		lr = candidate
+	if lr is None:
+		lr = frappe.new_doc("Lab Report")
 	fns = {df.fieldname for df in lr.meta.fields}
 
 	def setf(field, value):
