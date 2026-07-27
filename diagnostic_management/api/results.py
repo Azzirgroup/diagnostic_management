@@ -1138,6 +1138,20 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 						abnormal = 1
 					elif ref_effective:
 						flag = "Normal"
+			# Preserve the status the tech SELECTED during result entry when the
+			# range-based recompute can't produce a definitive flag. Previously
+			# `status` was set to `flag` outright, so an analyte whose reference
+			# is a single value ("5.0") or otherwise doesn't parse as a numeric
+			# range came out BLANK on the report — the manually-picked status was
+			# silently deleted during review (e.g. Microalbumin 58.7 vs "5.0"
+			# printed with no status). Fall back to the entered `r.status`, and
+			# only let the auto-derived flag win when it actually resolved.
+			entered = (r.get("status") or "").strip()
+			status = flag or entered
+			if not flag and entered and entered != "Normal":
+				# The tech flagged it abnormal; honour that for row highlighting
+				# even though the range couldn't confirm it numerically.
+				abnormal = 1
 			row = {
 				"lab_test": lt.name,
 				"test_name": analyte,
@@ -1145,7 +1159,7 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 				"result_value": r.result_value,
 				"uom": uom,
 				"reference_range": rng,
-				"status": flag,
+				"status": status,
 				"is_abnormal": abnormal,
 			}
 			if ttype == "Grouped" and "grouped_results" in fns:
