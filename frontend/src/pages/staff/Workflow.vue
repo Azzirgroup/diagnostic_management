@@ -10,7 +10,16 @@ import { collectionApi, labApi, workflowApi } from '@/api/adms'
 const router = useRouter()
 const loading = ref(true)
 const counts = ref({ collection: 0, store: 0, result: 0 })
-const sessions = ref<Array<{ name: string; patient_name?: string; status?: string; current_step?: number }>>([])
+const sessions = ref<Array<{ name: string; patient_name?: string; status?: string; current_step?: number; workflow_started?: string; modified?: string }>>([])
+
+// "Date of client visit" = when the workflow session was started. Fall back to
+// `modified` for legacy sessions saved before workflow_started was populated.
+function visitDate(s: { workflow_started?: string; modified?: string }) {
+  const raw = s.workflow_started || s.modified
+  if (!raw) return '—'
+  const d = new Date(raw.replace(' ', 'T'))
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
 const search = ref('')
 const includeCompleted = ref(false)
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
@@ -114,12 +123,13 @@ function countFor(key: string): number | null {
     </div>
     <table v-if="sessions.length" class="w-full text-sm">
       <thead><tr class="text-left text-surface-500 border-b border-surface-200">
-        <th class="py-2">Session</th><th>Patient</th><th>Step</th><th>Status</th><th class="text-right">Action</th>
+        <th class="py-2">Session</th><th>Patient</th><th>Visit Date</th><th>Step</th><th>Status</th><th class="text-right">Action</th>
       </tr></thead>
       <tbody>
         <tr v-for="s in sessions" :key="s.name" class="border-b border-surface-100">
           <td class="py-3 text-brand-teal-600 font-medium">{{ s.name }}</td>
           <td>{{ s.patient_name || '—' }}</td>
+          <td class="whitespace-nowrap">{{ visitDate(s) }}</td>
           <td>{{ STEP_LABELS[s.current_step || 1] || s.current_step }}</td>
           <td><StatusPill :status="s.status || 'Draft'" /></td>
           <td class="text-right">

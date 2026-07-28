@@ -156,7 +156,7 @@ def list_open(
 	return frappe.get_all(
 		"Lab Workflow Session",
 		fields=["name", "patient", "patient_name", "status", "current_step",
-		        "service_request", "modified"],
+		        "service_request", "workflow_started", "modified"],
 		filters=filters,
 		or_filters=or_filters,
 		order_by="modified desc",

@@ -523,7 +523,7 @@ export const workflowApi = {
   complete: (name: string) =>
     call<{ ok: boolean; name: string }>('diagnostic_management.api.workflow.complete_session', { name }),
   listOpen: (limit = 20, search?: string, includeCompleted = false) =>
-    call<Array<{ name: string; patient?: string; patient_name?: string; status?: string; current_step?: number; service_request?: string }>>(
+    call<Array<{ name: string; patient?: string; patient_name?: string; status?: string; current_step?: number; service_request?: string; workflow_started?: string; modified?: string }>>(
       'diagnostic_management.api.workflow.list_open',
       { limit, search: search || undefined, include_completed: includeCompleted ? 1 : 0 },
     ),
