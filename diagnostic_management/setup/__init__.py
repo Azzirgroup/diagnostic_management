@@ -178,32 +178,50 @@ def after_install():
 
 
 def after_migrate():
-	# Custom fields & print formats are idempotent — safe to re-run on every
-	# migrate, so updates to either land without manual import steps.
-	install_custom_fields()
-	ensure_branch_accounting_dimension()
-	install_print_formats()
-	install_seed_data()
-	_ensure_healthcare_settings()
-	_ensure_desk_icon()
-	_ensure_apps_screen_tiles()
-	_ensure_workspace_sidebars_populated()
-	_ensure_shift_role_perms()
-	install_director_and_lab_manager_workspaces()
-	_pin_patient_field_uniqueness()
-	_pin_default_print_formats()
-	_allow_doctor_after_submit()
-	_align_lab_report_status_options()
-	_allow_result_edit_after_submit()
-	_ensure_user_company_default()
-	_dedupe_genetest_lab_report_comments()
-	_pin_patient_naming_series()
-	# Fill `branch` on historical financial docs (Sales Invoice / Payment
-	# Entry / Purchase Invoice / Journal Entry) that posted before the
-	# Branch dimension was registered. Idempotent — only touches rows with
-	# branch IS NULL.
+	# Every step is idempotent and independent, so run each in isolation: a
+	# failure in one MUST NOT abort the rest. Previously this was a bare
+	# sequence — if an early step (e.g. install_custom_fields) threw on a given
+	# site, everything after it silently never ran, including the print-format
+	# sync. That's why template fixes "kept coming back": the deploy looked
+	# successful but install_print_formats() was never reached, so the live
+	# Print Format records stayed on their old HTML. Isolating steps guarantees
+	# install_print_formats (and the rest) run on every migrate regardless.
 	from diagnostic_management.finance.stamp import backfill_branch_on_existing_docs
-	backfill_branch_on_existing_docs()
+
+	steps = [
+		("install_custom_fields", install_custom_fields),
+		("ensure_branch_accounting_dimension", ensure_branch_accounting_dimension),
+		("install_print_formats", install_print_formats),
+		("install_seed_data", install_seed_data),
+		("_ensure_healthcare_settings", _ensure_healthcare_settings),
+		("_ensure_desk_icon", _ensure_desk_icon),
+		("_ensure_apps_screen_tiles", _ensure_apps_screen_tiles),
+		("_ensure_workspace_sidebars_populated", _ensure_workspace_sidebars_populated),
+		("_ensure_shift_role_perms", _ensure_shift_role_perms),
+		("install_director_and_lab_manager_workspaces", install_director_and_lab_manager_workspaces),
+		("_pin_patient_field_uniqueness", _pin_patient_field_uniqueness),
+		("_pin_default_print_formats", _pin_default_print_formats),
+		("_allow_doctor_after_submit", _allow_doctor_after_submit),
+		("_align_lab_report_status_options", _align_lab_report_status_options),
+		("_allow_result_edit_after_submit", _allow_result_edit_after_submit),
+		("_ensure_user_company_default", _ensure_user_company_default),
+		("_dedupe_genetest_lab_report_comments", _dedupe_genetest_lab_report_comments),
+		("_pin_patient_naming_series", _pin_patient_naming_series),
+		# Fill `branch` on historical financial docs that posted before the
+		# Branch dimension existed. Idempotent — only touches branch IS NULL.
+		("backfill_branch_on_existing_docs", backfill_branch_on_existing_docs),
+	]
+	failed = []
+	for label, fn in steps:
+		try:
+			fn()
+		except Exception:
+			failed.append(label)
+			frappe.log_error(title=f"after_migrate step failed: {label}", message=frappe.get_traceback())
+	if failed:
+		# Surface in the migrate log without failing the migrate — the rest of
+		# the steps still applied.
+		print(f"  [after_migrate] {len(failed)} step(s) failed (logged, continued): {', '.join(failed)}")
 
 
 def _ensure_shift_role_perms():
