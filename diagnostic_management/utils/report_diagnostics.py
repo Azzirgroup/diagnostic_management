@@ -25,6 +25,43 @@ def _existing_fields(doctype, wanted):
 
 
 @frappe.whitelist()
+def debug_report_build(sample: str, session: str | None = None) -> dict:
+	"""READ-ONLY: shows exactly why the report shows what it shows.
+
+	Calls the REAL selection logic and reports the current scope mode, the Lab
+	Report's docstatus (a SUBMITTED report can't be rebuilt), and what the
+	selection would return for the given session. This pinpoints whether the
+	problem is the flag, the deploy, or a submitted-report guard.
+	"""
+	from diagnostic_management.api import results as R
+
+	lr = frappe.db.get_value("Lab Report Sample", {"lab_sample": sample}, "parent")
+	lr_info = None
+	if lr:
+		lr_info = frappe.db.get_value("Lab Report", lr, ["name", "docstatus", "status"], as_dict=True)
+
+	try:
+		selected = R._select_report_lab_tests(sample, None, session=session)
+		sel_err = None
+	except TypeError as e:
+		# Old code deployed: _select_report_lab_tests has no `session` param yet.
+		selected, sel_err = None, f"OLD CODE DEPLOYED (no session param): {e}"
+
+	blocked_submitted = bool(lr_info and int(lr_info.get("docstatus") or 0) == 1)
+	return {
+		"sample": sample,
+		"session_passed": session,
+		"report_scope_mode": R._report_scope_mode(),
+		"lab_report": lr_info,
+		"report_is_submitted_cannot_rebuild": blocked_submitted,
+		"selection_would_return": selected,
+		"selection_count": (len(selected) if selected is not None else None),
+		"selection_error": sel_err,
+		"expected": "count should be 11 for session=LW-2026-01371 when mode=session and new code is live",
+	}
+
+
+@frappe.whitelist()
 def preview_report_tests(sample: str) -> dict:
 	"""READ-ONLY: show exactly what the new session-scope WOULD put on the report
 	for this sample — without building anything. This tells us, before any push,
