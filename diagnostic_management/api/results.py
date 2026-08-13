@@ -1012,12 +1012,32 @@ def set_report_scope(mode: str) -> dict:
 
 
 def _session_orders_for_sample(sample):
-	"""The workflow session's orders for this sample's report — the SAME scope
-	`get_sample` uses for the screen. Empty when there's no linked session."""
-	dr = _report_for_sample(sample)
-	if not dr:
-		return []
-	session = frappe.db.get_value("Lab Workflow Session", {"diagnostic_report": dr}, "name")
+	"""Orders of the workflow session that includes this sample — the SAME scope
+	`get_sample` uses for the results screen.
+
+	Finds the session via its `samples` child table (reliable: every session
+	records its samples there), taking the most recent when a reused sample
+	belongs to several sessions. Falls back to the session's `diagnostic_report`
+	back-link only if the child lookup finds nothing.
+	"""
+	session = None
+	rows = frappe.get_all(
+		"Lab Workflow Session Sample", filters={"sample": sample}, fields=["parent"]
+	)
+	session_names = list({r["parent"] for r in rows})
+	if session_names:
+		latest = frappe.get_all(
+			"Lab Workflow Session",
+			filters={"name": ["in", session_names]},
+			order_by="creation desc",
+			limit=1,
+			pluck="name",
+		)
+		session = latest[0] if latest else None
+	if not session:
+		dr = _report_for_sample(sample)
+		if dr:
+			session = frappe.db.get_value("Lab Workflow Session", {"diagnostic_report": dr}, "name")
 	if not session:
 		return []
 	try:

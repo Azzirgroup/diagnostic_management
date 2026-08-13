@@ -25,6 +25,70 @@ def _existing_fields(doctype, wanted):
 
 
 @frappe.whitelist()
+def preview_report_tests(sample: str) -> dict:
+	"""READ-ONLY: show exactly what the new session-scope WOULD put on the report
+	for this sample — without building anything. This tells us, before any push,
+	whether the fix will work for this sample.
+
+	Reports the sessions the sample belongs to, each session's orders, and the
+	final list of Lab Tests the session-scope would select vs the legacy list.
+	"""
+	# sessions that include this sample (via the samples child)
+	rows = frappe.get_all(
+		"Lab Workflow Session Sample", filters={"sample": sample}, fields=["parent"]
+	)
+	session_names = sorted({r["parent"] for r in rows})
+	sessions = []
+	for s in session_names:
+		info = frappe.db.get_value("Lab Workflow Session", s, ["name", "creation"], as_dict=True) or {}
+		try:
+			from diagnostic_management.api.collection_workflow import _session_orders
+			orders = _session_orders(s)
+		except Exception as e:
+			orders = f"error: {e}"
+		info["orders"] = orders
+		sessions.append(info)
+
+	# what session-scope WOULD select
+	session_scope_tests = []
+	if session_names:
+		latest = frappe.get_all(
+			"Lab Workflow Session", filters={"name": ["in", session_names]},
+			order_by="creation desc", limit=1, pluck="name",
+		)
+		if latest:
+			from diagnostic_management.api.collection_workflow import _session_orders
+			orders = _session_orders(latest[0])
+			if orders:
+				session_scope_tests = frappe.get_all(
+					"Lab Test",
+					filters={"sample": sample, "service_request": ["in", orders], "docstatus": ["<", 2]},
+					order_by="creation asc", pluck="name",
+				)
+
+	dr_name = None
+	for f in ({"sample_collection": sample}, {"ref_doctype": "Sample Collection", "docname": sample}):
+		hits = frappe.get_all("Diagnostic Report", filters=f, pluck="name")
+		if hits:
+			dr_name = hits[0]; break
+	csv = frappe.db.get_value("Diagnostic Report", dr_name, "custom_lab_tests_csv") if dr_name else None
+
+	verdict = (
+		"WILL FIX: session-scope selects more tests than legacy"
+		if len(session_scope_tests) > len([c for c in (csv or "").split(",") if c.strip()])
+		else "WON'T CHANGE: session-scope finds nothing extra — needs a different signal"
+	)
+	return {
+		"sample": sample,
+		"sessions_containing_sample": sessions,
+		"session_scope_would_select": session_scope_tests,
+		"session_scope_count": len(session_scope_tests),
+		"legacy_batch_csv": csv,
+		"verdict": verdict,
+	}
+
+
+@frappe.whitelist()
 def diagnose_sample(sample: str) -> dict:
 	if not frappe.db.exists("Sample Collection", sample):
 		return {"error": f"Sample Collection {sample} not found"}
