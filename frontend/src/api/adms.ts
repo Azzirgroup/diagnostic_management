@@ -505,8 +505,10 @@ export const resultsApi = {
   saveSample: (payload: { sample: string; tests: Array<{ name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>> }>; complete?: number; is_critical?: number; conclusion?: string }) =>
     call<{ ok: boolean; sample: string; report?: string }>('diagnostic_management.api.results.save_sample', payload),
   // Build (or fetch) the verbatim genetest Lab Report doc for a sample, for printing.
-  labReportForSample: (sample: string) =>
-    call<string>('diagnostic_management.api.results.lab_report_for_sample', { sample }),
+  // `session` scopes the report's tests to the workflow session being printed so
+  // the print matches that screen (a reused sample belongs to several sessions).
+  labReportForSample: (sample: string, session?: string) =>
+    call<string>('diagnostic_management.api.results.lab_report_for_sample', { sample, session: session || undefined }),
   // Urgent Review Officer authorizes an urgent sample so it can be released.
   authorizeUrgent: (sample: string) =>
     call<{ ok: boolean; report: string; urgent_review_status: string; urgent_reviewed_by: string }>(

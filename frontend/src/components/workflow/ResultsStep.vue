@@ -403,7 +403,7 @@ async function loadLabReportForSelected() {
   const key = selectedSample.value.name
   if (releasedLabReport.value[key]) return
   try {
-    const lrName = await resultsApi.labReportForSample(key)
+    const lrName = await resultsApi.labReportForSample(key, props.session?.name)
     if (!lrName) return
     const lr = await labReportsApi.detail(lrName)
     releasedLabReport.value[key] = {
@@ -493,7 +493,7 @@ async function printReport() {
   saving.value = true; error.value = ''
   try {
     // Build (or fetch) the verbatim genetest Lab Report for this sample, then print it.
-    const lr = await resultsApi.labReportForSample(selectedSample.value.name)
+    const lr = await resultsApi.labReportForSample(selectedSample.value.name, props.session?.name)
     if (!lr) { error.value = 'No lab report available for this sample yet.'; return }
     const params = new URLSearchParams({ doctype: 'Lab Report', name: lr, format: 'Lab Report', no_letterhead: '0' })
     window.open(`/printview?${params.toString()}`, '_blank')
@@ -510,7 +510,7 @@ async function printPreliminary() {
   if (!selectedSample.value) return
   saving.value = true; error.value = ''
   try {
-    const lr = await resultsApi.labReportForSample(selectedSample.value.name)
+    const lr = await resultsApi.labReportForSample(selectedSample.value.name, props.session?.name)
     if (!lr) { error.value = 'No lab report available for this sample yet.'; return }
     const params = new URLSearchParams({
       doctype: 'Lab Report', name: lr, format: 'Lab Report',

@@ -919,15 +919,17 @@ def authorize_urgent_review(sample: str) -> dict:
 
 
 @frappe.whitelist()
-def lab_report_for_sample(sample: str) -> str | None:
+def lab_report_for_sample(sample: str, session: str | None = None) -> str | None:
 	"""Existing Lab Report for the sample, (re)building it so the printable
 	form reflects the CURRENT normal_test_items values. Called by both
 	Verify & Release (post-approval) and Print Preliminary (pre-approval);
 	either way we always rebuild so a re-edit after Save & Complete flows
 	through to the next print without staleness."""
 	# _build_lab_report is idempotent — reuses an existing Lab Report doc
-	# when one exists and just refreshes its rows.
-	return _build_lab_report(sample, {"status": "Approved"})
+	# when one exists and just refreshes its rows. `session` (passed by the
+	# SPA's print button) scopes the report's tests to the session being
+	# printed, so the print matches that screen exactly.
+	return _build_lab_report(sample, {"status": "Approved"}, session=session)
 
 
 def _frozen_collection_datetime(existing, sample_collected_time, ceiling):
@@ -1011,38 +1013,13 @@ def set_report_scope(mode: str) -> dict:
 	return {"ok": True, "mode": mode}
 
 
-def _session_orders_for_sample(sample):
-	"""Orders of the workflow session that includes this sample — the SAME scope
-	`get_sample` uses for the results screen.
-
-	Finds the session via its `samples` child table (reliable: every session
-	records its samples there), taking the most recent when a reused sample
-	belongs to several sessions. Falls back to the session's `diagnostic_report`
-	back-link only if the child lookup finds nothing.
-	"""
-	session = None
-	rows = frappe.get_all(
-		"Lab Workflow Session Sample", filters={"sample": sample}, fields=["parent"]
-	)
-	session_names = list({r["parent"] for r in rows})
-	if session_names:
-		latest = frappe.get_all(
-			"Lab Workflow Session",
-			filters={"name": ["in", session_names]},
-			order_by="creation desc",
-			limit=1,
-			pluck="name",
-		)
-		session = latest[0] if latest else None
-	if not session:
-		dr = _report_for_sample(sample)
-		if dr:
-			session = frappe.db.get_value("Lab Workflow Session", {"diagnostic_report": dr}, "name")
+def _session_orders(session):
+	"""The service-request orders of a workflow session (empty on any problem)."""
 	if not session:
 		return []
 	try:
-		from diagnostic_management.api.collection_workflow import _session_orders
-		return _session_orders(session)
+		from diagnostic_management.api.collection_workflow import _session_orders as _so
+		return _so(session)
 	except Exception:
 		return []
 
@@ -1076,15 +1053,18 @@ def _legacy_batch_lab_tests(sample):
 	)
 
 
-def _select_report_lab_tests(sample, si_link=None):
+def _select_report_lab_tests(sample, si_link=None, session=None):
 	"""Which Lab Tests belong on this report.
 
-	Default: the report's workflow-session orders — the SAME set the results
-	screen shows (`get_sample`). Falls back to the legacy batch list when there's
-	no session, and honours the 'legacy' runtime flag as a full revert.
+	When the PRINTING session is known (passed from the print action), scope to
+	exactly THAT session's orders — the same set the results screen shows for the
+	session the user is looking at. This is the reliable signal: a reused sample
+	belongs to several sessions, and only the caller knows which one is being
+	printed. With no session, or under the 'legacy' runtime flag, fall back to the
+	original batch-list behaviour (unchanged).
 	"""
-	if _report_scope_mode() != "legacy":
-		orders = _session_orders_for_sample(sample)
+	if _report_scope_mode() != "legacy" and session:
+		orders = _session_orders(session)
 		if orders:
 			names = frappe.get_all(
 				"Lab Test",
@@ -1097,9 +1077,13 @@ def _select_report_lab_tests(sample, si_link=None):
 	return _legacy_batch_lab_tests(sample)
 
 
-def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
+def _build_lab_report(sample: str, signoff: dict | None = None, session: str | None = None) -> str | None:
 	"""Create/refresh a Lab Report (genetest doctype) from a Sample Collection's
-	Lab Tests + results, so the verbatim genetest print format renders."""
+	Lab Tests + results, so the verbatim genetest print format renders.
+
+	`session` (optional) — when the caller knows which workflow session is being
+	printed, the report's tests are scoped to that session's orders so the print
+	matches that screen. Without it, the legacy batch-list selection is used."""
 	from frappe.utils import today
 
 	from diagnostic_management.utils.formatters import result_flag
@@ -1213,7 +1197,7 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	# Which Lab Tests go on this report — scoped to match the results screen
 	# (session-scoped), with the legacy batch list as fallback / runtime revert.
 	# See _select_report_lab_tests above.
-	current_lt_names = _select_report_lab_tests(sample, si_link)
+	current_lt_names = _select_report_lab_tests(sample, si_link, session=session)
 	for lt_name in current_lt_names:
 		lt = frappe.get_doc("Lab Test", lt_name)
 		ttype = frappe.db.get_value("Lab Test Template", lt.template, "lab_test_template_type") or "Single"

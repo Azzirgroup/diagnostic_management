@@ -49,22 +49,17 @@ def preview_report_tests(sample: str) -> dict:
 		info["orders"] = orders
 		sessions.append(info)
 
-	# what session-scope WOULD select
-	session_scope_tests = []
-	if session_names:
-		latest = frappe.get_all(
-			"Lab Workflow Session", filters={"name": ["in", session_names]},
-			order_by="creation desc", limit=1, pluck="name",
-		)
-		if latest:
-			from diagnostic_management.api.collection_workflow import _session_orders
-			orders = _session_orders(latest[0])
-			if orders:
-				session_scope_tests = frappe.get_all(
-					"Lab Test",
-					filters={"sample": sample, "service_request": ["in", orders], "docstatus": ["<", 2]},
-					order_by="creation asc", pluck="name",
-				)
+	# what scoping to EACH session would select — so you can see, per session,
+	# exactly which tests the print would contain if opened from that session.
+	from diagnostic_management.api.collection_workflow import _session_orders
+	per_session_selection = {}
+	for s in session_names:
+		orders = _session_orders(s)
+		per_session_selection[s] = frappe.get_all(
+			"Lab Test",
+			filters={"sample": sample, "service_request": ["in", orders or ["__none__"]], "docstatus": ["<", 2]},
+			order_by="creation asc", pluck="name",
+		) if orders else []
 
 	dr_name = None
 	for f in ({"sample_collection": sample}, {"ref_doctype": "Sample Collection", "docname": sample}):
@@ -73,18 +68,20 @@ def preview_report_tests(sample: str) -> dict:
 			dr_name = hits[0]; break
 	csv = frappe.db.get_value("Diagnostic Report", dr_name, "custom_lab_tests_csv") if dr_name else None
 
+	best = max((len(v) for v in per_session_selection.values()), default=0)
 	verdict = (
-		"WILL FIX: session-scope selects more tests than legacy"
-		if len(session_scope_tests) > len([c for c in (csv or "").split(",") if c.strip()])
-		else "WON'T CHANGE: session-scope finds nothing extra — needs a different signal"
+		f"WILL FIX when printed from the right session — a session selects up to {best} tests"
+		if best > len([c for c in (csv or "").split(",") if c.strip()])
+		else "WON'T CHANGE: no session selects more than the legacy batch — needs a different signal"
 	)
 	return {
 		"sample": sample,
 		"sessions_containing_sample": sessions,
-		"session_scope_would_select": session_scope_tests,
-		"session_scope_count": len(session_scope_tests),
+		"tests_selected_per_session": per_session_selection,
 		"legacy_batch_csv": csv,
 		"verdict": verdict,
+		"how_to_read": "Open the workflow whose session gives the tests you want; "
+		               "its 'Print Report' now scopes the print to that session.",
 	}
 
 
