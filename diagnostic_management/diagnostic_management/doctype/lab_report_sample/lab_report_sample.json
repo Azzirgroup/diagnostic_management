@@ -28,7 +28,6 @@
   {
    "fieldname": "collection_datetime",
    "fieldtype": "Datetime",
-   "fetch_from": "lab_sample.collected_time",
    "in_list_view": 1,
    "label": "Collection Date/Time",
    "read_only": 1

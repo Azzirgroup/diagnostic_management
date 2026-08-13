@@ -7,3 +7,4 @@
 diagnostic_management.patches.v1_0.fix_v15_residue
 diagnostic_management.patches.v1_0.fix_kanonas_shortcut_permlevel
 diagnostic_management.patches.v1_0.grant_diagnostic_report_status_read
+diagnostic_management.patches.v1_0.fix_report_collection_dates

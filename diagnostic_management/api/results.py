@@ -930,6 +930,36 @@ def lab_report_for_sample(sample: str) -> str | None:
 	return _build_lab_report(sample, {"status": "Approved"})
 
 
+def _frozen_collection_datetime(existing, sample_collected_time, ceiling):
+	"""Collection time to store on a Lab Report — captured ONCE, never
+	overwritten on rebuilds.
+
+	A Sample Collection is REUSED across orders for a patient + sample type; its
+	single `collected_time` is cleared and re-stamped on each new order (see the
+	reset in billing_workflow). Reading it live means a *later* order's
+	collection time leaks onto an *older* report — printing a collection date
+	AFTER the report was generated. So we freeze the value the first time the
+	report is built and leave it alone thereafter.
+
+	  existing : value already on the report — kept as-is if present (the freeze).
+	  ceiling  : latest plausible time (the report's creation, or now for a brand
+	             new doc). Collection cannot happen after the report itself
+	             exists, so anything past the ceiling is treated as unreliable
+	             and dropped rather than stored.
+	"""
+	if existing:
+		return existing
+	ct = sample_collected_time
+	if ct and ceiling:
+		from frappe.utils import get_datetime
+		try:
+			if get_datetime(ct) > get_datetime(ceiling):
+				return None
+		except Exception:
+			pass
+	return ct
+
+
 def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	"""Create/refresh a Lab Report (genetest doctype) from a Sample Collection's
 	Lab Tests + results, so the verbatim genetest print format renders."""
@@ -997,7 +1027,15 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 		unit = (patient_row.get("custom_age_type") or "Years").strip()
 		setf("patient_age", f"{patient_row['custom_age']} {unit}")
 	setf("patient_sex", patient_row.get("sex"))
-	setf("collection_datetime", sc.get("collected_time"))
+	# Freeze the collection time — capture once, never overwrite on rebuild, and
+	# never store a value later than the report itself. See
+	# _frozen_collection_datetime for why (reused Sample Collection).
+	from frappe.utils import now_datetime
+	_coll_ceiling = lr.get("creation") or now_datetime()
+	_frozen_coll = _frozen_collection_datetime(
+		lr.get("collection_datetime"), sc.get("collected_time"), _coll_ceiling
+	)
+	setf("collection_datetime", _frozen_coll)
 	# Carry the Sales Invoice forward — either from the Sample Collection's
 	# stamp, or by taking it from the first Lab Test linked to this sample.
 	si_link = sc.get("custom_sales_invoice") or frappe.db.get_value(
@@ -1031,7 +1069,9 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 		if tbl in fns:
 			lr.set(tbl, [])
 	if "samples" in fns:
-		lr.append("samples", {"lab_sample": sample, "sample_type": sc.get("sample"), "collection_datetime": sc.get("collected_time")})
+		# Child row mirrors the FROZEN parent value (not the live sample time) so
+		# the samples table and the printed collection date always agree.
+		lr.append("samples", {"lab_sample": sample, "sample_type": sc.get("sample"), "collection_datetime": lr.get("collection_datetime")})
 
 	# Build the report from the CURRENT batch only. Prefer the explicit list
 	# stored on the DR by save_sample (`custom_lab_tests_csv` — this workflow's
