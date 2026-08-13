@@ -17,6 +17,13 @@ Run in a browser (logged in):
 import frappe
 
 
+def _existing_fields(doctype, wanted):
+	"""Keep only the fields that actually exist on `doctype` (plus name), so a
+	missing custom field can't crash a read-only dump."""
+	have = {df.fieldname for df in frappe.get_meta(doctype).fields} | {"name", "creation", "modified"}
+	return [f for f in wanted if f in have]
+
+
 @frappe.whitelist()
 def diagnose_sample(sample: str) -> dict:
 	if not frappe.db.exists("Sample Collection", sample):
@@ -24,8 +31,9 @@ def diagnose_sample(sample: str) -> dict:
 
 	sc = frappe.db.get_value(
 		"Sample Collection", sample,
-		["patient", "patient_name", "sample", "workflow_status", "collected_time",
-		 "custom_sales_invoice"],
+		_existing_fields("Sample Collection",
+		                 ["patient", "patient_name", "sample", "workflow_status",
+		                  "collected_time", "custom_sales_invoice"]),
 		as_dict=True,
 	) or {}
 
@@ -33,8 +41,9 @@ def diagnose_sample(sample: str) -> dict:
 	lab_tests = frappe.get_all(
 		"Lab Test",
 		filters={"sample": sample},
-		fields=["name", "template", "docstatus", "creation",
-		        "service_request", "custom_sales_invoice"],
+		fields=_existing_fields("Lab Test",
+		                        ["name", "template", "docstatus", "creation",
+		                         "service_request", "custom_sales_invoice"]),
 		order_by="creation asc",
 	)
 	for lt in lab_tests:
@@ -49,13 +58,13 @@ def diagnose_sample(sample: str) -> dict:
 	for f in ({"sample_collection": sample}, {"ref_doctype": "Sample Collection", "docname": sample}):
 		for n in frappe.get_all("Diagnostic Report", filters=f, pluck="name"):
 			dr_names.add(n)
+	dr_fields = _existing_fields(
+		"Diagnostic Report",
+		["name", "status", "custom_lab_tests_csv", "custom_sales_invoice", "creation"],
+	)
 	diagnostic_reports = []
 	for n in dr_names:
-		d = frappe.db.get_value(
-			"Diagnostic Report", n,
-			["name", "status", "custom_lab_tests_csv", "custom_sales_invoice", "creation"],
-			as_dict=True,
-		) or {}
+		d = frappe.db.get_value("Diagnostic Report", n, dr_fields, as_dict=True) or {}
 		diagnostic_reports.append(d)
 
 	# --- Lab Report(s) tied to this sample (via the samples child) ---
