@@ -33,6 +33,33 @@ import frappe
 _BACKUP_FILE = "collection_datetime_backup.json"
 
 
+def _to_datetime(value):
+	"""Parse a datetime from EITHER ISO (YYYY-MM-DD, from DB fields) OR Frappe's
+	version-display format (DD-MM-YYYY, how `tabVersion` stores changes here).
+
+	ISO patterns are tried first because a 4-digit-year-first string is
+	unambiguous. Only then do we try day-first (DD-MM-YYYY) — parsing it
+	EXPLICITLY, never by a guessing parser, so "06-08-2026" can't be misread as
+	8-June instead of 6-August. Returns a datetime, or None if unparseable.
+	"""
+	if not value:
+		return None
+	from datetime import datetime as _dt
+
+	if isinstance(value, _dt):
+		return value
+	s = str(value).strip()
+	for fmt in (
+		"%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
+		"%d-%m-%Y %H:%M:%S.%f", "%d-%m-%Y %H:%M:%S", "%d-%m-%Y %H:%M", "%d-%m-%Y",
+	):
+		try:
+			return _dt.strptime(s, fmt)
+		except ValueError:
+			continue
+	return None
+
+
 def _backup_path():
 	return frappe.get_site_path("private", "files", _BACKUP_FILE)
 
@@ -129,8 +156,6 @@ def backfill(dry_run: int = 1, limit: int = 2000, show: int | None = None) -> di
 	dry_run=1 (default): preview only, writes nothing.
 	dry_run=0          : apply, backing up each original value for revert().
 	"""
-	from frappe.utils import get_datetime
-
 	dry_run = int(dry_run or 0)
 	rows = _plan_rows(limit)
 	backup = _load_backup()
@@ -140,29 +165,32 @@ def backfill(dry_run: int = 1, limit: int = 2000, show: int | None = None) -> di
 		sample = frappe.db.get_value("Lab Report Sample", {"parent": r.name}, "lab_sample")
 		recovered = _collected_time_as_of(sample, r.creation) if sample else None
 		source = "version-history"
-		new_val = recovered
-		if not new_val:
-			new_val = r.creation
-			source = "report-creation (fallback: no history)"
+		new_dt = _to_datetime(recovered)
+		creation_dt = _to_datetime(r.creation)
+		if new_dt is None:
+			new_dt = creation_dt
+			source = "report-creation (fallback: no usable history)"
 		# Never let the repaired value itself be after the report's creation.
-		if get_datetime(new_val) > get_datetime(r.creation):
-			new_val = r.creation
+		if new_dt and creation_dt and new_dt > creation_dt:
+			new_dt = creation_dt
 			source += " +clamped"
 
 		entry = {
 			"report": r.name,
 			"from": str(r.collection_datetime),
-			"to": str(new_val),
+			"to": str(new_dt),
 			"source": source,
 			"sample": sample,
 		}
 		plan.append(entry)
 
-		if not dry_run:
+		if not dry_run and new_dt is not None:
 			# Preserve the ORIGINAL value only once, even across repeated runs.
 			if r.name not in backup:
 				backup[r.name] = str(r.collection_datetime)
-			frappe.db.set_value("Lab Report", r.name, "collection_datetime", new_val, update_modified=False)
+			# Store a real datetime object — never the raw DD-MM-YYYY string,
+			# which MySQL rejects.
+			frappe.db.set_value("Lab Report", r.name, "collection_datetime", new_dt, update_modified=False)
 
 	if not dry_run and plan:
 		_save_backup(backup)
