@@ -960,6 +960,123 @@ def _frozen_collection_datetime(existing, sample_collected_time, ceiling):
 	return ct
 
 
+# --- Report test-selection: make the PRINT match the RESULTS SCREEN -----------
+#
+# The results screen (`get_sample`) scopes a reused sample's Lab Tests to the
+# CURRENT workflow session's orders, so it shows exactly this visit's tests. The
+# report builder historically used a different rule — a stored batch list
+# (`custom_lab_tests_csv`) that gets overwritten per save — so on a sample shared
+# by two orders the print and the screen disagreed (screen showed the full
+# panel, print showed only the last order's tests).
+#
+# We now select the report's tests the SAME WAY the screen does: by the report's
+# workflow session's orders. Falls back to the exact legacy batch-list logic when
+# there's no session to scope by, so nothing changes for non-workflow reports.
+#
+# `set_report_scope('legacy')` flips back to the old behaviour at RUNTIME (no
+# redeploy) if the new scoping ever misbehaves.
+
+
+def _report_scope_mode():
+	"""'session' (new: print matches screen) or 'legacy' (old batch list).
+	Read from a private-file flag so it can be toggled without a deploy."""
+	try:
+		import json
+		import os
+		path = frappe.get_site_path("private", "files", "report_scope_mode.json")
+		if os.path.exists(path):
+			with open(path) as f:
+				mode = (json.load(f) or {}).get("mode")
+				if mode in ("session", "legacy"):
+					return mode
+	except Exception:
+		pass
+	return "session"
+
+
+@frappe.whitelist()
+def set_report_scope(mode: str) -> dict:
+	"""Runtime switch for how a report picks its Lab Tests.
+
+	mode='session' (default) : match the results screen (session-scoped).
+	mode='legacy'            : the old stored-batch-list behaviour.
+
+	Instant revert path — flip to 'legacy' and rebuild (Refetch) if the new
+	scoping ever prints the wrong tests. No redeploy needed.
+	"""
+	import json
+	mode = "legacy" if str(mode).lower() == "legacy" else "session"
+	with open(frappe.get_site_path("private", "files", "report_scope_mode.json"), "w") as f:
+		json.dump({"mode": mode}, f)
+	return {"ok": True, "mode": mode}
+
+
+def _session_orders_for_sample(sample):
+	"""The workflow session's orders for this sample's report — the SAME scope
+	`get_sample` uses for the screen. Empty when there's no linked session."""
+	dr = _report_for_sample(sample)
+	if not dr:
+		return []
+	session = frappe.db.get_value("Lab Workflow Session", {"diagnostic_report": dr}, "name")
+	if not session:
+		return []
+	try:
+		from diagnostic_management.api.collection_workflow import _session_orders
+		return _session_orders(session)
+	except Exception:
+		return []
+
+
+def _legacy_batch_lab_tests(sample):
+	"""The ORIGINAL selection: the stored batch list (`custom_lab_tests_csv`),
+	else a 30-minute window around the latest Lab Test. Unchanged — kept as the
+	fallback and the 'legacy' mode so we can always get back to old behaviour."""
+	existing_dr_for_sample = _report_for_sample(sample)
+	csv_names = None
+	if existing_dr_for_sample:
+		csv_names = frappe.db.get_value("Diagnostic Report", existing_dr_for_sample, "custom_lab_tests_csv")
+	if csv_names:
+		# Skip cancelled entries (docstatus=2) — the legacy amend flow could
+		# leave a cancelled Lab Test name in the CSV alongside its `-1` draft.
+		raw = [n.strip() for n in csv_names.split(",") if n.strip()]
+		return [n for n in raw if frappe.db.get_value("Lab Test", n, "docstatus") in (0, 1)]
+	# Include Draft (0) AND Submitted (1) Lab Tests within the window.
+	latest_creation = frappe.db.get_value(
+		"Lab Test", {"sample": sample, "docstatus": ["<", 2]},
+		"creation", order_by="creation desc",
+	)
+	if not latest_creation:
+		return []
+	threshold = frappe.utils.add_to_date(latest_creation, minutes=-30)
+	return frappe.get_all(
+		"Lab Test",
+		filters={"sample": sample, "docstatus": ["<", 2], "creation": [">=", threshold]},
+		order_by="creation asc",
+		pluck="name",
+	)
+
+
+def _select_report_lab_tests(sample, si_link=None):
+	"""Which Lab Tests belong on this report.
+
+	Default: the report's workflow-session orders — the SAME set the results
+	screen shows (`get_sample`). Falls back to the legacy batch list when there's
+	no session, and honours the 'legacy' runtime flag as a full revert.
+	"""
+	if _report_scope_mode() != "legacy":
+		orders = _session_orders_for_sample(sample)
+		if orders:
+			names = frappe.get_all(
+				"Lab Test",
+				filters={"sample": sample, "service_request": ["in", orders], "docstatus": ["<", 2]},
+				order_by="creation asc",
+				pluck="name",
+			)
+			if names:
+				return names
+	return _legacy_batch_lab_tests(sample)
+
+
 def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 	"""Create/refresh a Lab Report (genetest doctype) from a Sample Collection's
 	Lab Tests + results, so the verbatim genetest print format renders."""
@@ -1073,44 +1190,10 @@ def _build_lab_report(sample: str, signoff: dict | None = None) -> str | None:
 		# the samples table and the printed collection date always agree.
 		lr.append("samples", {"lab_sample": sample, "sample_type": sc.get("sample"), "collection_datetime": lr.get("collection_datetime")})
 
-	# Build the report from the CURRENT batch only. Prefer the explicit list
-	# stored on the DR by save_sample (`custom_lab_tests_csv` — this workflow's
-	# submissions); fall back to a 30-minute window around the most recent
-	# Lab Test on the sample if the field isn't populated.
-	existing_dr_for_sample = _report_for_sample(sample)
-	csv_names = None
-	if existing_dr_for_sample:
-		csv_names = frappe.db.get_value("Diagnostic Report", existing_dr_for_sample, "custom_lab_tests_csv")
-	if csv_names:
-		# Skip cancelled entries (docstatus=2) — the legacy amend flow could
-		# leave a cancelled Lab Test name in the CSV alongside its `-1`
-		# draft, which would print duplicate rows.
-		raw = [n.strip() for n in csv_names.split(",") if n.strip()]
-		current_lt_names = [
-			n for n in raw
-			if frappe.db.get_value("Lab Test", n, "docstatus") in (0, 1)
-		]
-	else:
-		# Include Draft (docstatus=0) AND Submitted (=1) Lab Tests. Previously
-		# docstatus=1 was required, which produced a completely empty print
-		# for any Compound Lab Test left in Draft after Save & Complete —
-		# especially Urinalysis, where the tech saves partial data across
-		# 22 analytes and the underlying Lab Test may not be submitted.
-		latest_creation = frappe.db.get_value(
-			"Lab Test", {"sample": sample, "docstatus": ["<", 2]},
-			"creation", order_by="creation desc",
-		)
-		if not latest_creation:
-			current_lt_names = []
-		else:
-			threshold = frappe.utils.add_to_date(latest_creation, minutes=-30)
-			current_lt_names = frappe.get_all(
-				"Lab Test",
-				filters={"sample": sample, "docstatus": ["<", 2],
-				         "creation": [">=", threshold]},
-				order_by="creation asc",
-				pluck="name",
-			)
+	# Which Lab Tests go on this report — scoped to match the results screen
+	# (session-scoped), with the legacy batch list as fallback / runtime revert.
+	# See _select_report_lab_tests above.
+	current_lt_names = _select_report_lab_tests(sample, si_link)
 	for lt_name in current_lt_names:
 		lt = frappe.get_doc("Lab Test", lt_name)
 		ttype = frappe.db.get_value("Lab Test Template", lt.template, "lab_test_template_type") or "Single"
