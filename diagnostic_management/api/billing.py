@@ -7,15 +7,20 @@ from frappe.utils import flt, nowdate
 
 
 @frappe.whitelist()
-def queue(status: str | None = None, limit: int = 100) -> list[dict]:
-	"""Active billing queue. Defaults to all open (Draft / unpaid).
+def queue(status: str | None = None, limit: int = 500) -> list[dict]:
+	"""Billing queue. Shows ALL invoices (Paid included), newest first — only
+	cancelled ones are hidden. Pass an explicit `status` to narrow it (e.g.
+	status="Overdue" for just the outstanding worklist).
 	Branch-scoped: only Sales Invoices for patients in the user's branch."""
 	from diagnostic_management.api.branches import patient_branch_filter
 	filters: dict = {}
 	if status:
 		filters["status"] = status
 	else:
-		filters["status"] = ["in", ["Draft", "Overdue", "Unpaid", "Partly Paid", "Submitted"]]
+		# All non-cancelled invoices — previously this excluded "Paid", so only
+		# outstanding/overdue invoices showed. The billing screen now lists
+		# everything (the summary tiles still break it down by state).
+		filters["docstatus"] = ["<", 2]
 	filters.update(patient_branch_filter("patient"))
 	return frappe.get_all(
 		"Sales Invoice",
