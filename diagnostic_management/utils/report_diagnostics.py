@@ -17,6 +17,42 @@ Run in a browser (logged in):
 import frappe
 
 
+@frappe.whitelist()
+def install_report_fields() -> dict:
+	"""Create the custom_workflow_session field on Lab Report NOW, without
+	needing a full migrate (deploys here have not been reliably migrating).
+	Idempotent — safe to run repeatedly.
+
+	Requires System Manager (custom-field creation). Run once after deploy:
+	  /api/method/diagnostic_management.utils.report_diagnostics.install_report_fields
+	"""
+	if "System Manager" not in set(frappe.get_roles()):
+		frappe.throw("Only a System Manager can install fields.")
+
+	before = frappe.db.has_column("Lab Report", "custom_workflow_session")
+	if not before:
+		from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+		create_custom_fields({
+			"Lab Report": [{
+				"fieldname": "custom_workflow_session",
+				"label": "Workflow Session (Visit)",
+				"fieldtype": "Link",
+				"options": "Lab Workflow Session",
+				"insert_after": "custom_sales_invoice",
+				"read_only": 1,
+			}]
+		}, update=True)
+		frappe.db.commit()
+	after = frappe.db.has_column("Lab Report", "custom_workflow_session")
+	return {
+		"ok": bool(after),
+		"field": "custom_workflow_session",
+		"already_existed": bool(before),
+		"now_present": bool(after),
+		"note": "Field ready. The per-visit report fix and its diagnostics will now work.",
+	}
+
+
 def _existing_fields(doctype, wanted):
 	"""Keep only the fields that actually exist on `doctype` (plus name), so a
 	missing custom field can't crash a read-only dump."""
@@ -32,14 +68,15 @@ def preview_visit_report(sample: str, session: str | None = None) -> dict:
 	"""
 	from diagnostic_management.api import results as R
 
+	has_session_field = frappe.db.has_column("Lab Report", "custom_workflow_session")
 	lr_names = frappe.get_all("Lab Report Sample", filters={"lab_sample": sample}, pluck="parent")
 	lr_names = list(dict.fromkeys(lr_names))
+	report_fields = _existing_fields(
+		"Lab Report", ["name", "creation", "custom_workflow_session", "custom_sales_invoice"]
+	)
 	reports = []
 	for n in lr_names:
-		info = frappe.db.get_value(
-			"Lab Report", n, ["name", "creation", "custom_workflow_session", "custom_sales_invoice"],
-			as_dict=True,
-		) or {}
+		info = frappe.db.get_value("Lab Report", n, report_fields, as_dict=True) or {}
 		reports.append(info)
 
 	resolved = R._existing_report_for(sample, session) if session else R._existing_report_for(sample)

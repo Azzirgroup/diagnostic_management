@@ -1092,7 +1092,11 @@ def _existing_report_for(sample, session=None):
 	"""
 	lr_names = frappe.get_all("Lab Report Sample", filters={"lab_sample": sample}, pluck="parent")
 	lr_names = list(dict.fromkeys(lr_names))
-	if session and _report_scope_mode() != "legacy":
+	# The per-visit keying needs the custom_workflow_session column. If a deploy
+	# hasn't migrated yet, the column is absent — fall back to per-sample instead
+	# of crashing on an unknown-column SQL error.
+	if (session and _report_scope_mode() != "legacy"
+	        and frappe.db.has_column("Lab Report", "custom_workflow_session")):
 		# The report already created for THIS visit, if any.
 		for n in lr_names:
 			if frappe.db.get_value("Lab Report", n, "custom_workflow_session") == session:

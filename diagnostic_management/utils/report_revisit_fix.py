@@ -69,11 +69,12 @@ def _reused_samples(limit):
 
 def _sample_reports(sample):
 	"""Existing Lab Reports on a sample: name -> (docstatus, session)."""
+	fields = ["docstatus"]
+	if frappe.db.has_column("Lab Report", "custom_workflow_session"):
+		fields.append("custom_workflow_session")
 	out = {}
 	for parent in frappe.get_all("Lab Report Sample", filters={"lab_sample": sample}, pluck="parent"):
-		info = frappe.db.get_value(
-			"Lab Report", parent, ["docstatus", "custom_workflow_session"], as_dict=True
-		)
+		info = frappe.db.get_value("Lab Report", parent, fields, as_dict=True)
 		if info:
 			out[parent] = info
 	return out
@@ -83,6 +84,16 @@ def _sample_reports(sample):
 def run(dry_run: int = 1, limit: int = 200, show: int | None = None) -> dict:
 	"""Rebuild a per-visit Lab Report for each session of every reused sample."""
 	from diagnostic_management.api.results import _build_lab_report
+
+	# The per-visit fix needs the custom_workflow_session field. If a migrate
+	# hasn't created it yet, running would silently give wrong results — refuse
+	# clearly instead. Create it with report_diagnostics.install_report_fields.
+	if not frappe.db.has_column("Lab Report", "custom_workflow_session"):
+		return {
+			"ok": False,
+			"error": "custom_workflow_session field is not installed yet.",
+			"fix": "Run report_diagnostics.install_report_fields (or migrate) first, then re-run.",
+		}
 
 	dry_run = int(dry_run or 0)
 	backup = _load_backup()
@@ -175,9 +186,10 @@ def revert(dry_run: int = 1) -> dict:
 				if int(frappe.db.get_value("Lab Report", name, "docstatus") or 0) == 0:
 					frappe.delete_doc("Lab Report", name, force=1, ignore_permissions=True)
 			deleted.append(name)
+	has_field = frappe.db.has_column("Lab Report", "custom_workflow_session")
 	for row in backup.get("stamped", []):
 		if frappe.db.exists("Lab Report", row["report"]):
-			if not dry_run:
+			if not dry_run and has_field:
 				frappe.db.set_value("Lab Report", row["report"], "custom_workflow_session", None,
 				                    update_modified=False)
 			unstamped.append(row["report"])
