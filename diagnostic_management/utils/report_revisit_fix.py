@@ -139,7 +139,11 @@ def run(dry_run: int = 1, limit: int = 200, show: int | None = None) -> dict:
 			entry = {"sample": sample, "session": session, "action": action, "report_before": target}
 			if not dry_run:
 				try:
-					new_name = _build_lab_report(sample, {"status": "Approved"}, session=session)
+					# Migration keeps adopting an old un-stamped report so it retains
+					# its number; normal report-building never adopts (a returning
+					# patient must get a fresh report, not inherit an older visit's).
+					new_name = _build_lab_report(sample, {"status": "Approved"}, session=session,
+					                             adopt_unsessioned=True)
 					entry["report_after"] = new_name
 					if new_name and new_name not in before:
 						backup["created"].append(new_name)

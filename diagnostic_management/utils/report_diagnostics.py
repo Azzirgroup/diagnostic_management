@@ -44,12 +44,27 @@ def install_report_fields() -> dict:
 		}, update=True)
 		frappe.db.commit()
 	after = frappe.db.has_column("Lab Report", "custom_workflow_session")
+
+	# Also widen the reference_range columns (Data 140 -> Text) so long clinical
+	# reference ranges don't abort report building with a truncation error.
+	widened = []
+	for dt in ("Lab Report Numeric Result", "Lab Report Grouped Result", "Lab Report Test"):
+		try:
+			frappe.db.change_column_type(dt, "reference_range", "text", nullable=True)
+			widened.append(dt)
+		except Exception:
+			frappe.log_error(title=f"install_report_fields: widen {dt}.reference_range failed")
+	if widened:
+		frappe.db.commit()
+
 	return {
 		"ok": bool(after),
 		"field": "custom_workflow_session",
 		"already_existed": bool(before),
 		"now_present": bool(after),
-		"note": "Field ready. The per-visit report fix and its diagnostics will now work.",
+		"reference_range_widened": widened,
+		"note": "Field ready + reference_range widened. Per-visit fix and long "
+		        "reference ranges will now work.",
 	}
 
 

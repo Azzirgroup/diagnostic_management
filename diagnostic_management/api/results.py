@@ -1082,11 +1082,17 @@ def _select_report_lab_tests(sample, si_link=None, session=None):
 	return _legacy_batch_lab_tests(sample)
 
 
-def _existing_report_for(sample, session=None):
+def _existing_report_for(sample, session=None, adopt_unsessioned=False):
 	"""The Lab Report to (re)use for this sample — scoped to the VISIT when a
 	workflow session is known, so a reused sample doesn't share one report across
 	visits. Only kicks in under the 'session' scope mode; legacy mode keeps the
 	original per-sample lookup so behaviour is unchanged / revertible.
+
+	`adopt_unsessioned` — when True, an OLD report that has no visit stamp is
+	claimed for this visit (keeps its number). This is for the ONE-TIME migration
+	only. In normal operation it MUST be False: otherwise a returning patient's
+	new visit would inherit the previous visit's report (old tests + the frozen
+	old collection date). A new visit then gets its OWN fresh report.
 
 	Returns a Lab Report name, or None to create a fresh one for this visit.
 	"""
@@ -1101,20 +1107,37 @@ def _existing_report_for(sample, session=None):
 		for n in lr_names:
 			if frappe.db.get_value("Lab Report", n, "custom_workflow_session") == session:
 				return n
-		# A pre-existing report on this sample that has NO session yet (built
-		# before this change) — adopt it for this visit rather than orphaning it,
-		# but only if it isn't already claimed by another session.
+		# Adopt an OLD un-stamped report (built before visit-stamping existed)
+		# only when it belongs to THIS visit. The migration adopts
+		# unconditionally to reclaim old report numbers. In normal operation we
+		# adopt ONLY if the report's frozen collection date equals the sample's
+		# CURRENT collected_time — i.e. the sample hasn't been re-collected for a
+		# new visit since. That way:
+		#   * a single-visit patient keeps their existing report number, but
+		#   * a RETURNING patient (sample re-collected) does NOT inherit the
+		#     previous visit's report — they get a fresh one with their own date.
+		from frappe.utils import get_datetime
+		current_ct = frappe.db.get_value("Sample Collection", sample, "collected_time")
 		for n in lr_names:
-			if not frappe.db.get_value("Lab Report", n, "custom_workflow_session"):
+			if frappe.db.get_value("Lab Report", n, "custom_workflow_session"):
+				continue
+			if adopt_unsessioned:
 				return n
-		# Otherwise every existing report belongs to a DIFFERENT visit → None
-		# means _build_lab_report creates a fresh report for this visit.
+			rpt_ct = frappe.db.get_value("Lab Report", n, "collection_datetime")
+			try:
+				if current_ct and rpt_ct and get_datetime(rpt_ct) == get_datetime(current_ct):
+					return n
+			except Exception:
+				pass
+		# No report belongs to this visit → None means _build_lab_report creates a
+		# fresh report for this visit (its own tests + its own collection date).
 		return None
 	# Legacy / no session: original behaviour — the sample's one report.
 	return lr_names[0] if lr_names else None
 
 
-def _build_lab_report(sample: str, signoff: dict | None = None, session: str | None = None) -> str | None:
+def _build_lab_report(sample: str, signoff: dict | None = None, session: str | None = None,
+                      adopt_unsessioned: bool = False) -> str | None:
 	"""Create/refresh a Lab Report (genetest doctype) from a Sample Collection's
 	Lab Tests + results, so the verbatim genetest print format renders.
 
@@ -1136,7 +1159,7 @@ def _build_lab_report(sample: str, signoff: dict | None = None, session: str | N
 	# When the visit (workflow session) is known, look up / create the report
 	# scoped to that session, so each visit gets its OWN report. Without a session
 	# (non-workflow callers) fall back to the original per-sample lookup.
-	existing = _existing_report_for(sample, session)
+	existing = _existing_report_for(sample, session, adopt_unsessioned=adopt_unsessioned)
 	lr = None
 	if existing and frappe.db.exists("Lab Report", existing):
 		candidate = frappe.get_doc("Lab Report", existing)
