@@ -1207,6 +1207,20 @@ def _build_lab_report(sample: str, signoff: dict | None = None, session: str | N
 		"Lab Test", {"sample": sample, "custom_sales_invoice": ["!=", ""]},
 		"custom_sales_invoice",
 	)
+	# NEVER link a CANCELLED Sales Invoice — Frappe refuses ("Cannot link
+	# cancelled document") and it would abort the whole report build. Prefer a
+	# non-cancelled invoice among this sample's Lab Tests; else leave it unset
+	# (the referring-doctor lookup below then falls back to the Service Request).
+	if si_link and frappe.db.get_value("Sales Invoice", si_link, "docstatus") == 2:
+		si_link = None
+		for cand in frappe.get_all(
+			"Lab Test",
+			filters={"sample": sample, "custom_sales_invoice": ["is", "set"], "docstatus": ["<", 2]},
+			pluck="custom_sales_invoice",
+		):
+			if cand and frappe.db.get_value("Sales Invoice", cand, "docstatus") != 2:
+				si_link = cand
+				break
 	setf("custom_sales_invoice", si_link)
 	# Stamp the visit so this report stays bound to this session — a later visit
 	# reusing the same sample then gets its own fresh report instead of this one.
