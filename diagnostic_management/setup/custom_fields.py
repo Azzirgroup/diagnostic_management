@@ -520,6 +520,19 @@ def _field_map() -> dict[str, list[dict]]:
 				"insert_after": "custom_image_space_image",
 				"read_only": 1,
 			},
+			# The workflow session (patient VISIT) this report belongs to. A
+			# reused Sample Collection is shared across every visit for a
+			# patient + specimen type, so a report keyed only by sample would be
+			# reused across visits (same LRPT number, stale tests). Stamping the
+			# session lets each visit get its OWN report — see _build_lab_report.
+			{
+				"fieldname": "custom_workflow_session",
+				"label": "Workflow Session (Visit)",
+				"fieldtype": "Link",
+				"options": "Lab Workflow Session",
+				"insert_after": "custom_sales_invoice",
+				"read_only": 1,
+			},
 		],
 		# Shift / cashier session: every Sales Invoice submitted while the
 		# user has an open POS Opening Entry gets stamped here, so the

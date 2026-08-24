@@ -374,6 +374,7 @@ async function verify() {
       has_image_space: hasImageSpace.value ? 1 : 0,
       image_space_image: imageSpaceImage.value || undefined,
       hide_graphs: hideGraphs.value ? 1 : 0,
+      session: props.session?.name,
     })
     emit('reload')
   } catch (e: any) { error.value = frappeError(e, 'Failed to release report') }

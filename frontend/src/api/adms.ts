@@ -497,7 +497,7 @@ export const resultsApi = {
     call<LabTestResult>('diagnostic_management.api.results.get_lab_test', { name }),
   save: (payload: { name: string; normal?: Array<Record<string, unknown>>; descriptive?: Array<Record<string, unknown>>; complete?: number; is_critical?: number; conclusion?: string }) =>
     call<{ ok: boolean; name: string; status?: string; docstatus?: number; report?: string }>('diagnostic_management.api.results.save_results', payload),
-  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string; has_image_space?: number; image_space_image?: string; hide_graphs?: number }) =>
+  approve: (payload: { report: string; conclusion?: string; signature?: string; pathologist_signature?: string; diagnosis?: string; clinical_notes?: string; pathologist_remarks?: string; accreditation_type?: string; pathologist_name?: string; has_image_space?: number; image_space_image?: string; hide_graphs?: number; session?: string }) =>
     call<{ ok: boolean; report: string; status: string; lab_report?: string }>('diagnostic_management.api.results.approve_report', payload),
   getSample: (sample: string, session_id?: string, sales_invoice?: string) =>
     call<SampleResults>('diagnostic_management.api.results.get_sample',

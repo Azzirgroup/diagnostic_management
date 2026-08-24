@@ -25,6 +25,38 @@ def _existing_fields(doctype, wanted):
 
 
 @frappe.whitelist()
+def preview_visit_report(sample: str, session: str | None = None) -> dict:
+	"""READ-ONLY: for a given sample + visit (session), show whether printing/
+	releasing would REUSE an existing Lab Report or CREATE a fresh one — the core
+	of the per-visit fix. Writes nothing.
+	"""
+	from diagnostic_management.api import results as R
+
+	lr_names = frappe.get_all("Lab Report Sample", filters={"lab_sample": sample}, pluck="parent")
+	lr_names = list(dict.fromkeys(lr_names))
+	reports = []
+	for n in lr_names:
+		info = frappe.db.get_value(
+			"Lab Report", n, ["name", "creation", "custom_workflow_session", "custom_sales_invoice"],
+			as_dict=True,
+		) or {}
+		reports.append(info)
+
+	resolved = R._existing_report_for(sample, session) if session else R._existing_report_for(sample)
+	return {
+		"sample": sample,
+		"session_passed": session,
+		"scope_mode": R._report_scope_mode(),
+		"existing_reports_on_sample": reports,
+		"would_use_report": resolved,
+		"outcome": ("REUSE existing report " + resolved) if resolved
+		           else "CREATE a fresh report for this visit",
+		"note": "A returning patient (new session) should say CREATE. Same visit "
+		        "should REUSE its own report.",
+	}
+
+
+@frappe.whitelist()
 def debug_report_build(sample: str, session: str | None = None) -> dict:
 	"""READ-ONLY: shows exactly why the report shows what it shows.
 

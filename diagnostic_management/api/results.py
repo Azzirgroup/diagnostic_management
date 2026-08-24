@@ -821,10 +821,15 @@ def approve_report(
 	has_image_space: int = 0,
 	image_space_image: str | None = None,
 	hide_graphs: int = 0,
+	session: str | None = None,
 ) -> dict:
 	"""Verify & release a Diagnostic Report (status → Approved) with the full
 	sign-off: clinical notes / diagnosis / remarks / accreditation and both the
-	technologist and pathologist signatures (data-URL PNGs)."""
+	technologist and pathologist signatures (data-URL PNGs).
+
+	`session` (the workflow visit) binds the built Lab Report to this visit, so a
+	returning patient on the same reused sample gets a fresh report, not the old
+	one. See _build_lab_report / _existing_report_for."""
 	doc = frappe.get_doc("Diagnostic Report", report)
 	fns = {df.fieldname for df in doc.meta.fields}
 
@@ -886,7 +891,7 @@ def approve_report(
 			"has_image_space": 1 if int(has_image_space or 0) else 0,
 			"image_space_image": image_space_image or None,
 			"hide_graphs": 1 if int(hide_graphs or 0) else 0,
-		})
+		}, session=session)
 	return {"ok": True, "report": report, "status": "Approved", "lab_report": lab_report}
 
 
@@ -1077,6 +1082,34 @@ def _select_report_lab_tests(sample, si_link=None, session=None):
 	return _legacy_batch_lab_tests(sample)
 
 
+def _existing_report_for(sample, session=None):
+	"""The Lab Report to (re)use for this sample — scoped to the VISIT when a
+	workflow session is known, so a reused sample doesn't share one report across
+	visits. Only kicks in under the 'session' scope mode; legacy mode keeps the
+	original per-sample lookup so behaviour is unchanged / revertible.
+
+	Returns a Lab Report name, or None to create a fresh one for this visit.
+	"""
+	lr_names = frappe.get_all("Lab Report Sample", filters={"lab_sample": sample}, pluck="parent")
+	lr_names = list(dict.fromkeys(lr_names))
+	if session and _report_scope_mode() != "legacy":
+		# The report already created for THIS visit, if any.
+		for n in lr_names:
+			if frappe.db.get_value("Lab Report", n, "custom_workflow_session") == session:
+				return n
+		# A pre-existing report on this sample that has NO session yet (built
+		# before this change) — adopt it for this visit rather than orphaning it,
+		# but only if it isn't already claimed by another session.
+		for n in lr_names:
+			if not frappe.db.get_value("Lab Report", n, "custom_workflow_session"):
+				return n
+		# Otherwise every existing report belongs to a DIFFERENT visit → None
+		# means _build_lab_report creates a fresh report for this visit.
+		return None
+	# Legacy / no session: original behaviour — the sample's one report.
+	return lr_names[0] if lr_names else None
+
+
 def _build_lab_report(sample: str, signoff: dict | None = None, session: str | None = None) -> str | None:
 	"""Create/refresh a Lab Report (genetest doctype) from a Sample Collection's
 	Lab Tests + results, so the verbatim genetest print format renders.
@@ -1092,7 +1125,14 @@ def _build_lab_report(sample: str, signoff: dict | None = None, session: str | N
 	if not frappe.db.exists("Sample Collection", sample):
 		return None
 	sc = frappe.get_doc("Sample Collection", sample)
-	existing = frappe.db.get_value("Lab Report Sample", {"lab_sample": sample}, "parent")
+	# Find the report for THIS VISIT. A reused Sample Collection is shared across
+	# every visit for a patient + specimen type, so keying a report by sample
+	# alone reuses the same LRPT record (and number) across visits — that's why a
+	# returning patient's "new" report showed the old number and stale tests.
+	# When the visit (workflow session) is known, look up / create the report
+	# scoped to that session, so each visit gets its OWN report. Without a session
+	# (non-workflow callers) fall back to the original per-sample lookup.
+	existing = _existing_report_for(sample, session)
 	lr = None
 	if existing and frappe.db.exists("Lab Report", existing):
 		candidate = frappe.get_doc("Lab Report", existing)
@@ -1164,6 +1204,10 @@ def _build_lab_report(sample: str, signoff: dict | None = None, session: str | N
 		"custom_sales_invoice",
 	)
 	setf("custom_sales_invoice", si_link)
+	# Stamp the visit so this report stays bound to this session — a later visit
+	# reusing the same sample then gets its own fresh report instead of this one.
+	if session:
+		setf("custom_workflow_session", session)
 
 	# Referring Doctor — picked at Billing (stored on Sales Invoice.custom_doctor)
 	# needs to propagate onto the Lab Report so the print format's
