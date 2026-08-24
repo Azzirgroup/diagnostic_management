@@ -209,3 +209,138 @@ def revert(dry_run: int = 1) -> dict:
 		"reports_deleted": deleted,
 		"stamps_cleared": unstamped,
 	}
+
+
+# ---------------------------------------------------------------------------
+# Repair reports that were MIS-ADOPTED before the fix: a report stamped to a
+# visit but showing an EARLIER visit's data (its collection date is before the
+# visit even started). This is SARAH's case — her 24-Aug visit inherited the
+# 17-Aug report. We detach the wrong stamp and rebuild a fresh report for the
+# visit (its own tests + its own collection date). Fully reversible.
+# ---------------------------------------------------------------------------
+
+_MISMATCH_BACKUP = "report_mismatch_backup.json"
+
+
+def _mismatch_backup_path():
+	return frappe.get_site_path("private", "files", _MISMATCH_BACKUP)
+
+
+def _load_mismatch_backup():
+	p = _mismatch_backup_path()
+	if os.path.exists(p):
+		try:
+			with open(p) as f:
+				return json.load(f)
+		except Exception:
+			return {"created": [], "unstamped": []}
+	return {"created": [], "unstamped": []}
+
+
+def _save_mismatch_backup(data):
+	with open(_mismatch_backup_path(), "w") as f:
+		json.dump(data, f, indent=2, default=str)
+
+
+@frappe.whitelist()
+def repair_mismatched_visits(dry_run: int = 1, limit: int = 500) -> dict:
+	"""Fix reports stamped to a visit but carrying an earlier visit's data.
+
+	A report is 'mismatched' when its collection_datetime is BEFORE the
+	workflow_started of the visit it's stamped to — impossible for a genuine
+	report, so it was wrongly adopted from a previous visit. For each: detach the
+	wrong stamp and rebuild a FRESH report for the visit. Signed (docstatus=1)
+	reports are never touched. dry_run=1 shows the plan and writes nothing.
+	"""
+	if not frappe.db.has_column("Lab Report", "custom_workflow_session"):
+		return {"ok": False, "error": "custom_workflow_session field not installed — run install_report_fields first."}
+
+	from frappe.utils import get_datetime
+
+	from diagnostic_management.api.results import _build_lab_report
+
+	dry_run = int(dry_run or 0)
+	backup = _load_mismatch_backup()
+
+	stamped = frappe.get_all(
+		"Lab Report",
+		filters={"custom_workflow_session": ["is", "set"]},
+		fields=["name", "custom_workflow_session", "collection_datetime", "docstatus"],
+		limit_page_length=int(limit),
+	)
+	plan = []
+	fixed = 0
+	for r in stamped:
+		if int(r.get("docstatus") or 0) == 1:
+			continue  # never touch signed/released reports
+		started = frappe.db.get_value("Lab Workflow Session", r.custom_workflow_session, "workflow_started")
+		if not started or not r.get("collection_datetime"):
+			continue
+		try:
+			mismatched = get_datetime(r.collection_datetime) < get_datetime(started)
+		except Exception:
+			continue
+		if not mismatched:
+			continue
+
+		sample = frappe.db.get_value("Lab Report Sample", {"parent": r.name}, "lab_sample")
+		entry = {
+			"report": r.name,
+			"stamped_visit": r.custom_workflow_session,
+			"report_collection": str(r.collection_datetime),
+			"visit_started": str(started),
+			"sample": sample,
+		}
+		if not dry_run and sample:
+			try:
+				# 1) detach the wrong stamp so the report reverts to its own (older) data
+				frappe.db.set_value("Lab Report", r.name, "custom_workflow_session", None, update_modified=False)
+				backup["unstamped"].append({"report": r.name, "session": r.custom_workflow_session})
+				# 2) build a fresh report for the visit (its own tests + collection date)
+				fresh = _build_lab_report(sample, {"status": "Approved"}, session=r.custom_workflow_session)
+				entry["fresh_report"] = fresh
+				if fresh and fresh != r.name:
+					backup["created"].append(fresh)
+					fixed += 1
+			except Exception as e:
+				entry["error"] = str(e)
+				frappe.log_error(title=f"repair_mismatched_visits failed for {r.name}")
+		plan.append(entry)
+
+	if not dry_run and plan:
+		_save_mismatch_backup(backup)
+		frappe.db.commit()
+
+	return {
+		"ok": True,
+		"dry_run": bool(dry_run),
+		"mismatched_found": len(plan),
+		"fresh_reports_created": fixed,
+		"backup_file": _mismatch_backup_path() if not dry_run and plan else None,
+		"plan": plan[:300],
+	}
+
+
+@frappe.whitelist()
+def revert_mismatched(dry_run: int = 1) -> dict:
+	"""Undo repair_mismatched_visits: delete the fresh reports and re-attach the
+	original stamps to the reports that were detached."""
+	dry_run = int(dry_run or 0)
+	backup = _load_mismatch_backup()
+	deleted, restamped = [], []
+	has_field = frappe.db.has_column("Lab Report", "custom_workflow_session")
+	for name in backup.get("created", []):
+		if frappe.db.exists("Lab Report", name):
+			if not dry_run and int(frappe.db.get_value("Lab Report", name, "docstatus") or 0) == 0:
+				frappe.delete_doc("Lab Report", name, force=1, ignore_permissions=True)
+			deleted.append(name)
+	for row in backup.get("unstamped", []):
+		if frappe.db.exists("Lab Report", row["report"]):
+			if not dry_run and has_field:
+				frappe.db.set_value("Lab Report", row["report"], "custom_workflow_session", row["session"],
+				                    update_modified=False)
+			restamped.append(row["report"])
+	if not dry_run:
+		_save_mismatch_backup({"created": [], "unstamped": []})
+		frappe.db.commit()
+	return {"ok": True, "dry_run": bool(dry_run), "reports_deleted": deleted, "stamps_restored": restamped}
