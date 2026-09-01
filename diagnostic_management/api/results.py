@@ -1395,9 +1395,14 @@ def _build_lab_report(sample: str, signoff: dict | None = None, session: str | N
 	setf("lab_technician_signature", signoff.get("signature"))
 	setf("pathologist_signature", signoff.get("pathologist_signature"))
 	# Carry the print-time toggles + optional uploaded image onto the Lab
-	# Report doc so the print HTML renders accordingly.
-	setf("custom_has_image_space", 1 if signoff.get("has_image_space") else 0)
-	setf("custom_hide_graphs", 1 if signoff.get("hide_graphs") else 0)
+	# Report doc so the print HTML renders accordingly. Only set them when the
+	# caller actually supplied them (Verify & Release does); a plain reprint
+	# (lab_report_for_sample) omits them so a rebuild must PRESERVE whatever the
+	# user last chose — otherwise printing would silently reset "hide graphs".
+	if "has_image_space" in signoff:
+		setf("custom_has_image_space", 1 if signoff.get("has_image_space") else 0)
+	if "hide_graphs" in signoff:
+		setf("custom_hide_graphs", 1 if signoff.get("hide_graphs") else 0)
 	if signoff.get("image_space_image"):
 		# Save the binary as a File and store only its URL — data URLs are
 		# too large for the Attach Image varchar column.

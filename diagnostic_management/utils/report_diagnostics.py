@@ -30,20 +30,31 @@ def install_report_fields() -> dict:
 		frappe.throw("Only a System Manager can install fields.")
 
 	before = frappe.db.has_column("Lab Report", "custom_workflow_session")
-	if not before:
-		from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
-		create_custom_fields({
-			"Lab Report": [{
-				"fieldname": "custom_workflow_session",
-				"label": "Workflow Session (Visit)",
-				"fieldtype": "Link",
-				"options": "Lab Workflow Session",
-				"insert_after": "custom_sales_invoice",
-				"read_only": 1,
-			}]
-		}, update=True)
+	hide_graphs_before = frappe.db.has_column("Lab Report", "custom_hide_graphs")
+
+	# Install ALL app custom fields (covers custom_workflow_session,
+	# custom_hide_graphs, custom_has_image_space, ...) — deploys here don't run
+	# migrate, so create them now. Idempotent.
+	try:
+		from diagnostic_management.setup.custom_fields import install_custom_fields
+		install_custom_fields()
 		frappe.db.commit()
+	except Exception:
+		frappe.log_error(title="install_report_fields: install_custom_fields failed")
+
+	# Refresh the print formats too — the DB copy is what prints, and the
+	# 'Don't show graphs' guard only takes effect once the latest template lands.
+	print_formats_updated = False
+	try:
+		from diagnostic_management.setup.print_formats import install_print_formats
+		install_print_formats()
+		frappe.db.commit()
+		print_formats_updated = True
+	except Exception:
+		frappe.log_error(title="install_report_fields: install_print_formats failed")
+
 	after = frappe.db.has_column("Lab Report", "custom_workflow_session")
+	hide_graphs_after = frappe.db.has_column("Lab Report", "custom_hide_graphs")
 
 	# Also widen the reference_range columns (Data 140 -> Text) so long clinical
 	# reference ranges don't abort report building with a truncation error.
@@ -58,12 +69,16 @@ def install_report_fields() -> dict:
 		frappe.db.commit()
 
 	return {
-		"ok": bool(after),
+		"ok": bool(after) and bool(hide_graphs_after),
 		"field": "custom_workflow_session",
 		"already_existed": bool(before),
 		"now_present": bool(after),
+		"custom_hide_graphs_existed": bool(hide_graphs_before),
+		"custom_hide_graphs_now_present": bool(hide_graphs_after),
+		"print_formats_updated": print_formats_updated,
 		"reference_range_widened": widened,
-		"note": "Field ready + reference_range widened. Per-visit fix and long "
+		"note": "Fields ready (incl. custom_hide_graphs) + print formats refreshed "
+		        "+ reference_range widened. Per-visit fix, hide-graphs, and long "
 		        "reference ranges will now work.",
 	}
 
