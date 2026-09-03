@@ -754,7 +754,7 @@ def lab_report_detail(name: str) -> dict:
 		"pathologist_signature": getattr(doc, "pathologist_signature", None),
 		"custom_has_image_space": int(getattr(doc, "custom_has_image_space", 0) or 0),
 		"custom_image_space_image": getattr(doc, "custom_image_space_image", None),
-		"custom_hide_graphs": int(getattr(doc, "custom_hide_graphs", 0) or 0),
+		"custom_show_graphs": int(getattr(doc, "custom_show_graphs", 0) or 0),
 		"samples": samples,
 		"section_comments": comments,
 		"numeric_results": [
@@ -843,7 +843,7 @@ def _save_image_to_files(image: str, attached_to: str, attached_field: str = "cu
 @frappe.whitelist()
 def set_image_space(name: str, has_image_space: int = 0,
                     image: str | None = None, clear_image: int = 0,
-                    hide_graphs: int | None = None) -> dict:
+                    show_graphs: int | None = None) -> dict:
 	"""Set the Lab Report's print-time options.
 
 	  has_image_space: 0/1 — toggle the reserved box above signatures.
@@ -851,9 +851,9 @@ def set_image_space(name: str, has_image_space: int = 0,
 	                   as a File attached to the report; only the short
 	                   `/files/...` URL ends up in `custom_image_space_image`.
 	  clear_image:     1 → wipe the existing image; takes precedence.
-	  hide_graphs:     0/1 — suppress trend charts in the print. None leaves
-	                   the existing value untouched (so a caller that only
-	                   cares about image space doesn't have to know about it).
+	  show_graphs:     0/1 — show trend charts in the print (default off/hidden).
+	                   None leaves the existing value untouched (so a caller that
+	                   only cares about image space doesn't have to know about it).
 	"""
 	if not frappe.db.exists("Lab Report", name):
 		frappe.throw(f"Lab Report {name} not found", frappe.DoesNotExistError)
@@ -863,12 +863,12 @@ def set_image_space(name: str, has_image_space: int = 0,
 		updates["custom_image_space_image"] = None
 	elif image:
 		updates["custom_image_space_image"] = _save_image_to_files(image, name)
-	if hide_graphs is not None and hide_graphs != "":
-		updates["custom_hide_graphs"] = 1 if int(hide_graphs) else 0
+	if show_graphs is not None and show_graphs != "":
+		updates["custom_show_graphs"] = 1 if int(show_graphs) else 0
 	frappe.db.set_value("Lab Report", name, updates)
 	row = frappe.db.get_value(
 		"Lab Report", name,
-		["custom_has_image_space", "custom_image_space_image", "custom_hide_graphs"],
+		["custom_has_image_space", "custom_image_space_image", "custom_show_graphs"],
 		as_dict=True,
 	) or {}
 	return {
@@ -876,5 +876,5 @@ def set_image_space(name: str, has_image_space: int = 0,
 		"name": name,
 		"custom_has_image_space": int(row.get("custom_has_image_space") or 0),
 		"custom_image_space_image": row.get("custom_image_space_image"),
-		"custom_hide_graphs": int(row.get("custom_hide_graphs") or 0),
+		"custom_show_graphs": int(row.get("custom_show_graphs") or 0),
 	}
