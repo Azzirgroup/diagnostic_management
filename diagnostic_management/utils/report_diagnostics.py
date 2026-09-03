@@ -30,11 +30,10 @@ def install_report_fields() -> dict:
 		frappe.throw("Only a System Manager can install fields.")
 
 	before = frappe.db.has_column("Lab Report", "custom_workflow_session")
-	show_graphs_before = frappe.db.has_column("Lab Report", "custom_show_graphs")
 
 	# Install ALL app custom fields (covers custom_workflow_session,
-	# custom_show_graphs, custom_has_image_space, ...) — deploys here don't run
-	# migrate, so create them now. Idempotent.
+	# custom_has_image_space, ...) — deploys here don't run migrate, so create
+	# them now. Idempotent.
 	try:
 		from diagnostic_management.setup.custom_fields import install_custom_fields
 		install_custom_fields()
@@ -42,8 +41,8 @@ def install_report_fields() -> dict:
 	except Exception:
 		frappe.log_error(title="install_report_fields: install_custom_fields failed")
 
-	# Refresh the print formats too — the DB copy is what prints, and the
-	# 'Show graphs on print' guard only takes effect once the latest template lands.
+	# Refresh the print formats too — the DB copy is what prints, so the latest
+	# template (graphs removed) only takes effect once it lands.
 	print_formats_updated = False
 	try:
 		from diagnostic_management.setup.print_formats import install_print_formats
@@ -54,7 +53,6 @@ def install_report_fields() -> dict:
 		frappe.log_error(title="install_report_fields: install_print_formats failed")
 
 	after = frappe.db.has_column("Lab Report", "custom_workflow_session")
-	show_graphs_after = frappe.db.has_column("Lab Report", "custom_show_graphs")
 
 	# Also widen the reference_range columns (Data 140 -> Text) so long clinical
 	# reference ranges don't abort report building with a truncation error.
@@ -69,17 +67,15 @@ def install_report_fields() -> dict:
 		frappe.db.commit()
 
 	return {
-		"ok": bool(after) and bool(show_graphs_after),
+		"ok": bool(after),
 		"field": "custom_workflow_session",
 		"already_existed": bool(before),
 		"now_present": bool(after),
-		"custom_show_graphs_existed": bool(show_graphs_before),
-		"custom_show_graphs_now_present": bool(show_graphs_after),
 		"print_formats_updated": print_formats_updated,
 		"reference_range_widened": widened,
-		"note": "Fields ready (incl. custom_show_graphs) + print formats refreshed "
-		        "+ reference_range widened. Per-visit fix, show-graphs opt-in, and "
-		        "long reference ranges will now work.",
+		"note": "Fields ready + print formats refreshed (trend graphs removed) "
+		        "+ reference_range widened. Per-visit fix and long reference "
+		        "ranges will now work.",
 	}
 
 

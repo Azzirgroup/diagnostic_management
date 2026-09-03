@@ -55,9 +55,6 @@ const pathologistName = ref('')
 const hasImageSpace = ref(false)
 const imageSpaceImage = ref<string>('')          // data URL the user picked
 const imageSpaceFileInput = ref<HTMLInputElement | null>(null)
-// Sister flag: trend charts are HIDDEN on the print by default; ticking this
-// opts the report IN to showing them. Carried via approve_report into the doc.
-const showGraphs = ref(false)
 async function onPreReleaseImagePicked(ev: Event) {
   const t = ev.target as HTMLInputElement
   const file = t.files?.[0]
@@ -373,7 +370,6 @@ async function verify() {
       pathologist_name: pathologistName.value || undefined,
       has_image_space: hasImageSpace.value ? 1 : 0,
       image_space_image: imageSpaceImage.value || undefined,
-      show_graphs: showGraphs.value ? 1 : 0,
       session: props.session?.name,
     })
     emit('reload')
@@ -396,7 +392,7 @@ async function authorizeUrgent() {
 // sample has its own Lab Report; we cache its name + current flag value per
 // sample so the released branch can render + edit the checkbox without an
 // extra round-trip on every click.
-const releasedLabReport = ref<Record<string, { name: string; hasImageSpace: boolean; imageUrl: string | null; showGraphs: boolean }>>({})
+const releasedLabReport = ref<Record<string, { name: string; hasImageSpace: boolean; imageUrl: string | null }>>({})
 const togglingImageSpace = ref(false)
 const releasedFileInput = ref<HTMLInputElement | null>(null)
 async function loadLabReportForSelected() {
@@ -411,7 +407,6 @@ async function loadLabReportForSelected() {
       name: lrName,
       hasImageSpace: !!lr.custom_has_image_space,
       imageUrl: lr.custom_image_space_image || null,
-      showGraphs: !!lr.custom_show_graphs,
     }
   } catch { /* silent — checkbox just shows unchecked */ }
 }
@@ -472,20 +467,6 @@ async function removeReleasedImage() {
     entry.imageUrl = r.custom_image_space_image
   } catch (e: any) {
     error.value = frappeError(e, 'Failed to remove image')
-  } finally { togglingImageSpace.value = false }
-}
-
-async function toggleReleasedShowGraphs(checked: boolean) {
-  if (!selectedSample.value) return
-  const entry = releasedLabReport.value[selectedSample.value.name]
-  if (!entry) return
-  togglingImageSpace.value = true
-  try {
-    const r = await labReportsApi.setImageSpace(
-      entry.name, entry.hasImageSpace ? 1 : 0, undefined, 0, checked ? 1 : 0)
-    entry.showGraphs = !!r.custom_show_graphs
-  } catch (e: any) {
-    error.value = frappeError(e, 'Failed to update show-graphs preference')
   } finally { togglingImageSpace.value = false }
 }
 
@@ -773,14 +754,6 @@ async function printPreliminary() {
                 <button v-else type="button" class="btn-ghost !py-1 !text-xs self-center"
                   @click="imageSpaceFileInput?.click()">📎 Upload image</button>
               </div>
-              <!-- Show graphs on print (hidden by default) -->
-              <div class="flex items-center gap-2 text-sm pt-2 mb-3">
-                <input id="rs-showgraphs" v-model="showGraphs" type="checkbox" class="accent-brand-navy-700" />
-                <label for="rs-showgraphs" class="cursor-pointer select-none">
-                  Show graphs on print
-                  <span class="text-xs text-surface-500 ml-1">(off = trend charts hidden)</span>
-                </label>
-              </div>
               <div class="flex items-center justify-end gap-2 flex-wrap">
                 <!-- Preliminary print: available the whole time the sample sits
                      between Save & Complete and Verify & Release. Same PDF as
@@ -844,19 +817,6 @@ async function printPreliminary() {
                 <button v-else type="button" class="btn-ghost !py-1 !text-xs self-center"
                   :disabled="togglingImageSpace" @click="releasedFileInput?.click()">📎 Upload image</button>
                 <span v-if="togglingImageSpace" class="text-xs text-surface-400 self-center">Saving…</span>
-              </div>
-              <!-- Show graphs on print (released-state mirror; hidden by default) -->
-              <div v-if="releasedLabReport[selectedSample.name]"
-                class="flex items-center gap-2 text-sm pt-2">
-                <input :id="`rs-showgraphs-released-${selectedSample.name}`" type="checkbox"
-                  class="accent-brand-navy-700"
-                  :checked="releasedLabReport[selectedSample.name].showGraphs"
-                  :disabled="togglingImageSpace"
-                  @change="toggleReleasedShowGraphs(($event.target as HTMLInputElement).checked)" />
-                <label :for="`rs-showgraphs-released-${selectedSample.name}`" class="cursor-pointer select-none">
-                  Show graphs on print
-                  <span class="text-xs text-surface-500 ml-1">(off = trend charts hidden)</span>
-                </label>
               </div>
             </div>
           </div>

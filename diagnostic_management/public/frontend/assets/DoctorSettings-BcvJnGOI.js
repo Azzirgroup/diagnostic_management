@@ -1,0 +1,2 @@
+import{_ as o}from"./Settings.vue_vue_type_script_setup_true_lang-M3gr3maE.js";import{m as t,w as r,d as e}from"./vendor-CuKR31Qh.js";import"./Topbar.vue_vue_type_script_setup_true_lang-G8LCXhbC.js";import"./index-9dQiFgYy.js";import"./index-D9PFS4uz.js";import"./adms-B9DIWWYQ.js";const u=t({__name:"DoctorSettings",setup(m){return(p,a)=>(r(),e(o))}});export{u as default};
+//# sourceMappingURL=DoctorSettings-BcvJnGOI.js.map
