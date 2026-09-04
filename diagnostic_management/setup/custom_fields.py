@@ -498,6 +498,16 @@ def _field_map() -> dict[str, list[dict]]:
 				"depends_on": "custom_has_image_space",
 				"description": "Image rendered inside the reserved space (stamp, scanned signature, etc.).",
 			},
+			# Trend charts are HIDDEN on the print by default; tick this to
+			# opt a given report IN to showing the per-analyte trend graphs.
+			{
+				"fieldname": "custom_show_graphs",
+				"label": "Show graphs on print",
+				"fieldtype": "Check",
+				"default": "0",
+				"insert_after": "custom_image_space_image",
+				"description": "Show the per-analyte trend charts on the printed Lab Report (off = hidden).",
+			},
 			# First-class Sales Invoice link — stamped from the sample / lab
 			# tests this Lab Report bundles, so lists can filter by SI in one
 			# step instead of walking sample → lab tests → SI.

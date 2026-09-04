@@ -42,7 +42,7 @@ def install_report_fields() -> dict:
 		frappe.log_error(title="install_report_fields: install_custom_fields failed")
 
 	# Refresh the print formats too — the DB copy is what prints, so the latest
-	# template (graphs removed) only takes effect once it lands.
+	# template only takes effect once it lands.
 	print_formats_updated = False
 	try:
 		from diagnostic_management.setup.print_formats import install_print_formats
@@ -73,23 +73,24 @@ def install_report_fields() -> dict:
 		"now_present": bool(after),
 		"print_formats_updated": print_formats_updated,
 		"reference_range_widened": widened,
-		"note": "Fields ready + print formats refreshed (trend graphs removed) "
-		        "+ reference_range widened. Per-visit fix and long reference "
-		        "ranges will now work.",
+		"note": "Fields ready (incl. custom_show_graphs) + print formats refreshed "
+		        "+ reference_range widened. Per-visit fix, show-graphs opt-in, and "
+		        "long reference ranges will now work.",
 	}
 
 
 @frappe.whitelist()
 def refresh_lab_report_print_format() -> dict:
-	"""Force the 'Lab Report' print format in the DB to match the shipped HTML
-	file, and report whether the trend graphs are gone from BOTH the disk file
-	and the stored DB copy. Pinpoints why a template change didn't take:
+	"""Force the 'Lab Report' print format stored in the DB to match the shipped
+	HTML file on disk, then confirm the two are byte-identical. Because deploys
+	here don't migrate, the DB copy (which is what actually prints) can lag the
+	file — this pushes the file into the DB and proves it landed.
 
-	  * disk_has_graphs = True  -> the new HTML wasn't deployed (deploy problem)
-	  * db_has_graphs   = True  -> install didn't run / failed (run this)
-	  * both False              -> fixed; print will no longer show graphs
+	  * in_sync = True   -> DB now matches the file; reprint to see the change
+	  * disk length 0    -> the file wasn't deployed (stale deploy)
+	  * error present     -> the save failed; read the error
 
-	Requires System Manager. Run after deploy:
+	Requires System Manager. Run after every deploy that changes the template:
 	  /api/method/diagnostic_management.utils.report_diagnostics.refresh_lab_report_print_format
 	"""
 	if "System Manager" not in set(frappe.get_roles()):
@@ -97,9 +98,7 @@ def refresh_lab_report_print_format() -> dict:
 
 	from diagnostic_management.setup.print_formats import _read
 
-	MARKER = "generate_trend_chart_svg"
 	disk_html = _read("lab_report_print.html")
-	disk_has_graphs = MARKER in disk_html
 
 	refreshed = False
 	err = None
@@ -113,22 +112,28 @@ def refresh_lab_report_print_format() -> dict:
 		frappe.log_error(title="refresh_lab_report_print_format failed")
 
 	db_html = frappe.db.get_value("Print Format", "Lab Report", "html") or ""
-	db_has_graphs = MARKER in db_html
+	in_sync = bool(disk_html) and db_html == disk_html
+	# Whether the graph markup is present is EXPECTED (it's guarded by the
+	# per-report "Show graphs on print" checkbox); reported only for reference.
+	graphs_in_template = "generate_trend_chart_svg" in db_html
 
-	if disk_has_graphs:
-		verdict = ("STALE DEPLOY: the new template isn't on the server yet. Redeploy "
-		           "the app (make sure lab_report_print.html is included), then run this again.")
-	elif db_has_graphs:
-		verdict = "DB still has the old template — refresh did not apply. Check the error field."
+	if not disk_html:
+		verdict = ("STALE DEPLOY: lab_report_print.html isn't on the server. Redeploy the "
+		           "app so the file lands, then run this again.")
+	elif in_sync:
+		verdict = ("SYNCED: the stored print format now matches the shipped file. Graphs "
+		           "print only when a report's 'Show graphs on print' box is ticked; "
+		           "unticked (default) = no graphs. Reprint to confirm.")
 	else:
-		verdict = "FIXED: graphs removed from the stored print format. Reprint to confirm."
+		verdict = "NOT SYNCED: the DB copy still differs from the file — read the error field."
 
 	return {
-		"ok": refreshed and not db_has_graphs,
+		"ok": refreshed and in_sync,
 		"refreshed": refreshed,
-		"disk_has_graphs": disk_has_graphs,
-		"db_has_graphs": db_has_graphs,
+		"in_sync": in_sync,
+		"disk_html_length": len(disk_html),
 		"db_html_length": len(db_html),
+		"graphs_in_template_guarded": graphs_in_template,
 		"error": err,
 		"verdict": verdict,
 	}

@@ -111,6 +111,23 @@ async function removeImage() {
   } finally { savingImageSpace.value = false }
 }
 
+// "Don't show graphs" toggle — sister flag to has_image_space, lives in
+// the same API endpoint, persists on the same Lab Report row.
+async function toggleShowGraphs(checked: boolean) {
+  if (!detail.value) return
+  savingImageSpace.value = true
+  try {
+    const res = await labReportsApi.setImageSpace(
+      detail.value.name, detail.value.custom_has_image_space ? 1 : 0,
+      undefined, 0, checked ? 1 : 0)
+    detail.value.custom_show_graphs = res.custom_show_graphs
+    imageSpaceSavedAt.value = Date.now()
+    setTimeout(() => { imageSpaceSavedAt.value = null }, 2000)
+  } catch (e: any) {
+    error.value = frappeError(e, 'Failed to update show-graphs preference')
+  } finally { savingImageSpace.value = false }
+}
+
 // Patient age (years) for the header.
 function patientAge(dob?: string): string {
   if (!dob) return ''
@@ -236,6 +253,18 @@ function flagClass(r: LabReportResultRow): string {
         </div>
         <span v-if="savingImageSpace" class="text-xs text-surface-400 self-center">Saving…</span>
         <span v-else-if="imageSpaceSavedAt" class="text-xs text-emerald-600 self-center">Saved</span>
+      </div>
+
+      <!-- Show graphs on print (hidden by default) -->
+      <div class="mt-2 pt-2 border-t border-surface-100">
+        <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input type="checkbox" class="accent-brand-navy-700"
+            :checked="!!detail.custom_show_graphs"
+            :disabled="savingImageSpace"
+            @change="toggleShowGraphs(($event.target as HTMLInputElement).checked)" />
+          <span class="font-medium text-surface-700">Show graphs on print</span>
+          <span class="text-xs text-surface-500">Off by default; tick to add trend charts.</span>
+        </label>
       </div>
     </div>
 

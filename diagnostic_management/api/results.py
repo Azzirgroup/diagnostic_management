@@ -820,6 +820,7 @@ def approve_report(
 	pathologist_name: str | None = None,
 	has_image_space: int = 0,
 	image_space_image: str | None = None,
+	show_graphs: int = 0,
 	session: str | None = None,
 ) -> dict:
 	"""Verify & release a Diagnostic Report (status → Approved) with the full
@@ -889,6 +890,7 @@ def approve_report(
 			"pathologist_signature": pathologist_signature,
 			"has_image_space": 1 if int(has_image_space or 0) else 0,
 			"image_space_image": image_space_image or None,
+			"show_graphs": 1 if int(show_graphs or 0) else 0,
 		}, session=session)
 	return {"ok": True, "report": report, "status": "Approved", "lab_report": lab_report}
 
@@ -1399,6 +1401,8 @@ def _build_lab_report(sample: str, signoff: dict | None = None, session: str | N
 	# user last chose — otherwise printing would silently reset "hide graphs".
 	if "has_image_space" in signoff:
 		setf("custom_has_image_space", 1 if signoff.get("has_image_space") else 0)
+	if "show_graphs" in signoff:
+		setf("custom_show_graphs", 1 if signoff.get("show_graphs") else 0)
 	if signoff.get("image_space_image"):
 		# Save the binary as a File and store only its URL — data URLs are
 		# too large for the Attach Image varchar column.
