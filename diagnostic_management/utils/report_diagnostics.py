@@ -79,6 +79,61 @@ def install_report_fields() -> dict:
 	}
 
 
+@frappe.whitelist()
+def refresh_lab_report_print_format() -> dict:
+	"""Force the 'Lab Report' print format in the DB to match the shipped HTML
+	file, and report whether the trend graphs are gone from BOTH the disk file
+	and the stored DB copy. Pinpoints why a template change didn't take:
+
+	  * disk_has_graphs = True  -> the new HTML wasn't deployed (deploy problem)
+	  * db_has_graphs   = True  -> install didn't run / failed (run this)
+	  * both False              -> fixed; print will no longer show graphs
+
+	Requires System Manager. Run after deploy:
+	  /api/method/diagnostic_management.utils.report_diagnostics.refresh_lab_report_print_format
+	"""
+	if "System Manager" not in set(frappe.get_roles()):
+		frappe.throw("Only a System Manager can refresh print formats.")
+
+	from diagnostic_management.setup.print_formats import _read
+
+	MARKER = "generate_trend_chart_svg"
+	disk_html = _read("lab_report_print.html")
+	disk_has_graphs = MARKER in disk_html
+
+	refreshed = False
+	err = None
+	try:
+		from diagnostic_management.setup.print_formats import install_print_formats
+		install_print_formats()
+		frappe.db.commit()
+		refreshed = True
+	except Exception as e:
+		err = str(e)
+		frappe.log_error(title="refresh_lab_report_print_format failed")
+
+	db_html = frappe.db.get_value("Print Format", "Lab Report", "html") or ""
+	db_has_graphs = MARKER in db_html
+
+	if disk_has_graphs:
+		verdict = ("STALE DEPLOY: the new template isn't on the server yet. Redeploy "
+		           "the app (make sure lab_report_print.html is included), then run this again.")
+	elif db_has_graphs:
+		verdict = "DB still has the old template — refresh did not apply. Check the error field."
+	else:
+		verdict = "FIXED: graphs removed from the stored print format. Reprint to confirm."
+
+	return {
+		"ok": refreshed and not db_has_graphs,
+		"refreshed": refreshed,
+		"disk_has_graphs": disk_has_graphs,
+		"db_has_graphs": db_has_graphs,
+		"db_html_length": len(db_html),
+		"error": err,
+		"verdict": verdict,
+	}
+
+
 def _existing_fields(doctype, wanted):
 	"""Keep only the fields that actually exist on `doctype` (plus name), so a
 	missing custom field can't crash a read-only dump."""
