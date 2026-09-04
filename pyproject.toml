@@ -4,11 +4,17 @@ authors = [
     { name = "Surajit Das", email = "surajit.das0320@gmail.com"}
 ]
 description = "Diagnostic Management for healthcare"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=16.0.0" # Installed and managed by bench.
+    # Pin sql_metadata to the version Frappe v16 expects. Some builds (esp. on
+    # Python 3.14) otherwise pull a newer sql_metadata that imports `sqlglot`,
+    # and the resolved sqlglot lacks `sqlglot.parsers` -> `bench migrate` dies
+    # with "No module named 'sqlglot.parsers'" before it reaches any app.
+    # 2.19.0 is pure-Python (needs only sqlparse) and never touches sqlglot.
+    "sql_metadata==2.19.0",
 ]
 
 [build-system]
